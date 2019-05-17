@@ -6,25 +6,9 @@ import struct
 import sys
 import termios
 
-class CommunicationPort:
-
-    def readData(self, length, matching=".*"):
-        """ Primitive: read data of 'length' """
-        raise NotImplementedError("Subclasses must implement readData()")
-
-    def writeData(self, data):
-        """ Primitive: write data packet """
-        raise NotImplementedError("Subclasses must implement writeData()")
-
-    def readString(self, matching=".*"):
-        return ()
-
-    def writeString(self, string):
-        return
-
-class SerialPort(CommunicationPort):
+class SerialPort:
     """SerialPort class with basic application-level protocol functions to write strings and read strings"""
-    fd = None
+    port = None
     bsdPath = None
     vendorId = None
     productId = None
@@ -41,32 +25,26 @@ class SerialPort(CommunicationPort):
 
     def open(self):
         try:
-            self.fd = os.open(self.bsdPath, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
-
-            if self.fd == -1:
-                raise ValueError(-1)
-
-            try:
-                value = fcntl.ioctl(self.fd, fcntl.F_SETFL, fcntl.ioctl(self.fd, fcntl.F_GETFL,0))
-                if  value & ~os.O_NONBLOCK == -1:
-                    raise ValueError(-1)
-            except Exception:
-                pass
-
-
+            self.port = open(self.bsdPath, "r+")
         except OSError as msg:
-            self.fd = None
-            raise SerialException(msg.errno, "could not open port {}: {}".format(self._port, msg))
-        # ~ fcntl.fcntl(self.fd, fcntl.F_SETFL, 0)  # set blocking
-
-        print("Open")
-        return None
+            self.port = None
+            raise SerialException(msg.errno, "could not open port {}: {}".format(self.port, msg))
 
     def close(self):
-        print("Close")
-        return None
+        self.port.close()
+
+    def readString(self, matching=".*"):
+        string = self.port.readline()
+        return string
+
+    def writeString(self, string):
+        return self.port.write(string)
+        
+
 
 if __name__ == "__main__":
     port = SerialPort("/dev/null")
     port.open()
+    port.writeString("abcd")
+    string = port.readString()
     port.close()
