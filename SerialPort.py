@@ -6,12 +6,31 @@ import struct
 import sys
 import termios
 
-class SerialPort:
-    """SerialPort class with basic application-level protocol functions to write strings and read strings"""
-    fd = -1
-    bsdPath = ""
+class CommunicationPort:
 
-    def __init__(self, bsdPath):
+    def readData(self, length, matching=".*"):
+        """ Primitive: read data of 'length' """
+        raise NotImplementedError("Subclasses must implement readData()")
+
+    def writeData(self, data):
+        """ Primitive: write data packet """
+        raise NotImplementedError("Subclasses must implement writeData()")
+
+    def readString(self, matching=".*"):
+        return ()
+
+    def writeString(self, string):
+        return
+
+class SerialPort(CommunicationPort):
+    """SerialPort class with basic application-level protocol functions to write strings and read strings"""
+    fd = None
+    bsdPath = None
+    vendorId = None
+    productId = None
+    serialNumber = None
+
+    def __init__(self, bsdPath = None, vendorId = None, productId = None, serialNumber = None):
         self.bsdPath = bsdPath
 
     def flush(self):
@@ -27,9 +46,12 @@ class SerialPort:
             if self.fd == -1:
                 raise ValueError(-1)
 
-            value = fcntl.ioctl(self.fd, fcntl.F_SETFL, fcntl.ioctl(self.fd, fcntl.F_GETFL,0))
-            if  value & ~os.O_NONBLOCK == -1:
-                raise ValueError(-1)
+            try:
+                value = fcntl.ioctl(self.fd, fcntl.F_SETFL, fcntl.ioctl(self.fd, fcntl.F_GETFL,0))
+                if  value & ~os.O_NONBLOCK == -1:
+                    raise ValueError(-1)
+            except Exception:
+                pass
 
 
         except OSError as msg:
@@ -44,15 +66,7 @@ class SerialPort:
         print("Close")
         return None
 
-    def readString(self):
-        return None
-
-    def readString(self):
-        return None
-
-
 if __name__ == "__main__":
     port = SerialPort("/dev/null")
     port.open()
-
     port.close()
