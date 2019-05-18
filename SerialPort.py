@@ -8,7 +8,7 @@ import termios
 
 class SerialPort:
     """SerialPort class with basic application-level protocol functions to write strings and read strings"""
-    port = None
+    fd = None
     bsdPath = None
     vendorId = None
     productId = None
@@ -24,21 +24,44 @@ class SerialPort:
         return None
 
     def open(self):
-        try:
-            self.port = open(self.bsdPath, "r+")
-        except OSError as msg:
-            self.port = None
-            raise SerialException(msg.errno, "could not open port {}: {}".format(self.port, msg))
+        self.fd = os.open(self.bsdPath, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+
+        if self.fd != -1:
+            try:
+                value = fcntl.ioctl(self.fd, fcntl.F_SETFL, fcntl.ioctl(self.fd, fcntl.F_GETFL,0))
+                if  value & ~os.O_NONBLOCK == -1:
+                    raise ValueError(-1)
+            except OSError as msg:
+                print(msg)
 
     def close(self):
-        self.port.close()
+        os.close(self.fd)
 
-    def readString(self, matching=".*"):
-        string = self.port.readline()
+    def readData(self, length):
+        data = os.read(self.fd, length)
+        return data
+
+    def writeData(self, data):
+        nBytesWritten = os.write(self.fd, data)
+        return nBytesWritten
+
+    def readString(self):
+        byte = None
+        data = bytearray(0)
+        while ( byte != "\n"):
+            byte = self.readData(1)
+            if byte == b'':
+                break
+            else:
+                data += byte
+
+        string = data.decode(encoding='utf-8')
+
         return string
 
     def writeString(self, string):
-        return self.port.write(string)
+        data = bytearray(string, "utf-8")
+        return os.write(self.fd, data)
         
 
 
@@ -46,5 +69,5 @@ if __name__ == "__main__":
     port = SerialPort("/dev/null")
     port.open()
     port.writeString("abcd")
-    string = port.readString()
+    print(port.readData(1))
     port.close()
