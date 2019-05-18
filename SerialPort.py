@@ -7,7 +7,8 @@ import sys
 import termios
 import array
 import math
-import serial
+import serial #pyserial
+import re
 
 class SerialPort:
     """SerialPort class with basic application-level protocol functions to write strings and read strings"""
@@ -20,31 +21,27 @@ class SerialPort:
     def __init__(self, bsdPath = None, vendorId = None, productId = None, serialNumber = None):
         self.bsdPath = bsdPath
 
+    def open(self):
+        self.port = serial.Serial(self.bsdPath, 19200, timeout=1)
+
+    def close(self):
+        self.port.close()
+
+    def bytesAvailable(self):
+        return self.port.inwaiting()
+
     def flush(self):
         return None
 
     def drain(self):
         return None
 
-    def open(self):
-        self.port = Serial(self.bsdPath, 19200, timeout=1)
-
-    def close(self):
-        os.close(self.fd)
-
-    def bytesAvailable(self):
-        bytes = bytearray(4)
-        arg = 0
-        n = fcntl.fcntl(self.fd, termios.FIONREAD, arg)
-
-        print(n, arg)
-        return bytes
-
     def readData(self, length):
-        data = os.read(self.fd, length)
+        data = self.port.read(length)
+        return data
 
     def writeData(self, data):
-        nBytesWritten = os.write(self.fd, data)
+        nBytesWritten = self.port.write(data)
         return nBytesWritten
 
     def readString(self):
@@ -52,10 +49,9 @@ class SerialPort:
         data = bytearray(0)
         while ( byte != b''):
             byte = self.readData(1)
+            data += byte
             if byte == b'\n':
                 break
-            else:
-                data += byte
 
         string = data.decode(encoding='utf-8')
 
@@ -63,13 +59,24 @@ class SerialPort:
 
     def writeString(self, string):
         data = bytearray(string, "utf-8")
-        return os.write(self.fd, data)
+        return self.port.write(data)
+
+    def writeReadMatch(self, string, replyPattern):
+        self.writeString(string)
+        reply = self.readString()
+        match = re.search(replyPattern, string)
+        
+        return match is not None
+
+
         
 
 
 if __name__ == "__main__":
     port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
     port.open()
-    port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd")
-    print(port.readData(8))
+    port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd\n")
+    print(port.readString())
+    print(port.writeReadMatch(string="abcd\n", replyPattern="abcd"))
+    print(port.writeReadMatch(string="abcd\n", replyPattern="abcad"))
     port.close()
