@@ -7,10 +7,11 @@ import sys
 import termios
 import array
 import math
+import serial
 
 class SerialPort:
     """SerialPort class with basic application-level protocol functions to write strings and read strings"""
-    fd = None
+    port = None
     bsdPath = None
     vendorId = None
     productId = None
@@ -26,10 +27,7 @@ class SerialPort:
         return None
 
     def open(self):
-        self.fd = os.open(self.bsdPath, os.O_RDWR | os.O_NOCTTY)
-
-        # flag = fcntl.fcntl(self.fd, fcntl.F_GETFL,0)
-        # fcntl.fcntl(self.fd, fcntl.F_SETFL, flag & ~os.O_NONBLOCK)
+        self.port = Serial(self.bsdPath, 19200, timeout=1)
 
     def close(self):
         os.close(self.fd)
@@ -43,13 +41,7 @@ class SerialPort:
         return bytes
 
     def readData(self, length):
-        bytesAvailable = self.bytesAvailable()
-
-        if length <= bytesAvailable:
-            data = os.read(self.fd, length)
-        else:
-            data = os.read(self.fd, bytesAvailable)
-        return data
+        data = os.read(self.fd, length)
 
     def writeData(self, data):
         nBytesWritten = os.write(self.fd, data)
