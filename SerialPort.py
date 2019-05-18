@@ -5,6 +5,8 @@ import select
 import struct
 import sys
 import termios
+import array
+import math
 
 class SerialPort:
     """SerialPort class with basic application-level protocol functions to write strings and read strings"""
@@ -24,21 +26,29 @@ class SerialPort:
         return None
 
     def open(self):
-        self.fd = os.open(self.bsdPath, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+        self.fd = os.open(self.bsdPath, os.O_RDWR | os.O_NOCTTY)
 
-        if self.fd != -1:
-            try:
-                value = fcntl.ioctl(self.fd, fcntl.F_SETFL, fcntl.ioctl(self.fd, fcntl.F_GETFL,0))
-                if  value & ~os.O_NONBLOCK == -1:
-                    raise ValueError(-1)
-            except OSError as msg:
-                print(msg)
+        # flag = fcntl.fcntl(self.fd, fcntl.F_GETFL,0)
+        # fcntl.fcntl(self.fd, fcntl.F_SETFL, flag & ~os.O_NONBLOCK)
 
     def close(self):
         os.close(self.fd)
 
+    def bytesAvailable(self):
+        bytes = bytearray(4)
+        arg = 0
+        n = fcntl.fcntl(self.fd, termios.FIONREAD, arg)
+
+        print(n, arg)
+        return bytes
+
     def readData(self, length):
-        data = os.read(self.fd, length)
+        bytesAvailable = self.bytesAvailable()
+
+        if length <= bytesAvailable:
+            data = os.read(self.fd, length)
+        else:
+            data = os.read(self.fd, bytesAvailable)
         return data
 
     def writeData(self, data):
@@ -48,9 +58,9 @@ class SerialPort:
     def readString(self):
         byte = None
         data = bytearray(0)
-        while ( byte != "\n"):
+        while ( byte != b''):
             byte = self.readData(1)
-            if byte == b'':
+            if byte == b'\n':
                 break
             else:
                 data += byte
@@ -66,8 +76,8 @@ class SerialPort:
 
 
 if __name__ == "__main__":
-    port = SerialPort("/dev/null")
+    port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
     port.open()
-    port.writeString("abcd")
-    print(port.readData(1))
+    port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd")
+    print(port.readData(8))
     port.close()
