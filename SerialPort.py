@@ -61,14 +61,24 @@ class SerialPort:
         data = bytearray(string, "utf-8")
         return self.port.write(data)
 
-    def writeReadMatch(self, string, replyPattern):
+    def writeStringExpectMatchingString(self, string, replyPattern):
         self.writeString(string)
         reply = self.readString()
         match = re.search(replyPattern, string)
         
         return match is not None
 
+    def writeStringReadFirstMatchingGroup(self, string, replyPattern):
+        self.writeString(string)
+        reply = self.readString()
+        match = re.search(replyPattern, string)
+        
+        if match is not None:
+            groups = match.groups()
+            if len(groups) >= 1:
+                return match.group(1)
 
+        return None            
         
 
 
@@ -77,6 +87,7 @@ if __name__ == "__main__":
     port.open()
     port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd\n")
     print(port.readString())
-    print(port.writeReadMatch(string="abcd\n", replyPattern="abcd"))
-    print(port.writeReadMatch(string="abcd\n", replyPattern="abcad"))
+    print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcd"))
+    print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcad"))
+    print(port.writeStringReadFirstMatchingGroup(string="abcd\n", replyPattern="ab(cd)"))
     port.close()
