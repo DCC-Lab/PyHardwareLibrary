@@ -1,12 +1,3 @@
-import errno
-import fcntl
-import os
-import select
-import struct
-import sys
-import termios
-import array
-import math
 import serial
 import re
 from threading import Thread, RLock
