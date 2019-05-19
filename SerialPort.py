@@ -7,7 +7,7 @@ import sys
 import termios
 import array
 import math
-import serial #pyserial
+import serial
 import re
 
 class SerialPort:
@@ -42,7 +42,8 @@ class SerialPort:
 
     def writeData(self, data):
         nBytesWritten = self.port.write(data)
-        return nBytesWritten
+        if nBytesWritten != len(data):
+            raise IOError("Not all bytes written to port")
 
     def readString(self):
         byte = None
@@ -54,40 +55,74 @@ class SerialPort:
                 break
 
         string = data.decode(encoding='utf-8')
-
         return string
 
     def writeString(self, string):
         data = bytearray(string, "utf-8")
-        return self.port.write(data)
+        self.writeData(data)
 
     def writeStringExpectMatchingString(self, string, replyPattern):
         self.writeString(string)
         reply = self.readString()
         match = re.search(replyPattern, string)
-        
-        return match is not None
+        if match is None:
+            raise RuntimeError("No match")
+
+        return reply
 
     def writeStringReadFirstMatchingGroup(self, string, replyPattern):
+        groups = self.writeStringReadMatchingGroups(string, replyPattern)
+        if len(groups) >= 1:
+            return match.group(1)
+        else:
+            raise RuntimeError("No match")
+
+    def writeStringReadMatchingGroups(self, string, replyPattern):
         self.writeString(string)
         reply = self.readString()
         match = re.search(replyPattern, string)
         
         if match is not None:
-            groups = match.groups()
-            if len(groups) >= 1:
-                return match.group(1)
+            return match.groups()
+        else:
+            raise RuntimeError("No match")
 
-        return None            
-        
+class DebugEchoSerialPort(SerialPort):
+    buffer = bytearray()
 
+    def open(self):
+        return
+
+    def close(self):
+        return
+
+    def readData(self, length):
+        data = bytearray()
+        for i in range(0,length):
+            byte = self.buffer.pop(0)
+            print(i, byte)
+            data.append(byte)
+
+        return data
+
+    def writeData(self, data):
+        self.buffer.extend(data)
+        print(self.buffer)
+        return len(data)
 
 if __name__ == "__main__":
-    port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+    port = DebugEchoSerialPort()
     port.open()
-    port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd\n")
-    print(port.readString())
-    print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcd"))
-    print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcad"))
-    print(port.writeStringReadFirstMatchingGroup(string="abcd\n", replyPattern="ab(cd)"))
     port.close()
+
+    # port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+    # port.open()
+    # port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd\n")
+    # print(port.readString())
+    # print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcd"))
+    # print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcad"))
+    # print(port.writeStringReadFirstMatchingGroup(string="abcd\n", replyPattern="ab(cd)"))
+    # port.close()
+
+
+
