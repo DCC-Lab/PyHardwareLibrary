@@ -10,15 +10,18 @@ import math
 import serial
 import re
 
+
 class SerialPort:
-    """SerialPort class with basic application-level protocol functions to write strings and read strings"""
+    """SerialPort class with basic application-level protocol 
+    functions to write strings and read strings"""
     port = None
     bsdPath = None
     vendorId = None
     productId = None
     serialNumber = None
 
-    def __init__(self, bsdPath = None, vendorId = None, productId = None, serialNumber = None):
+    def __init__(self, bsdPath=None, vendorId=None,
+                 productId=None, serialNumber=None):
         self.bsdPath = bsdPath
 
     def open(self):
@@ -48,7 +51,7 @@ class SerialPort:
     def readString(self):
         byte = None
         data = bytearray(0)
-        while ( byte != b''):
+        while (byte != b''):
             byte = self.readData(1)
             data += byte
             if byte == b'\n':
@@ -81,11 +84,12 @@ class SerialPort:
         self.writeString(string)
         reply = self.readString()
         match = re.search(replyPattern, string)
-        
+
         if match is not None:
             return match.groups()
         else:
             raise RuntimeError("No match")
+
 
 class DebugEchoSerialPort(SerialPort):
     buffer = bytearray()
@@ -98,17 +102,16 @@ class DebugEchoSerialPort(SerialPort):
 
     def readData(self, length):
         data = bytearray()
-        for i in range(0,length):
+        for i in range(0, length):
             byte = self.buffer.pop(0)
-            print(i, byte)
             data.append(byte)
 
         return data
 
     def writeData(self, data):
         self.buffer.extend(data)
-        print(self.buffer)
         return len(data)
+
 
 if __name__ == "__main__":
     port = DebugEchoSerialPort()
@@ -123,6 +126,3 @@ if __name__ == "__main__":
     # print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcad"))
     # print(port.writeStringReadFirstMatchingGroup(string="abcd\n", replyPattern="ab(cd)"))
     # port.close()
-
-
-
