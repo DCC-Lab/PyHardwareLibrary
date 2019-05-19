@@ -48,6 +48,9 @@ class SerialPort:
         self.lock.acquire()
         try:
             data = self.port.read(length)
+            if len(data) != length:
+                raise CommunicationReadTimeout()
+
         finally:
             self.lock.acquire()
 

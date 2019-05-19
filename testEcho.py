@@ -132,19 +132,19 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
         self.port.close()
 
 
-# class TestRealEchoPort(BaseTestCases.TestEchoPort):
+class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
-#     def setUp(self):
-#         try:
-#             self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
-#             self.assertIsNotNone(self.port)
-#             self.port.open()
-#         except:
-#             self.fail("Unable to setUp serial port")
+    def setUp(self):
+        try:
+            self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+            self.assertIsNotNone(self.port)
+            self.port.open()
+        except:
+            self.fail("Unable to setUp serial port")
 
 
-#     def tearDown(self):
-#         self.port.close()
+    def tearDown(self):
+        self.port.close()
 
 
 if __name__ == '__main__':
