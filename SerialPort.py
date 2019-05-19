@@ -14,6 +14,9 @@ from threading import Thread, RLock
 class CommunicationReadTimeout(serial.SerialException):
     pass
 
+class CommunicationReadNoMatch(Exception):
+    pass
+
 class SerialPort:
     """SerialPort class with basic application-level protocol 
     functions to write strings and read strings"""
@@ -94,16 +97,16 @@ class SerialPort:
         reply = self.readString()
         match = re.search(replyPattern, string)
         if match is None:
-            raise RuntimeError("No match")
+            raise CommunicationReadNoMatch("No match")
 
         return reply
 
     def writeStringReadFirstMatchingGroup(self, string, replyPattern):
         groups = self.writeStringReadMatchingGroups(string, replyPattern)
         if len(groups) >= 1:
-            return match.group(1)
+            return groups[0]
         else:
-            raise RuntimeError("No match")
+            raise CommunicationReadNoMatch("No match")
 
     def writeStringReadMatchingGroups(self, string, replyPattern):
         self.writeString(string)
@@ -113,7 +116,7 @@ class SerialPort:
         if match is not None:
             return match.groups()
         else:
-            raise RuntimeError("No match")
+            raise CommunicationReadNoMatch("No match")
 
 
 class DebugEchoSerialPort(SerialPort):

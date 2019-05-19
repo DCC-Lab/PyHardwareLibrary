@@ -77,6 +77,50 @@ class BaseTestCases:
             with self.assertRaises(CommunicationReadTimeout) as context:
                 self.port.readData(len(payloadData)+1)
 
+        def testWriteStringReadMatchingEcho(self):
+            reply = self.port.writeStringExpectMatchingString(
+                        payloadString,
+                        replyPattern=payloadString)
+            self.assertEqual(reply, payloadString)
+
+        def testWriteStringReadMatchingPattern(self):
+            reply = self.port.writeStringExpectMatchingString(
+                        "abcd1234\n",
+                        replyPattern="abc.\\d{4}")
+            self.assertEqual(reply, "abcd1234\n")
+
+        def testWriteStringReadMatchingPatternFirstCaptureGroup(self):
+            firstGroup = self.port.writeStringReadFirstMatchingGroup(
+                        "abcd1234\n",
+                        replyPattern="abc.(\\d{4})")
+            self.assertEqual(firstGroup, "1234")
+
+        def testWriteStringReadMatchingPatternAllCaptureGroups(self):
+            (firstGroup, secondGroup) = self.port.writeStringReadMatchingGroups(
+                        "abcd1234\n",
+                        replyPattern="(abc.)(\\d{4})")
+            self.assertEqual(firstGroup, "abcd")
+            self.assertEqual(secondGroup, "1234")
+
+        def testFailedWriteStringReadMatchingPattern(self):
+            with self.assertRaises(CommunicationReadNoMatch) as context:
+                reply = self.port.writeStringExpectMatchingString(
+                            "abcd1234\n",
+                            replyPattern="abc.\\d{5}")
+
+        def testFailedWriteStringReadMatchingPatternFirstCaptureGroup(self):
+            with self.assertRaises(CommunicationReadNoMatch) as context:
+                firstGroup = self.port.writeStringReadFirstMatchingGroup(
+                            "abcd1234\n",
+                            replyPattern="abc.(\\d{5})")
+
+
+        def testFailedWriteStringReadMatchingPatternAllCaptureGroups(self):
+            with self.assertRaises(CommunicationReadNoMatch) as context:
+                (firstGroup, secondGroup) = self.port.writeStringReadMatchingGroups(
+                            "abcd1234\n",
+                            replyPattern="(abc.)(\\d{5})")
+
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
@@ -88,19 +132,19 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
         self.port.close()
 
 
-class TestRealEchoPort(BaseTestCases.TestEchoPort):
+# class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
-    def setUp(self):
-        try:
-            self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
-            self.assertIsNotNone(self.port)
-            self.port.open()
-        except:
-            self.fail("Unable to setUp serial port")
+#     def setUp(self):
+#         try:
+#             self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+#             self.assertIsNotNone(self.port)
+#             self.port.open()
+#         except:
+#             self.fail("Unable to setUp serial port")
 
 
-    def tearDown(self):
-        self.port.close()
+#     def tearDown(self):
+#         self.port.close()
 
 
 if __name__ == '__main__':
