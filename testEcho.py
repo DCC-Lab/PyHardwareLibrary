@@ -1,6 +1,7 @@
 import unittest
 from serial import *
 from SerialPort import *
+import time
 
 payloadData = b'1234'
 payloadString = '1234\n'
@@ -16,6 +17,11 @@ class BaseTestCases:
         def testWriteData(self):
             nBytes = self.port.writeData(payloadData)
             self.assertTrue(nBytes == len(payloadData))
+
+        def testWriteDataBytesAvailable(self):
+            nBytes = self.port.writeData(payloadData)
+            time.sleep(1)
+            self.assertEqual(nBytes, self.port.bytesAvailable())
 
         def testWriteDataReadEcho(self):
             nBytes = self.port.writeData(payloadData)
@@ -114,6 +120,11 @@ class BaseTestCases:
                             "abcd1234\n",
                             replyPattern="abc.(\\d{5})")
 
+        def testFailedWriteStringReadMatchingPatternWithoutGroupFirstCaptureGroup(self):
+            with self.assertRaises(CommunicationReadNoMatch) as context:
+                firstGroup = self.port.writeStringReadFirstMatchingGroup(
+                            "abcd1234\n",
+                            replyPattern="abc.\\d{4}")
 
         def testFailedWriteStringReadMatchingPatternAllCaptureGroups(self):
             with self.assertRaises(CommunicationReadNoMatch) as context:

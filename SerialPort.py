@@ -27,13 +27,7 @@ class SerialPort:
         self.port.close()
 
     def bytesAvailable(self):
-        return self.port.inwaiting()
-
-    def flush(self):
-        return None
-
-    def drain(self):
-        return None
+        return self.port.in_waiting
 
     def readData(self, length):
         self.lock.acquire()
@@ -53,6 +47,7 @@ class SerialPort:
             nBytesWritten = self.port.write(data)
             if nBytesWritten != len(data):
                 raise IOError("Not all bytes written to port")
+            self.port.flush()
         finally:
             self.lock.acquire()
 
@@ -100,7 +95,7 @@ class SerialPort:
         if len(groups) >= 1:
             return groups[0]
         else:
-            raise CommunicationReadNoMatch("No match")
+            raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
 
     def writeStringReadMatchingGroups(self, string, replyPattern):
         self.writeString(string)
@@ -110,7 +105,7 @@ class SerialPort:
         if match is not None:
             return match.groups()
         else:
-            raise CommunicationReadNoMatch("No match")
+            raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
 
 class DebugEchoSerialPort(SerialPort):
@@ -123,6 +118,9 @@ class DebugEchoSerialPort(SerialPort):
 
     def close(self):
         return
+
+    def bytesAvailable(self):
+        return len(self.buffer)
 
     def readData(self, length):
         self.lock.acquire()
@@ -147,18 +145,3 @@ class DebugEchoSerialPort(SerialPort):
             self.lock.release()
 
         return len(data)
-
-
-if __name__ == "__main__":
-    port = DebugEchoSerialPort()
-    port.open()
-    port.close()
-
-    # port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
-    # port.open()
-    # port.writeString("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd\n")
-    # print(port.readString())
-    # print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcd"))
-    # print(port.writeStringExpectMatchingString(string="abcd\n", replyPattern="abcad"))
-    # print(port.writeStringReadFirstMatchingGroup(string="abcd\n", replyPattern="ab(cd)"))
-    # port.close()
