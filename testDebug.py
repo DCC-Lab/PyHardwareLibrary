@@ -2,7 +2,8 @@ import unittest
 from serial import *
 from SerialPort import *
 
-payload = b'1234'
+payloadData = b'1234'
+payloadString = '1234\n'
 
 class TestEchoPort(unittest.TestCase):
     port = None
@@ -18,33 +19,70 @@ class TestEchoPort(unittest.TestCase):
     def testCreate(self):
         self.assertIsNotNone(self.port)
 
-    def testWrite(self):
-        nBytes = self.port.writeData(payload)
-        self.assertTrue(nBytes == len(payload))
+    def testWriteData(self):
+        nBytes = self.port.writeData(payloadData)
+        self.assertTrue(nBytes == len(payloadData))
 
-    def testWriteReadEcho(self):
-        nBytes = self.port.writeData(payload)
-        self.assertTrue(nBytes == len(payload))
+    def testWriteDataReadEcho(self):
+        nBytes = self.port.writeData(payloadData)
+        self.assertTrue(nBytes == len(payloadData))
 
-        data = self.port.readData(length=len(payload))
-        self.assertTrue(data == payload)
+        data = self.port.readData(length=len(payloadData))
+        self.assertTrue(data == payloadData)
 
-    def testWriteReadEchoSequence(self):
-        nBytes = self.port.writeData(payload)
-        nBytes = self.port.writeData(payload)
+    def testWriteDataReadEchoSequence(self):
+        nBytes = self.port.writeData(payloadData)
+        nBytes = self.port.writeData(payloadData)
 
-        data = self.port.readData(length=len(payload))
-        self.assertTrue(data == payload)
-        data = self.port.readData(length=len(payload))
-        self.assertTrue(data == payload)
+        data = self.port.readData(length=len(payloadData))
+        self.assertTrue(data == payloadData)
+        data = self.port.readData(length=len(payloadData))
+        self.assertTrue(data == payloadData)
 
-    def testWriteReadEchoLarge(self):
+    def testWriteDataReadEchoLarge(self):
         for i in range(100):
-            nBytes = self.port.writeData(payload)
+            nBytes = self.port.writeData(payloadData)
 
         for i in range(100):
-            data = self.port.readData(length=len(payload))
-            self.assertTrue(data == payload)
+            data = self.port.readData(length=len(payloadData))
+            self.assertTrue(data == payloadData)
+
+    def testWriteString(self):
+        nBytes = self.port.writeString(payloadString)
+        self.assertTrue(nBytes == len(payloadString))
+
+    def testWriteStringReadEcho(self):
+        nBytes = self.port.writeString(payloadString)
+        self.assertTrue(nBytes == len(payloadString))
+
+        string = self.port.readString()
+        self.assertTrue(string == payloadString, "String {0}, payload:{1}".format(string, payloadString))
+
+    def testWriteStringReadEchoSequence(self):
+        nBytes = self.port.writeString(payloadString)
+        nBytes = self.port.writeString(payloadString)
+
+        string = self.port.readString()
+        self.assertTrue(string == payloadString)
+        string = self.port.readString()
+        self.assertTrue(string == payloadString)
+
+    def testWriteStringReadEchoLarge(self):
+        for i in range(100):
+            nBytes = self.port.writeString(payloadString)
+
+        for i in range(100):
+            string = self.port.readString()
+            self.assertTrue(string == payloadString)
+
+    def testTimeoutReadData(self):
+        with self.assertRaises(CommunicationReadTimeout) as context:
+            self.port.readData(1)
+
+        self.port.writeData(payloadData)
+        with self.assertRaises(CommunicationReadTimeout) as context:
+            self.port.readData(len(payloadData)+1)
+
 
 if __name__ == '__main__':
     unittest.main()

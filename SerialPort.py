@@ -9,20 +9,22 @@ import array
 import math
 import serial
 import re
+from threading import Thread, RLock
 
+class CommunicationReadTimeout(serial.SerialException):
+    pass
 
 class SerialPort:
     """SerialPort class with basic application-level protocol 
     functions to write strings and read strings"""
     port = None
-    bsdPath = None
-    vendorId = None
-    productId = None
-    serialNumber = None
-
     def __init__(self, bsdPath=None, vendorId=None,
                  productId=None, serialNumber=None):
         self.bsdPath = bsdPath
+        self.vendorId = vendorId
+        self.productId = productId
+        self.serialNumber = serialNumber
+        self.lock = RLock()
 
     def open(self):
         self.port = serial.Serial(self.bsdPath, 19200, timeout=1)
@@ -40,29 +42,52 @@ class SerialPort:
         return None
 
     def readData(self, length):
-        data = self.port.read(length)
+        self.lock.acquire()
+        try:
+            data = self.port.read(length)
+        finally:
+            self.lock.acquire()
+
         return data
 
     def writeData(self, data):
-        nBytesWritten = self.port.write(data)
-        if nBytesWritten != len(data):
-            raise IOError("Not all bytes written to port")
+        self.lock.acquire()
+        try:
+            nBytesWritten = self.port.write(data)
+            if nBytesWritten != len(data):
+                raise IOError("Not all bytes written to port")
+        finally:
+            self.lock.acquire()
+
+        return nBytesWritten
 
     def readString(self):
-        byte = None
-        data = bytearray(0)
-        while (byte != b''):
-            byte = self.readData(1)
-            data += byte
-            if byte == b'\n':
-                break
+        self.lock.acquire()
+        try:
+            byte = None
+            data = bytearray(0)
+            while (byte != b''):
+                byte = self.readData(1)
+                data += byte
+                if byte == b'\n':
+                    break
 
-        string = data.decode(encoding='utf-8')
+            string = data.decode(encoding='utf-8')
+        finally:
+            self.lock.release()
+
         return string
 
     def writeString(self, string):
-        data = bytearray(string, "utf-8")
-        self.writeData(data)
+        self.lock.acquire()
+        nBytes = 0
+        try:
+            data = bytearray(string, "utf-8")
+            nBytes = self.writeData(data)
+        finally:
+            self.lock.release()
+
+        return nBytes
 
     def writeStringExpectMatchingString(self, string, replyPattern):
         self.writeString(string)
@@ -92,7 +117,9 @@ class SerialPort:
 
 
 class DebugEchoSerialPort(SerialPort):
-    buffer = bytearray()
+    def __init__(self):
+        self.buffer = bytearray()
+        super(DebugEchoSerialPort, self).__init__()
 
     def open(self):
         return
@@ -101,15 +128,27 @@ class DebugEchoSerialPort(SerialPort):
         return
 
     def readData(self, length):
-        data = bytearray()
-        for i in range(0, length):
-            byte = self.buffer.pop(0)
-            data.append(byte)
+        self.lock.acquire()
+        try:
+            data = bytearray()
+            for i in range(0, length):
+                if len(self.buffer) > 0:
+                    byte = self.buffer.pop(0)
+                    data.append(byte)
+                else:
+                    raise CommunicationReadTimeout("Unable to read data")
+        finally:
+            self.lock.release()
 
         return data
 
     def writeData(self, data):
-        self.buffer.extend(data)
+        self.lock.acquire()
+        try:
+            self.buffer.extend(data)
+        finally:
+            self.lock.release()
+
         return len(data)
 
 
