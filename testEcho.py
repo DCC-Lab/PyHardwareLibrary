@@ -2,9 +2,12 @@ import unittest
 from serial import *
 from SerialPort import *
 import time
+from threading import Thread, Lock
 
 payloadData = b'1234'
 payloadString = '1234\n'
+globalLock = Lock()
+threadFailed = -1
 
 class BaseTestCases:
 
@@ -18,10 +21,9 @@ class BaseTestCases:
             nBytes = self.port.writeData(payloadData)
             self.assertTrue(nBytes == len(payloadData))
 
-        def testWriteDataBytesAvailable(self):
-            nBytes = self.port.writeData(payloadData)
-            time.sleep(1)
-            self.assertEqual(nBytes, self.port.bytesAvailable())
+        # def testWriteDataBytesAvailable(self):
+        #     nBytes = self.port.writeData(payloadData)
+        #     self.assertEqual(nBytes, self.port.bytesAvailable())
 
         def testWriteDataReadEcho(self):
             nBytes = self.port.writeData(payloadData)
@@ -131,6 +133,41 @@ class BaseTestCases:
                 (firstGroup, secondGroup) = self.port.writeStringReadMatchingGroups(
                             "abcd1234\n",
                             replyPattern="(abc.)(\\d{5})")
+
+        def testThreadSafety(self):
+            global threadFailed
+            threadFailed = -1
+            threadPool = []
+            for i in range(100):
+                process = Thread(target=threadReadWrite, kwargs=dict(port=self.port, index=i))
+                process.start()
+                threadPool.append(process)
+
+            for i,t in enumerate(threadPool):
+                t.join(timeout=2)
+
+                try:
+                    globalLock.acquire()
+                    if threadFailed != -1:
+                        self.fail("Thread {0}?".format(threadFailed))
+                finally:
+                    globalLock.release()
+
+        
+def threadReadWrite(port, index):
+    global threadFailed
+    payload = "abcd{0}\n".format(index)
+    globalLock.acquire()
+    try:
+        port.writeStringExpectMatchingString(payload, replyPattern=payload)
+    except:
+        if threadFailed != -1:
+            threadFailed = index        
+    finally:
+        globalLock.release()
+
+
+
 
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 

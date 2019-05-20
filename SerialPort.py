@@ -37,7 +37,7 @@ class SerialPort:
                 raise CommunicationReadTimeout()
 
         finally:
-            self.lock.acquire()
+            self.lock.release()
 
         return data
 
@@ -49,7 +49,7 @@ class SerialPort:
                 raise IOError("Not all bytes written to port")
             self.port.flush()
         finally:
-            self.lock.acquire()
+            self.lock.release()
 
         return nBytesWritten
 
@@ -82,30 +82,45 @@ class SerialPort:
         return nBytes
 
     def writeStringExpectMatchingString(self, string, replyPattern):
-        self.writeString(string)
-        reply = self.readString()
-        match = re.search(replyPattern, string)
-        if match is None:
-            raise CommunicationReadNoMatch("No match")
+        self.lock.acquire()
+
+        try:
+            self.writeString(string)
+            reply = self.readString()
+            match = re.search(replyPattern, string)
+            if match is None:
+                raise CommunicationReadNoMatch("No match")
+        finally:
+            self.lock.release()
 
         return reply
 
     def writeStringReadFirstMatchingGroup(self, string, replyPattern):
-        groups = self.writeStringReadMatchingGroups(string, replyPattern)
-        if len(groups) >= 1:
-            return groups[0]
-        else:
-            raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
+        self.lock.acquire()
+
+        try:
+            groups = self.writeStringReadMatchingGroups(string, replyPattern)
+            if len(groups) >= 1:
+                return groups[0]
+            else:
+                raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
+        finally:
+            self.lock.release()
 
     def writeStringReadMatchingGroups(self, string, replyPattern):
-        self.writeString(string)
-        reply = self.readString()
-        match = re.search(replyPattern, string)
+        self.lock.acquire()
 
-        if match is not None:
-            return match.groups()
-        else:
-            raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
+        try:
+            self.writeString(string)
+            reply = self.readString()
+            match = re.search(replyPattern, string)
+
+            if match is not None:
+                return match.groups()
+            else:
+                raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
+        finally:
+            self.lock.release()
 
 
 class DebugEchoSerialPort(SerialPort):
