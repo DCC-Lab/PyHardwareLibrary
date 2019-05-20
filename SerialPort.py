@@ -18,10 +18,12 @@ class SerialPort:
         self.vendorId = vendorId
         self.productId = productId
         self.serialNumber = serialNumber
-        self.lock = RLock()
+        self.portLock = RLock()
+        self.transactionLock = RLock()
+
 
     def open(self):
-        self.port = serial.Serial(self.bsdPath, 19200, timeout=1)
+        self.port = serial.Serial(self.bsdPath, 19200, timeout=0.3)
 
     def close(self):
         self.port.close()
@@ -30,31 +32,31 @@ class SerialPort:
         return self.port.in_waiting
 
     def readData(self, length):
-        self.lock.acquire()
+        self.portLock.acquire()
         try:
             data = self.port.read(length)
             if len(data) != length:
                 raise CommunicationReadTimeout()
 
         finally:
-            self.lock.release()
+            self.portLock.release()
 
         return data
 
     def writeData(self, data):
-        self.lock.acquire()
+        self.portLock.acquire()
         try:
             nBytesWritten = self.port.write(data)
             if nBytesWritten != len(data):
                 raise IOError("Not all bytes written to port")
             self.port.flush()
         finally:
-            self.lock.release()
+            self.portLock.release()
 
         return nBytesWritten
 
     def readString(self):
-        self.lock.acquire()
+        self.portLock.acquire()
         try:
             byte = None
             data = bytearray(0)
@@ -66,23 +68,23 @@ class SerialPort:
 
             string = data.decode(encoding='utf-8')
         finally:
-            self.lock.release()
+            self.portLock.release()
 
         return string
 
     def writeString(self, string):
-        self.lock.acquire()
+        self.portLock.acquire()
         nBytes = 0
         try:
             data = bytearray(string, "utf-8")
             nBytes = self.writeData(data)
         finally:
-            self.lock.release()
+            self.portLock.release()
 
         return nBytes
 
     def writeStringExpectMatchingString(self, string, replyPattern):
-        self.lock.acquire()
+        self.transactionLock.acquire()
 
         try:
             self.writeString(string)
@@ -91,12 +93,12 @@ class SerialPort:
             if match is None:
                 raise CommunicationReadNoMatch("No match")
         finally:
-            self.lock.release()
+            self.transactionLock.release()
 
         return reply
 
     def writeStringReadFirstMatchingGroup(self, string, replyPattern):
-        self.lock.acquire()
+        self.transactionLock.acquire()
 
         try:
             groups = self.writeStringReadMatchingGroups(string, replyPattern)
@@ -105,10 +107,10 @@ class SerialPort:
             else:
                 raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
         finally:
-            self.lock.release()
+            self.transactionLock.release()
 
     def writeStringReadMatchingGroups(self, string, replyPattern):
-        self.lock.acquire()
+        self.transactionLock.acquire()
 
         try:
             self.writeString(string)
@@ -120,7 +122,7 @@ class SerialPort:
             else:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
         finally:
-            self.lock.release()
+            self.transactionLock.release()
 
 
 class DebugEchoSerialPort(SerialPort):
@@ -138,7 +140,7 @@ class DebugEchoSerialPort(SerialPort):
         return len(self.buffer)
 
     def readData(self, length):
-        self.lock.acquire()
+        self.portLock.acquire()
         try:
             data = bytearray()
             for i in range(0, length):
@@ -148,15 +150,15 @@ class DebugEchoSerialPort(SerialPort):
                 else:
                     raise CommunicationReadTimeout("Unable to read data")
         finally:
-            self.lock.release()
+            self.portLock.release()
 
         return data
 
     def writeData(self, data):
-        self.lock.acquire()
+        self.portLock.acquire()
         try:
             self.buffer.extend(data)
         finally:
-            self.lock.release()
+            self.portLock.release()
 
         return len(data)

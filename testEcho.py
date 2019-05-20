@@ -140,8 +140,10 @@ class BaseTestCases:
             threadPool = []
             for i in range(100):
                 process = Thread(target=threadReadWrite, kwargs=dict(port=self.port, index=i))
-                process.start()
                 threadPool.append(process)
+
+            for process in threadPool:
+                process.start()
 
             for i,t in enumerate(threadPool):
                 t.join(timeout=2)
