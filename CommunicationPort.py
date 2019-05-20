@@ -10,7 +10,7 @@ class CommunicationReadTimeout(serial.SerialException):
 class CommunicationReadNoMatch(Exception):
     pass
 
-class SerialPort:
+class CommunicationPort:
     """SerialPort class with basic application-level protocol 
     functions to write strings and read strings"""
     port = None
@@ -102,11 +102,11 @@ class SerialPort:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
 
-class DebugEchoSerialPort(SerialPort):
-    def __init__(self):
+class DebugEchoCommunicationPort(CommunicationPort):
+    def __init__(self, delay=0):
         self.buffer = bytearray()
-        self.delay = 0
-        super(DebugEchoSerialPort, self).__init__()
+        self.delay = delay
+        super(DebugEchoCommunicationPort, self).__init__()
 
     def open(self):
         return

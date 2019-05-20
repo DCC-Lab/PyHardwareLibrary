@@ -1,6 +1,6 @@
 import unittest
 from serial import *
-from SerialPort import *
+from CommunicationPort import *
 import time
 from threading import Thread, Lock
 
@@ -148,17 +148,17 @@ class BaseTestCases:
             for i,p in enumerate(threadPool):
                 p.join(timeout=1)
 
-                try:
-                    globalLock.acquire()
+                with globalLock:
                     if threadFailed != -1:
                         self.fail("Thread {0}?".format(threadFailed))
-                finally:
-                    globalLock.release()
 
             for i,p in enumerate(threadPool):
                 p.join(timeout=1)
 
-        
+            with globalLock:
+                if threadFailed != -1:
+                    self.fail("Thread {0}?".format(threadFailed))
+
 def threadReadWrite(port, index):
     global threadFailed, globalLock
     payload = "abcd{0}\n".format(index)
@@ -173,7 +173,7 @@ def threadReadWrite(port, index):
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = DebugEchoSerialPort()
+        self.port = DebugEchoCommunicationPort()
         self.assertIsNotNone(self.port)
         self.port.open()
 
@@ -185,7 +185,7 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = DebugEchoSerialPort()
+        self.port = DebugEchoCommunicationPort()
         self.assertIsNotNone(self.port)
         self.port.delay = 0.01
         self.port.open()
@@ -198,7 +198,7 @@ class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         try:
-            self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+            self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
             self.assertIsNotNone(self.port)
             self.port.open()
         except:
