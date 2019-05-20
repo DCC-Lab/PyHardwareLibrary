@@ -65,8 +65,8 @@ class CommunicationPort:
         return string
 
     def writeString(self, string):
-        nBytes = 0
         with self.portLock:
+            nBytes = 0
             data = bytearray(string, "utf-8")
             nBytes = self.writeData(data)
 

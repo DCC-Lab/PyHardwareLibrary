@@ -1,0 +1,38 @@
+[
+	{
+		"description" : "Get interlock state",
+		"name" : "INTERLOCK?",
+		"pattern" : "ilk\\?",
+		"replyPattern": "[0|1]"
+	},
+	{
+		"description" : "Laser ON, requires as disabled",
+		"name" : "LASERON",
+		"pattern" : "l1",
+		"replyPattern": ""
+	},
+	{
+		"description" : "Laser OFF, requires as disabled",
+		"name" : "LASEROFF",
+		"pattern" : "l0",
+		"replyPattern": ""
+	},
+	{
+		"description" : "Get set laser power",
+		"name" : "GETSETPOWER",
+		"pattern" : "p\\?",
+		"replyPattern": "(\\d+.?\\d*)"
+	},
+	{
+		"description" : "Set laser power",
+		"name" : "SETPOWER",
+		"pattern" : "p {0}",
+		"replyPattern": ""
+	},
+	{
+		"description" : "Read output power",
+		"name" : "POWER?",
+		"pattern" : "p {0}",
+		"replyPattern": ""
+	}
+]
