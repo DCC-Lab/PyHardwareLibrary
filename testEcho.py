@@ -135,7 +135,7 @@ class BaseTestCases:
                             replyPattern="(abc.)(\\d{5})")
 
         def testThreadSafety(self):
-            global threadFailed
+            global threadFailed, globalLock
             threadFailed = -1
             threadPool = []
             for i in range(100):
@@ -145,8 +145,8 @@ class BaseTestCases:
             for process in threadPool:
                 process.start()
 
-            for i,t in enumerate(threadPool):
-                t.join(timeout=2)
+            for i,p in enumerate(threadPool):
+                p.join(timeout=1)
 
                 try:
                     globalLock.acquire()
@@ -155,9 +155,12 @@ class BaseTestCases:
                 finally:
                     globalLock.release()
 
+            for i,p in enumerate(threadPool):
+                p.join(timeout=1)
+
         
 def threadReadWrite(port, index):
-    global threadFailed
+    global threadFailed, globalLock
     payload = "abcd{0}\n".format(index)
     globalLock.acquire()
     try:
