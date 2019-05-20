@@ -162,16 +162,12 @@ class BaseTestCases:
 def threadReadWrite(port, index):
     global threadFailed, globalLock
     payload = "abcd{0}\n".format(index)
-    globalLock.acquire()
-    try:
-        port.writeStringExpectMatchingString(payload, replyPattern=payload)
-    except:
-        if threadFailed != -1:
-            threadFailed = index        
-    finally:
-        globalLock.release()
-
-
+    with globalLock:
+        try:
+            port.writeStringExpectMatchingString(payload, replyPattern=payload)
+        except:
+            if threadFailed != -1:
+                threadFailed = index        
 
 
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
@@ -179,6 +175,19 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
     def setUp(self):
         self.port = DebugEchoSerialPort()
         self.assertIsNotNone(self.port)
+        self.port.open()
+
+    def tearDown(self):
+        self.port.close()
+
+
+
+class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
+
+    def setUp(self):
+        self.port = DebugEchoSerialPort()
+        self.assertIsNotNone(self.port)
+        self.port.delay = 0.01
         self.port.open()
 
     def tearDown(self):

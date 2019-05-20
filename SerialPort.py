@@ -1,6 +1,8 @@
 import serial
 import re
 from threading import Thread, RLock
+import time
+import random
 
 class CommunicationReadTimeout(serial.SerialException):
     pass
@@ -103,6 +105,7 @@ class SerialPort:
 class DebugEchoSerialPort(SerialPort):
     def __init__(self):
         self.buffer = bytearray()
+        self.delay = 0
         super(DebugEchoSerialPort, self).__init__()
 
     def open(self):
@@ -115,8 +118,8 @@ class DebugEchoSerialPort(SerialPort):
         return len(self.buffer)
 
     def readData(self, length):
-        self.portLock.acquire()
-        try:
+        with self.portLock:
+            time.sleep(self.delay*random.random())
             data = bytearray()
             for i in range(0, length):
                 if len(self.buffer) > 0:
@@ -124,16 +127,11 @@ class DebugEchoSerialPort(SerialPort):
                     data.append(byte)
                 else:
                     raise CommunicationReadTimeout("Unable to read data")
-        finally:
-            self.portLock.release()
 
         return data
 
     def writeData(self, data):
-        self.portLock.acquire()
-        try:
+        with self.portLock:
             self.buffer.extend(data)
-        finally:
-            self.portLock.release()
 
         return len(data)
