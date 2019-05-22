@@ -7,7 +7,7 @@ import re
 class CoboltDebugSerial:
     def __init__(self):
         self.outputBuffer = bytearray()
-        self.lineEnding = b'\n'
+        self.lineEnding = b'\r'
         self.power = 0.1
 
     def open(self):
@@ -34,12 +34,15 @@ class CoboltDebugSerial:
 
     def readline(self) -> bytearray:
         data = bytearray()
-        for c in self.outputBuffer:
-            data.append(c)
-            if c == self.lineEnding:
+        byte = b''
+        while byte != self.lineEnding:
+            if len(self.outputBuffer) > 0:
+                byte = self.outputBuffer.pop(0)
+                data.append(byte)
+            else:
                 break
-        return data
 
+        return data
 
 """ Class-oriented strategy to talk to the Cobolt
 laser, change its power. See manual in ../manuals/ page 27"""
@@ -78,5 +81,9 @@ if __name__ == "__main__":
         laser = CoboltLaser("debug")
 
     laser.setPower(powerInWatts=0.1)
+    print("Power is {0:0.3f} W".format(laser.power()))
+
+    laser.setPower(powerInWatts=0.01)
+    print("Power is {0:0.3f} W".format(laser.power()))
     print("Power is {0:0.3f} W".format(laser.power()))
     
