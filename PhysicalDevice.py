@@ -10,13 +10,13 @@ class DeviceState(Enum):
 
 class PhysicalDevice:
 
-    def __init__(serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
         self.vendorId = vendorId
         self.productId = productId
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
 
-    def initializeDevice():
+    def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
                 self.doInitializeDevice()
@@ -24,16 +24,16 @@ class PhysicalDevice:
             except:
                 self.state = DeviceState.Unrecognized
 
-    def doInitializeDevice():
+    def doInitializeDevice(self):
         return
 
-    def shutdownDevice():
+    def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
                 self.doShutdownDevice()
                 self.state = DeviceState.Recognized
-            except error:
+            except Exception as error:
                 raise error
 
-    def doShutdownDevice():
+    def doShutdownDevice(self):
         return
