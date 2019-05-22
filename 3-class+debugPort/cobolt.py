@@ -85,5 +85,7 @@ if __name__ == "__main__":
 
     laser.setPower(powerInWatts=0.01)
     print("Power is {0:0.3f} W".format(laser.power()))
+    
+    laser.setPower(powerInWatts=0.001)
     print("Power is {0:0.3f} W".format(laser.power()))
     
