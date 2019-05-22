@@ -67,13 +67,16 @@ class CoboltLaser:
     def power(self):    
         self.port.write(b'pa?\r') 
         reply = self.port.readline()
-        print(reply)
         power = float(reply.decode())
         return power
 
 
 if __name__ == "__main__":
-    laser = CoboltLaser("debug")
+    try:
+        laser = CoboltLaser("COM1")
+    except:
+        laser = CoboltLaser("debug")
+
     laser.setPower(powerInWatts=0.1)
-    print(laser.power())
+    print("Power is {0:0.3f} W".format(laser.power()))
     

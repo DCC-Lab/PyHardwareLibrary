@@ -11,6 +11,7 @@ class CoboltLaser:
     def __init__(self, portName):
         """ portName : "COM1", "/dev/xxx", etc... 
         opens automatically on creation """
+        self.port = None
         self.port = SP.Serial(portName)
 
     def __del__(self):
@@ -31,6 +32,10 @@ class CoboltLaser:
 
 
 if __name__ == "__main__":
-    laser = CoboltLaser("debug")
+    try:
+        laser = CoboltLaser("COM1")
+    except:
+        exit("No laser found on COM1")
+
     laser.setPower(powerInWatts=0.1)
-    print(laser.power())
+    print("Power is {0:0.3f} W".format(laser.power()))
