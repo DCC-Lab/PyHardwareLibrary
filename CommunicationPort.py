@@ -76,7 +76,7 @@ class CommunicationPort:
         with self.transactionLock:
             self.writeString(string)
             reply = self.readString()
-            match = re.search(replyPattern, string)
+            match = re.search(replyPattern, reply)
             if match is None:
                 raise CommunicationReadNoMatch("No match")
 
@@ -94,10 +94,10 @@ class CommunicationPort:
         with self.transactionLock:
             self.writeString(string)
             reply = self.readString()
-            match = re.search(replyPattern, string)
+            match = re.search(replyPattern, reply)
 
             if match is not None:
-                return match.groups()
+                print(match.groups())
             else:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
