@@ -14,7 +14,8 @@ class CoboltLaser:
         self.port = SP.Serial(portName)
 
     def __del__(self):
-        self.port.close()
+        if self.port is not None:
+            self.port.close()
 
     def setPower(self, powerInWatts):
         command = "p {0:0.3f}\r".format(powerInWatts)
@@ -22,14 +23,14 @@ class CoboltLaser:
         self.port.write(data)
 
     def power(self):    
-        port.write(b'pa?\r') 
-        reply = port.readline()
-        power = float(reply.decode("utf-8") )
+        self.port.write(b'pa?\r') 
+        reply = self.port.readline()
+        print(reply)
+        power = float(reply.decode())
         return power
 
 
-if __name__ = "__main__":
-    laser = CoboltLaser("COM1")
+if __name__ == "__main__":
+    laser = CoboltLaser("debug")
     laser.setPower(powerInWatts=0.1)
     print(laser.power())
-    
