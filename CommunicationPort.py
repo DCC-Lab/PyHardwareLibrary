@@ -13,8 +13,8 @@ class CommunicationReadNoMatch(Exception):
 class CommunicationPort:
     """CommunicationPort class with basic application-level protocol 
     functions to write strings and read strings"""
-    port = None
-    def __init__(self, bsdPath=None, vendorId=None,
+    
+    def __init__(self, bsdPath=None, port = None, vendorId=None,
                  productId=None, serialNumber=None):
         self.bsdPath = bsdPath
         self.vendorId = vendorId
@@ -22,10 +22,11 @@ class CommunicationPort:
         self.serialNumber = serialNumber
         self.portLock = RLock()
         self.transactionLock = RLock()
-
+        self.port = port # direct port assignment
 
     def open(self):
-        self.port = serial.Serial(self.bsdPath, 19200, timeout=0.3)
+        if self.port is None:
+            self.port = serial.Serial(self.bsdPath, 19200, timeout=0.3)
 
     def close(self):
         self.port.close()
@@ -97,7 +98,7 @@ class CommunicationPort:
             match = re.search(replyPattern, reply)
 
             if match is not None:
-                print(match.groups())
+                return match.groups()
             else:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
