@@ -1,8 +1,6 @@
 from PhysicalDevice import *
 from CommunicationPort import *
 import numpy as np
-import serial
-# from typing import Protocol
 
 
 class LaserSourceDevice:
@@ -30,6 +28,11 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.port = CommunicationPort(bsdPath=bsdPath)
         PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
         LaserSourceDevice.__init__(self)
+        self.port.open()
+
+    def __del__(self):
+        if self.port is not None:
+            self.port.close()
 
     def doInitializeDevice(self):
         try:
@@ -43,28 +46,32 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.port.close()
         return
 
+    def doGetInterlockState(self):
+        self.port.writeStringExpectMatchingString('ilk', replyPattern= '****')
+
     def doGetLaserSerialNumber(self):
-        self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup("sn?\r", replyPattern="(\\d+)")
+        self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
 
     def doTurnOn(self):
-        self.port.writeStringExpectMatchingString(b'l1\r', '')
+#        self.port.writeStringExpectMatchingString('@cobas 0\r', '')
+        self.port.writeStringExpectMatchingString('l1\r', '')
 
     def doTurnOff(self):
-        self.port.writeStringExpectMatchingString(b'l0\r', '')
+        self.port.writeStringExpectMatchingString('l0\r', '')
 
     def doSetPower(self, powerInWatts):
-        command = "p {0:0.3f}\r".format(powerInWatts)
+        command = 'p {0:0.3f}\r'.format(powerInWatts)
         self.port.writeStringExpectMatchingString(command, '')
 
     def doGetPower(self):
-        self.port.writeStringExpectMatchingString(b'pa?\r', '(\\d+.?\\d*)')
+        self.port.writeStringExpectMatchingString('pa?\r', replyPattern= '(\\d+.?\\d*)')
 
 
 if __name__ == "__main__":
     try:
-        laser = CoboltDevice("COM1")
+        laser = CoboltDevice("COM5")
     except:
-        exit("No laser found on COM1")
+        exit("No laser found on COM5")
 
-    laser.doSetPower(powerInWatts=0.1)
-    print("Power is {0:0.3f} W".format(laser.doGetPower))
+ #   laser.doSetPower(powerInWatts=0.01)
+ #   print("Power is {0:0.3f} W".format(laser.doGetPower()))
