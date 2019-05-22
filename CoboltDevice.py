@@ -47,13 +47,13 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         return
 
     def doGetInterlockState(self):
-        self.port.writeStringExpectMatchingString('ilk', replyPattern= '****')
+        self.port.writeStringExpectMatchingString('ilk?\r', replyPattern='[0|1]')
 
     def doGetLaserSerialNumber(self):
-        self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
+        self.laserSerialNumber = self.port.writeStringExpectMatchingString('sn?\r', replyPattern='(\\d+)')
 
     def doTurnOn(self):
-#        self.port.writeStringExpectMatchingString('@cobas 0\r', '')
+        self.port.writeStringExpectMatchingString('@cobas 0\r', '')
         self.port.writeStringExpectMatchingString('l1\r', '')
 
     def doTurnOff(self):
@@ -64,7 +64,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.port.writeStringExpectMatchingString(command, '')
 
     def doGetPower(self):
-        self.port.writeStringExpectMatchingString('pa?\r', replyPattern= '(\\d+.?\\d*)')
+        self.port.writeStringExpectMatchingString('pa?\r', replyPattern='\d.\d+')
 
 
 if __name__ == "__main__":
@@ -73,5 +73,10 @@ if __name__ == "__main__":
     except:
         exit("No laser found on COM5")
 
- #   laser.doSetPower(powerInWatts=0.01)
- #   print("Power is {0:0.3f} W".format(laser.doGetPower()))
+
+laser.doTurnOn()
+#laser.doGetLaserSerialNumber()
+#laser.doGetPower()
+#laser.doGetInterlockState()
+#laser.doSetPower(powerInWatts=0.01)
+#print("Power is %f W" % laser.doGetPower())
