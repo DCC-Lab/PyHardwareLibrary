@@ -34,7 +34,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         if self.port is not None:
             self.port.close()
 
-    def doInitializeDevice(self):
+    def doInitializeDevice(self): # Doesn't work well, seems to know that the port is already open
         try:
             self.port.open()
             self.doGetLaserSerialNumber()
@@ -42,7 +42,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             self.port.close()
             raise error
 
-    def doShutdownDevice(self):
+    def doShutdownDevice(self): # Doesn't seem to do anything
         self.port.close()
         return
 
@@ -53,10 +53,10 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.laserSerialNumber = self.port.writeStringExpectMatchingString('sn?\r', replyPattern='(\\d+)')
 
     def doTurnOn(self):
-        self.port.writeStringExpectMatchingString('@cobas 0\r', '')
+#        self.port.writeStringExpectMatchingString('@cobas 0\r', '')
         self.port.writeStringExpectMatchingString('l1\r', '')
 
-    def doTurnOff(self):
+    def doTurnOff(self): # The laser needs to be unplug after using this function or it doesn't restart using doTurnOn??
         self.port.writeStringExpectMatchingString('l0\r', '')
 
     def doSetPower(self, powerInWatts):
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     except:
         exit("No laser found on COM5")
 
-
 laser.doTurnOn()
+#laser.doTurnOn()
 #laser.doGetLaserSerialNumber()
 #laser.doGetPower()
 #laser.doGetInterlockState()
