@@ -11,7 +11,7 @@ class CommunicationReadNoMatch(Exception):
     pass
 
 class CommunicationPort:
-    """SerialPort class with basic application-level protocol 
+    """CommunicationPort class with basic application-level protocol 
     functions to write strings and read strings"""
     port = None
     def __init__(self, bsdPath=None, vendorId=None,
