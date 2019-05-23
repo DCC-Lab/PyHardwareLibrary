@@ -1,8 +1,10 @@
 import unittest
-from serial import *
-from CommunicationPort import *
 import time
 from threading import Thread, Lock
+
+from serial import *
+from CommunicationPort import *
+from DebugEchoCommunicationPort import *
 
 payloadData = b'1234'
 payloadString = '1234\n'
@@ -17,6 +19,24 @@ class BaseTestCases:
         def testCreate(self):
             self.assertIsNotNone(self.port)
 
+        def testIsOpenOnCreation(self):
+            self.assertTrue(self.port.isOpen)
+
+        def testCantReopen(self):
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(Exception) as context:
+                self.port.open()
+
+        def testCloseReopen(self):
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.open()
+
+        def testCloseTwice(self):
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.close()
+
         def testWriteData(self):
             nBytes = self.port.writeData(payloadData)
             self.assertTrue(nBytes == len(payloadData))
@@ -30,24 +50,27 @@ class BaseTestCases:
             self.assertTrue(nBytes == len(payloadData))
 
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData)
+            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoSequence(self):
             nBytes = self.port.writeData(payloadData)
+            self.assertTrue(nBytes == len(payloadData))
             nBytes = self.port.writeData(payloadData)
+            self.assertTrue(nBytes == len(payloadData))
 
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData)
+            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData)
+            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoLarge(self):
             for i in range(100):
                 nBytes = self.port.writeData(payloadData)
+                self.assertTrue(nBytes == len(payloadData))
 
             for i in range(100):
                 data = self.port.readData(length=len(payloadData))
-                self.assertTrue(data == payloadData)
+                self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteString(self):
             nBytes = self.port.writeString(payloadString)
@@ -62,7 +85,9 @@ class BaseTestCases:
 
         def testWriteStringReadEchoSequence(self):
             nBytes = self.port.writeString(payloadString)
+            self.assertTrue(nBytes == len(payloadString))
             nBytes = self.port.writeString(payloadString)
+            self.assertTrue(nBytes == len(payloadString))
 
             string = self.port.readString()
             self.assertTrue(string == payloadString)
@@ -72,10 +97,11 @@ class BaseTestCases:
         def testWriteStringReadEchoLarge(self):
             for i in range(100):
                 nBytes = self.port.writeString(payloadString)
+                self.assertTrue(nBytes == len(payloadString))
 
             for i in range(100):
                 string = self.port.readString()
-                self.assertTrue(string == payloadString)
+                self.assertTrue(string == payloadString,"{0} is not {1}".format(string, payloadString))
 
         def testTimeoutReadData(self):
             with self.assertRaises(CommunicationReadTimeout) as context:
@@ -170,17 +196,19 @@ def threadReadWrite(port, index):
                 threadFailed = index        
 
 
+
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         self.port = DebugEchoCommunicationPort()
         self.assertIsNotNone(self.port)
         self.port.open()
+        self.assertTrue(self.port.isOpen)
+        self.port.flush()
 
     def tearDown(self):
         self.port.close()
-
-
+        self.assertFalse(self.port.isOpen)
 
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
@@ -189,6 +217,7 @@ class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
         self.assertIsNotNone(self.port)
         self.port.delay = 0.01
         self.port.open()
+        self.port.flush()
 
     def tearDown(self):
         self.port.close()
@@ -201,11 +230,13 @@ class TestRealEchoPort(BaseTestCases.TestEchoPort):
             self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
             self.assertIsNotNone(self.port)
             self.port.open()
+            self.port.flush()
         except:
             self.fail("Unable to setUp serial port")
 
 
     def tearDown(self):
+        self.port.flush()
         self.port.close()
 
 

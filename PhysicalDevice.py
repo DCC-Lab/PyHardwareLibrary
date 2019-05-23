@@ -8,15 +8,18 @@ class DeviceState(Enum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
+class PhysicalDeviceUnableInitialize(Exception):
+    pass
+
 class PhysicalDevice:
 
-    def __init__(vendorId:np.uint32, productId:np.uint32, serialNumber:str):
+    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
         self.vendorId = vendorId
         self.productId = productId
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
 
-    def initializeDevice():
+    def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
                 self.doInitializeDevice()
@@ -24,11 +27,16 @@ class PhysicalDevice:
             except:
                 self.state = DeviceState.Unrecognized
 
-    def shutdownDevice():
+    def doInitializeDevice(self):
+        return
+
+    def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
                 self.doShutdownDevice()
                 self.state = DeviceState.Recognized
-            except error:
+            except Exception as error:
                 raise error
 
+    def doShutdownDevice(self):
+        return
