@@ -64,11 +64,11 @@ class BaseTestCases:
             self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoLarge(self):
-            for i in range(1000):
+            for i in range(100):
                 nBytes = self.port.writeData(payloadData)
                 self.assertTrue(nBytes == len(payloadData))
 
-            for i in range(1000):
+            for i in range(100):
                 data = self.port.readData(length=len(payloadData))
                 self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
@@ -95,11 +95,11 @@ class BaseTestCases:
             self.assertTrue(string == payloadString)
 
         def testWriteStringReadEchoLarge(self):
-            for i in range(1000):
+            for i in range(100):
                 nBytes = self.port.writeString(payloadString)
                 self.assertTrue(nBytes == len(payloadString))
 
-            for i in range(1000):
+            for i in range(100):
                 string = self.port.readString()
                 self.assertTrue(string == payloadString,"{0} is not {1}".format(string, payloadString))
 
@@ -196,7 +196,7 @@ def threadReadWrite(port, index):
                 threadFailed = index        
 
 
-#@unittest.skip
+
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
@@ -210,9 +210,6 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
         self.port.close()
         self.assertFalse(self.port.isOpen)
 
-
-
-@unittest.skip
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
@@ -239,6 +236,7 @@ class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
 
     def tearDown(self):
+        self.port.flush()
         self.port.close()
 
 
