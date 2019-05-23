@@ -59,14 +59,17 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
 
     def doTurnOn(self):
-        self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
+        if self.port.writeStringExpectMatchingString('@cobas?\r', '([0|1])') == 0:
+            self.port.writeStringExpectMatchingString('l1\r', replyPattern='OK')
+        else:
+            self.port.writeStringExpectMatchingString('l1\r', replyPattern='Syntax error: not allowed in autostart mode')
 
     def doTurnOff(self):
-        self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')
+        self.port.writeStringExpectMatchingString('l0\r', replyPattern='OK')
 
     def doSetPower(self, powerInWatts):
         command = 'p {0:0.3f}\r'.format(powerInWatts)
-        self.port.writeStringExpectMatchingString(command,replyPattern='OK')
+        self.port.writeStringExpectMatchingString(command, replyPattern='OK')
 
     def doGetPower(self) -> float:
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
