@@ -23,6 +23,9 @@ class CommunicationPort:
     
     def __init__(self, bsdPath=None, port = None):
         self.bsdPath = bsdPath
+
+        if port is not None and port.is_open:
+            port.close()
         self.port = port # direct port , must be closed.
 
         self.portLock = RLock()
@@ -94,7 +97,7 @@ class CommunicationPort:
             reply = self.readString()
             match = re.search(replyPattern, reply)
             if match is None:
-                raise CommunicationReadNoMatch("No match")
+                raise CommunicationReadNoMatch("No match, expected {0} read {1}".format(replyPattern, reply))
 
         return reply
 

@@ -8,21 +8,22 @@ class CoboltDebugSerial:
         self.power = 0.1
         self.isOn = True
         self.requestedPower = 0
-        self.isOpen = True
+        self._isOpen = True
 
+    @property
+    def is_open(self):
+        return self._isOpen
+    
     def open(self):
-        if self.isOpen:
+        if self._isOpen:
             raise IOError("port is already open")
         else:
-            self.isOpen = True
+            self._isOpen = True
 
         return
 
     def close(self):
-        if not self.isOpen:
-            raise IOError("port is not open")
-        else:
-            self.isOpen = False
+        self._isOpen = False
 
         return
 
@@ -46,13 +47,13 @@ class CoboltDebugSerial:
 
         match = re.search("pa\\?", string)
         if match is not None:
-            replyData = bytearray("{0}\r\n".format(self.power), encoding='utf-8')
+            replyData = bytearray("{0:0.4f}\r\n".format(self.power), encoding='utf-8')
             self.outputBuffer.extend(replyData)
             return len(data)
 
         match = re.search("p\\?", string)
         if match is not None:
-            replyData = bytearray("{0}\r\n".format(self.requestedPower), encoding='utf-8')
+            replyData = bytearray("{0:0.4f}\r\n".format(self.requestedPower), encoding='utf-8')
             self.outputBuffer.extend(replyData)
             return len(data)
 
@@ -71,16 +72,23 @@ class CoboltDebugSerial:
             self.isOn = False
             return len(data)
 
+        match = re.search("sn\\?\r", string)
+        if match is not None:
+            replyData = bytearray("123456\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
+
+            return len(data)
+
         raise ValueError("Unknown command: {0}".format(data))
 
-    def readline(self) -> bytearray:
-        data = bytearray()
-        byte = b''
-        while byte != self.lineEnding:
-            if len(self.outputBuffer) > 0:
-                byte = self.outputBuffer.pop(0)
-                data.append(byte)
-            else:
-                break
+    # def readline(self) -> bytearray:
+    #     data = bytearray()
+    #     byte = b''
+    #     while byte != self.lineEnding:
+    #         if len(self.outputBuffer) > 0:
+    #             byte = self.outputBuffer.pop(0)
+    #             data.append(byte)
+    #         else:
+    #             break
 
-        return data
+    #     return data
