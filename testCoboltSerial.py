@@ -30,14 +30,10 @@ class BaseTestCases:
             self.port.close()
 
         def testLaserOn(self):
-            self.port.writeString('l1\r')
-            with self.assertRaises(CommunicationReadTimeout) as context:
-                self.port.readString()
+            self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
 
         def testLaserOff(self):
-            self.port.writeString('l0\r')
-            with self.assertRaises(CommunicationReadTimeout) as context:
-                self.port.readString()
+            self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')
 
         def testReadPower(self):
             self.port.writeStringExpectMatchingString('pa?\r',replyPattern='\\d+.\\d+')
@@ -49,16 +45,13 @@ class BaseTestCases:
             self.port.writeStringExpectMatchingString('p?\r',replyPattern='\\d+.\\d+')
 
         def testWriteSetPower(self):
-            self.port.writeString('p 0.001\r')
-            with self.assertRaises(CommunicationReadTimeout) as context:
-                self.port.readString()
+            self.port.writeStringExpectMatchingString('p 0.001\r','OK')
 
         def testReadSerialNumber(self):
             self.port.writeStringExpectMatchingString('sn?\r',replyPattern='\\d+')
 
         def testUnknownCommand(self):
-            with self.assertRaises(Exception) as context:
-                self.port.writeString('nothing useful\r')
+            self.port.writeStringExpectMatchingString('nothing useful\r',replyPattern="Syntax error")
 
 
 class TestDebugCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):

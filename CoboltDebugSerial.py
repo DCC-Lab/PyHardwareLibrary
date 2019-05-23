@@ -91,18 +91,8 @@ class CoboltDebugSerial:
 
             return len(data)
 
-        # Error:
-        replyData = bytearray("Syntax error: {0}", encoding='utf-8')
+        # Error (string already includes \n)
+        replyData = bytearray("Syntax error: {0}".format(string), encoding='utf-8')
         self.outputBuffer.extend(replyData)
 
-    # def readline(self) -> bytearray:
-    #     data = bytearray()
-    #     byte = b''
-    #     while byte != self.lineEnding:
-    #         if len(self.outputBuffer) > 0:
-    #             byte = self.outputBuffer.pop(0)
-    #             data.append(byte)
-    #         else:
-    #             break
-
-    #     return data
+        return len(data)
