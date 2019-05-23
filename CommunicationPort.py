@@ -10,6 +10,9 @@ class CommunicationReadTimeout(serial.SerialException):
 class CommunicationReadNoMatch(Exception):
     pass
 
+class CommunicationReadAlternateMatch(Exception):
+    pass
+
 class CommunicationPort:
     """CommunicationPort class with basic application-level protocol 
     functions to write strings and read strings, and abstract away
@@ -91,25 +94,29 @@ class CommunicationPort:
 
         return nBytes
 
-    def writeStringExpectMatchingString(self, string, replyPattern):
+    def writeStringExpectMatchingString(self, string, replyPattern, alternatePattern = None):
         with self.transactionLock:
             self.writeString(string)
             reply = self.readString()
             match = re.search(replyPattern, reply)
             if match is None:
-                raise CommunicationReadNoMatch("No match, expected {0} read {1}".format(replyPattern, reply))
+                if alternatePattern is not None:
+                    match = re.search(alternatePattern, reply)
+                    if match is None:
+                        raise CommunicationReadAlternateMatch(reply)
+                raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
 
         return reply
 
-    def writeStringReadFirstMatchingGroup(self, string, replyPattern):
+    def writeStringReadFirstMatchingGroup(self, string, replyPattern, alternatePattern = None):
         with self.transactionLock:
-            groups = self.writeStringReadMatchingGroups(string, replyPattern)
+            groups = self.writeStringReadMatchingGroups(string, replyPattern, alternatePattern)
             if len(groups) >= 1:
                 return groups[0]
             else:
                 raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
 
-    def writeStringReadMatchingGroups(self, string, replyPattern):
+    def writeStringReadMatchingGroups(self, string, replyPattern, alternatePattern = None):
         with self.transactionLock:
             self.writeString(string)
             reply = self.readString()

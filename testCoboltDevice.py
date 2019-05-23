@@ -47,9 +47,11 @@ class TestDebugCobolt(BaseTestCases.TestCobolt):
 class TestRealCobolt(BaseTestCases.TestCobolt):
 
     def setUp(self):
-        self.device = CoboltDevice(bsdPath="COM5") 
-        self.assertIsNotNone(self.device, "No CoboltDevice at COM5")
-        self.device.initializeDevice()
+        try:
+            self.device = CoboltDevice(bsdPath="COM5") 
+            self.device.initializeDevice()
+        except:
+            raise unittest.SkipTest("No CoboltDevice at COM5")
 
     def tearDown(self):
         self.device.shutdownDevice()

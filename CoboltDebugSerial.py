@@ -8,6 +8,7 @@ class CoboltDebugSerial:
         self.power = 0.1
         self.isOn = True
         self.requestedPower = 0
+        self.autostart = 1
         self._isOpen = True
 
     @property
@@ -83,6 +84,13 @@ class CoboltDebugSerial:
             replyData = bytearray("123456\r\n", encoding='utf-8')
             self.outputBuffer.extend(replyData)
             return len(data)
+
+        match = re.search("@cobas\\?\r", string)
+        if match is not None:
+            replyData = bytearray("{0}\r\n".format(self.autostart), encoding='utf-8')
+            self.outputBuffer.extend(replyData)
+            return len(data)
+
 
         match = re.search("ilk\\?\r", string)
         if match is not None:
