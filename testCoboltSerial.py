@@ -64,7 +64,6 @@ class TestDebugCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):
     def tearDown(self):
         self.port.close()
 
-@unittest.skip
 class TestRealCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):
 
     def setUp(self):

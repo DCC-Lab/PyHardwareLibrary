@@ -44,7 +44,6 @@ class TestDebugCobolt(BaseTestCases.TestCobolt):
         self.device.shutdownDevice()
         return
 
-@unittest.skip
 class TestRealCobolt(BaseTestCases.TestCobolt):
 
     def setUp(self):
