@@ -60,23 +60,28 @@ class CoboltDebugSerial:
         match = re.search("p (\\d+\\.?\\d+)\r", string)
         if match is not None:
             self.power = float(match.groups()[0])
+            replyData = bytearray("OK\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
             return len(data)
 
         match = re.search("l1\r", string)
         if match is not None:
             self.isOn = True
+            replyData = bytearray("OK\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
             return len(data)
 
         match = re.search("l0\r", string)
         if match is not None:
             self.isOn = False
+            replyData = bytearray("OK\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
             return len(data)
 
         match = re.search("sn\\?\r", string)
         if match is not None:
             replyData = bytearray("123456\r\n", encoding='utf-8')
             self.outputBuffer.extend(replyData)
-
             return len(data)
 
         match = re.search("ilk\\?\r", string)
@@ -86,7 +91,9 @@ class CoboltDebugSerial:
 
             return len(data)
 
-        raise ValueError("Unknown command: {0}".format(data))
+        # Error:
+        replyData = bytearray("Syntax error: {0}", encoding='utf-8')
+        self.outputBuffer.extend(replyData)
 
     # def readline(self) -> bytearray:
     #     data = bytearray()
