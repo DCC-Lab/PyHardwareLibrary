@@ -59,7 +59,7 @@ class CoboltDebugSerial:
 
         match = re.search("p (\\d+\\.?\\d+)\r", string)
         if match is not None:
-            self.power = match.groups()[0]
+            self.power = float(match.groups()[0])
             return len(data)
 
         match = re.search("l1\r", string)
@@ -75,6 +75,13 @@ class CoboltDebugSerial:
         match = re.search("sn\\?\r", string)
         if match is not None:
             replyData = bytearray("123456\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
+
+            return len(data)
+
+        match = re.search("ilk\\?\r", string)
+        if match is not None:
+            replyData = bytearray("1\r\n", encoding='utf-8')
             self.outputBuffer.extend(replyData)
 
             return len(data)

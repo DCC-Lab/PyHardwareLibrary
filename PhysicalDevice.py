@@ -8,6 +8,9 @@ class DeviceState(Enum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
+class PhysicalDeviceUnableInitialize(Exception):
+    pass
+
 class PhysicalDevice:
 
     def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):

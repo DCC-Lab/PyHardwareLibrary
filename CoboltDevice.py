@@ -34,14 +34,17 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             if self.bsdPath == "debug":
                 self.port = CommunicationPort(port=CoboltDebugSerial())
             else:
-                self.port = CommunicationPort(bsdPath=bsdPath)
-
+                self.port = CommunicationPort(bsdPath=self.bsdPath)
+            
+            if self.port is None:
+                raise PhysicalDeviceUnableInitialize()
             self.port.open()
             self.doGetLaserSerialNumber()
 
         except Exception as error:
-            self.port.close()
-            raise error
+            if self.port is not None:
+                self.port.close()
+            raise PhysicalDeviceUnableInitialize()
 
     def doShutdownDevice(self):
         self.port.close()
@@ -50,6 +53,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
     def doGetInterlockState(self) -> bool:
         value = self.port.writeStringExpectMatchingString('ilk?\r', replyPattern='([0|1])')
         self.interlockState = bool(value)
+        return self.interlockState
 
     def doGetLaserSerialNumber(self) -> str:
         self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')

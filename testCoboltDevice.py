@@ -5,50 +5,57 @@ from threading import Thread, Lock
 from serial import *
 from CommunicationPort import *
 from DebugEchoCommunicationPort import *
+from CoboltDevice import *
 
 class BaseTestCases:
     device:CoboltDevice = None
 
     class TestCobolt(unittest.TestCase):
     
-        def create(self):
+        def testCreate(self):
+            self.assertIsNotNone(self.device)
 
+        def testInitializeShutdown(self):
+            self.device.initializeDevice()
+            self.device.shutdownDevice()
 
+        def testTurnOn(self):
+            self.device.turnOn()            
 
+        def testTurnOff(self):
+            self.device.turnOff()            
+
+        def testTurnOnOff(self):
+            self.device.turnOn()            
+            self.device.setPower(0.01)            
+            self.assertTrue(self.device.power() == 0.01)
+
+        def testInterloc(self):
+            self.assertTrue(self.device.interlock()) 
 
 class TestDebugCobolt(BaseTestCases.TestCobolt):
 
     def setUp(self):
-        self.port = ()
-        self.assertIsNotNone(self.port)
-        self.port.open()
+        self.device = CoboltDevice(bsdPath="debug") 
+        self.assertIsNotNone(self.device)
+        self.device.initializeDevice()
 
     def tearDown(self):
-        self.port.close()
+        self.device.shutdownDevice()
+        return
 
-
+@unittest.skip
 class TestRealCobolt(BaseTestCases.TestCobolt):
 
     def setUp(self):
-        self.device = 
+        self.device = CoboltDevice(bsdPath="COM5") 
+        self.assertIsNotNone(self.device)
+        self.device.initializeDevice()
 
     def tearDown(self):
-        self.port.close()
+        self.device.shutdownDevice()
+        return
 
-
-class TestRealEchoPort(BaseTestCases.TestEchoPort):
-
-    def setUp(self):
-        try:
-            self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
-            self.assertIsNotNone(self.port)
-            self.port.open()
-        except:
-            self.fail("Unable to setUp serial port")
-
-
-    def tearDown(self):
-        self.port.close()
 
 
 if __name__ == '__main__':

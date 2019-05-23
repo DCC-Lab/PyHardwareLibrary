@@ -14,4 +14,4 @@ class LaserSourceDevice:
         return self.doGetPower()
 
     def interlock(self) -> bool:
-        return self.doGetInterlock()
+        return self.doGetInterlockState()
