@@ -50,16 +50,16 @@ class BaseTestCases:
             self.assertTrue(nBytes == len(payloadData))
 
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData)
+            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoSequence(self):
             nBytes = self.port.writeData(payloadData)
             nBytes = self.port.writeData(payloadData)
 
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData)
+            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData)
+            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoLarge(self):
             for i in range(1000):
@@ -67,7 +67,7 @@ class BaseTestCases:
 
             for i in range(1000):
                 data = self.port.readData(length=len(payloadData))
-                self.assertTrue(data == payloadData)
+                self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteString(self):
             nBytes = self.port.writeString(payloadString)
