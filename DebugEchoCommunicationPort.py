@@ -25,6 +25,9 @@ class DebugEchoCommunicationPort(CommunicationPort):
     def bytesAvailable(self):
         return len(self.buffer)
 
+    def flush(self):
+        self.buffer = bytearray()
+
     def readData(self, length):
         with self.portLock:
             time.sleep(self.delay*random.random())

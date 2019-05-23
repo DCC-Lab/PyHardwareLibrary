@@ -44,6 +44,10 @@ class CommunicationPort:
     def bytesAvailable(self) -> int:
         return self.port.in_waiting
 
+    def flush(self):
+        self.port.reset_input_buffer()
+        self.port.reset_output_buffer()
+
     def readData(self, length) -> bytearray:
         with self.portLock:
             data = self.port.read(length)

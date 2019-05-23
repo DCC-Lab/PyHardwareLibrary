@@ -204,6 +204,7 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
+        self.port.flush()
 
     def tearDown(self):
         self.port.close()
@@ -219,6 +220,7 @@ class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
         self.assertIsNotNone(self.port)
         self.port.delay = 0.01
         self.port.open()
+        self.port.flush()
 
     def tearDown(self):
         self.port.close()
@@ -231,6 +233,7 @@ class TestRealEchoPort(BaseTestCases.TestEchoPort):
             self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
             self.assertIsNotNone(self.port)
             self.port.open()
+            self.port.flush()
         except:
             self.fail("Unable to setUp serial port")
 
