@@ -48,7 +48,7 @@ class TestRealCobolt(BaseTestCases.TestCobolt):
 
     def setUp(self):
         self.device = CoboltDevice(bsdPath="COM5") 
-        self.assertIsNotNone(self.device)
+        self.assertIsNotNone(self.device, "No CoboltDevice at COM5")
         self.device.initializeDevice()
 
     def tearDown(self):

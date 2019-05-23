@@ -68,7 +68,7 @@ class TestRealCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):
 
     def setUp(self):
         self.port = CommunicationPort(port="COM5")
-        self.assertIsNotNone(self.port)
+        self.assertIsNotNone(self.port, "No cobolt serial port at COM5")
         self.port.open()
 
     def tearDown(self):
