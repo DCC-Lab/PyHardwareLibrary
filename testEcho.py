@@ -1,8 +1,10 @@
 import unittest
-from serial import *
-from CommunicationPort import *
 import time
 from threading import Thread, Lock
+
+from serial import *
+from CommunicationPort import *
+from DebugEchoCommunicationPort import *
 
 payloadData = b'1234'
 payloadString = '1234\n'

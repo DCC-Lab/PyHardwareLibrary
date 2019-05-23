@@ -1,25 +1,14 @@
 from PhysicalDevice import *
+from LaserSourceDevice import *
+
 from CommunicationPort import *
-import numpy as np
 from CoboltDebugSerial import *
+
+import numpy as np
 import re
 
-class LaserSourceDevice:
-
-    def turnOn(self):
-        self.doTurnOn()
-
-    def turnOff(self):
-        self.doTurnOff()
-
-    def setPower(self, power:float):
-        self.doSetPower(power)
-
-    def power(self) -> float:
-        return self.doGetPower()
-
-
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
+
     def __init__(self, bsdPath=None, serialNumber: str = None,
                  productId: np.uint32 = None, vendorId: np.uint32 = None):
 
@@ -28,12 +17,10 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.interlockState = True
         self.laserSerialNumber = None
 
-
         self.bsdPath = bsdPath
         PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
         LaserSourceDevice.__init__(self)
         self.port = None
-
 
     def __del__(self):
         try:
@@ -49,16 +36,14 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             else:
                 self.port = CommunicationPort(bsdPath=bsdPath)
 
-            # print("Port {0}".format(self.port))
-            # if self.port is None:
-            #     raise ValueError()
-
             self.port.open()
+            self.doGetLaserSerialNumber()
+
         except Exception as error:
             self.port.close()
             raise error
 
-    def doShutdownDevice(self): # Doesn't seem to do anything
+    def doShutdownDevice(self):
         self.port.close()
         return
 
@@ -66,7 +51,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         value = self.port.writeStringExpectMatchingString('ilk?\r', replyPattern='([0|1])')
         self.interlockState = bool(value)
 
-    def doGetLaserSerialNumber(self):
+    def doGetLaserSerialNumber(self) -> str:
         self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
 
     def doTurnOn(self):
@@ -79,7 +64,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         command = 'p {0:0.3f}\r'.format(powerInWatts)
         self.port.writeString(command)
 
-    def doGetPower(self):
+    def doGetPower(self) -> float:
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
         return float(value)
 
@@ -88,8 +73,7 @@ if __name__ == "__main__":
     try:
         laser = CoboltDevice("debug")
     except:
-        print("No laser found on COM5. Using debug")
-        laser = CoboltDevice("debug")
+        exit("No laser")
 
     laser.initializeDevice()
     laser.turnOn()
