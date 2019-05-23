@@ -92,7 +92,6 @@ class CoboltDebugSerial:
             return len(data)
 
         # Error (string already includes \n)
-        print("Unkonwn {0}".format(data))
         replyData = bytearray("Syntax error: {0}\n".format(string), encoding='utf-8')
         self.outputBuffer.extend(replyData)
 
