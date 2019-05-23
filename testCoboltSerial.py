@@ -14,6 +14,21 @@ class BaseTestCases:
         def testCreate(self):
             self.assertIsNotNone(self.port)
 
+        def testCantReopen(self):
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(Exception) as context:
+                self.port.open()
+
+        def testCloseReopen(self):
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.open()
+
+        def testCloseTwice(self):
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.close()
+
         def testLaserOn(self):
             self.port.writeString('l1\r')
             with self.assertRaises(CommunicationReadTimeout) as context:
@@ -41,6 +56,9 @@ class BaseTestCases:
         def testReadSerialNumber(self):
             self.port.writeStringExpectMatchingString('sn?\r',replyPattern='\\d+')
 
+        def testUnknownCommand(self):
+            with self.assertRaises(Exception) as context:
+                self.port.writeString('nothing useful\r')
 
 
 class TestDebugCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):
