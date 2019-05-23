@@ -15,7 +15,7 @@ class CommunicationPort:
     functions to write strings and read strings, and abstract away
     the details of the communication.
 
-    Three strategies to initialize the CommunicationPort:
+    Two strategies to initialize the CommunicationPort:
     1. with a bsdPath/port name (i.e. "COM1" or "/dev/cu.serial")
     2. with an instance of SerialPort() that will support the same
        functions as pyserial.Serial() (open, close, read, write, readline)
@@ -27,6 +27,10 @@ class CommunicationPort:
 
         self.portLock = RLock()
         self.transactionLock = RLock()
+
+    @property
+    def isOpen(self):
+        return self.port.is_open    
 
     def open(self):
         if self.port is None:

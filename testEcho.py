@@ -19,6 +19,24 @@ class BaseTestCases:
         def testCreate(self):
             self.assertIsNotNone(self.port)
 
+        def testIsOpenOnCreation(self):
+            self.assertTrue(self.port.isOpen)
+
+        def testCantReopen(self):
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(Exception) as context:
+                self.port.open()
+
+        def testCloseReopen(self):
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.open()
+
+        def testCloseTwice(self):
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.close()
+
         def testWriteData(self):
             nBytes = self.port.writeData(payloadData)
             self.assertTrue(nBytes == len(payloadData))
@@ -44,10 +62,10 @@ class BaseTestCases:
             self.assertTrue(data == payloadData)
 
         def testWriteDataReadEchoLarge(self):
-            for i in range(100):
+            for i in range(1000):
                 nBytes = self.port.writeData(payloadData)
 
-            for i in range(100):
+            for i in range(1000):
                 data = self.port.readData(length=len(payloadData))
                 self.assertTrue(data == payloadData)
 
@@ -72,12 +90,12 @@ class BaseTestCases:
             self.assertTrue(string == payloadString)
 
         def testWriteStringReadEchoLarge(self):
-            for i in range(100):
+            for i in range(1000):
                 nBytes = self.port.writeString(payloadString)
 
-            for i in range(100):
+            for i in range(1000):
                 string = self.port.readString()
-                self.assertTrue(string == payloadString)
+                self.assertTrue(string == payloadString,"{0} is not {1}".format(string, payloadString))
 
         def testTimeoutReadData(self):
             with self.assertRaises(CommunicationReadTimeout) as context:
@@ -172,18 +190,22 @@ def threadReadWrite(port, index):
                 threadFailed = index        
 
 
+#@unittest.skip
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         self.port = DebugEchoCommunicationPort()
         self.assertIsNotNone(self.port)
         self.port.open()
+        self.assertTrue(self.port.isOpen)
 
     def tearDown(self):
         self.port.close()
+        self.assertFalse(self.port.isOpen)
 
 
 
+@unittest.skip
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):

@@ -4,12 +4,22 @@ class DebugEchoCommunicationPort(CommunicationPort):
     def __init__(self, delay=0):
         self.buffer = bytearray()
         self.delay = delay
+        self._isOpen = False
         super(DebugEchoCommunicationPort, self).__init__()
 
+    @property
+    def isOpen(self):
+        return self._isOpen    
+
     def open(self):
+        if self._isOpen:
+            raise Exception()
+
+        self._isOpen = True
         return
 
     def close(self):
+        self._isOpen = False
         return
 
     def bytesAvailable(self):
