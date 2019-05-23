@@ -59,14 +59,14 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
 
     def doTurnOn(self):
-        self.port.writeString('l1\r')
+        self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
 
-    def doTurnOff(self): # The laser needs to be unplug after using this function or it doesn't restart using doTurnOn??
-        self.port.writeString('l0\r')
+    def doTurnOff(self):
+        self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')
 
     def doSetPower(self, powerInWatts):
         command = 'p {0:0.3f}\r'.format(powerInWatts)
-        self.port.writeString(command)
+        self.port.writeStringExpectMatchingString(command,replyPattern='OK')
 
     def doGetPower(self) -> float:
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
