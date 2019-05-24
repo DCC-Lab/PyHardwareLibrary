@@ -29,8 +29,35 @@ class BaseTestCases:
             self.port.close()
             self.port.close()
 
-        def testLaserOn(self):
+        def testCantReadEmptyPort(self):
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(CommunicationReadTimeout) as context:
+                self.port.readString()
+
+        def testLaserOnAutostartArbitrary(self):
+            autostartString = self.port.writeStringReadFirstMatchingGroup('@cobas?\r',replyPattern='(1|0)')
+
+            if not bool(autostartString):
+                self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
+            else:
+                self.port.writeStringExpectMatchingString('l1\r',replyPattern='Syntax')
+
+        def testDisableAutostartThenTurnOn(self):
+            self.port.writeStringExpectMatchingString('@cobas 0\r',replyPattern='OK')
+
             self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
+            
+            self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
+
+        def testEnableAutostartThenTurnOn(self):
+            self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
+
+            self.port.writeStringExpectMatchingString('l1\r',replyPattern='Syntax')
+            
+            self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
+
+        def testIsLaserOn(self):
+            self.port.writeStringExpectMatchingString('l?\r',replyPattern='(1|0)')
 
         def testLaserOff(self):
             self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')
@@ -42,7 +69,7 @@ class BaseTestCases:
             self.port.writeStringExpectMatchingString('p?\r',replyPattern='\\d+.\\d+')
 
         def testReadInterlock(self):
-            self.port.writeStringExpectMatchingString('p?\r',replyPattern='\\d+.\\d+')
+            self.port.writeStringExpectMatchingString('ilk?\r',replyPattern='(1|0)')
 
         def testWriteSetPower(self):
             self.port.writeStringExpectMatchingString('p 0.001\r','OK')
@@ -68,7 +95,7 @@ class TestRealCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):
 
     def setUp(self):
         try:
-            self.port = CommunicationPort(port="COM5")
+            self.port = CommunicationPort(bsdPath="COM5")
             self.port.open()
         except:
             raise unittest.SkipTest("No cobolt serial port at COM5")

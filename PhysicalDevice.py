@@ -8,7 +8,7 @@ class DeviceState(Enum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
-class PhysicalDeviceUnableInitialize(Exception):
+class PhysicalDeviceUnableToInitialize(Exception):
     pass
 
 class PhysicalDevice:
@@ -24,19 +24,21 @@ class PhysicalDevice:
             try:
                 self.doInitializeDevice()
                 self.state = DeviceState.Ready
-            except:
+            except Exception as error:
                 self.state = DeviceState.Unrecognized
+                raise error
 
     def doInitializeDevice(self):
-        return
+        raise NotImplementedError("Base class must override doInitializeDevice()")
 
     def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
                 self.doShutdownDevice()
-                self.state = DeviceState.Recognized
             except Exception as error:
                 raise error
+            finally:
+                self.state = DeviceState.Recognized
 
     def doShutdownDevice(self):
-        return
+        raise NotImplementedError("Base class must override doShutdownDevice()")

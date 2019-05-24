@@ -1,6 +1,9 @@
 
 class LaserSourceDevice:
 
+    def isLaserOn(self):
+        return self.doGetOnOffState()
+
     def turnOn(self):
         self.doTurnOn()
 
