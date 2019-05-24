@@ -31,7 +31,7 @@ class BaseTestCases:
 
         def testCantReadEmptyPort(self):
             self.assertTrue(self.port.isOpen)
-            with self.assertRaises(Exception) as context:
+            with self.assertRaises(CommunicationReadTimeout) as context:
                 self.port.readString()
 
         def testLaserOnAutostartArbitrary(self):
@@ -41,8 +41,6 @@ class BaseTestCases:
                 self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
             else:
                 self.port.writeStringExpectMatchingString('l1\r',replyPattern='Syntax')
-                # self.port.writeString('l1\r')
-                # print(self.port.readString())
 
         def testDisableAutostartThenTurnOn(self):
             self.port.writeStringExpectMatchingString('@cobas 0\r',replyPattern='OK')
