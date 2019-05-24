@@ -24,16 +24,41 @@ class BaseTestCases:
             self.device.initializeDevice()
             self.device.shutdownDevice()
 
-        def testTurnOn(self):
+        def testTurnOnWithAutostartOff(self):
+            self.device.turnAutostartOff()
             self.device.turnOn()            
+            self.device.turnAutostartOn()
 
-        def testTurnOff(self):
+        def testErrorTurnOnAutostartOn(self):
+            self.device.turnAutostartOn()
+            with self.assertRaises(CoboltCantTurnOnWithAutostartOn) as context:
+                self.device.turnOn()            
+
+        def testTurnOffAutostartOn(self):
+            self.device.turnAutostartOn()
+            self.device.turnOff()            
+
+        def testTurnOffAutostartOff(self):
+            self.device.turnAutostartOff()
             self.device.turnOff()            
 
         def testTurnOnOff(self):
+            self.device.turnAutostartOff()
             self.device.turnOn()            
             self.device.setPower(0.01)            
             self.assertTrue(self.device.power() == 0.01)
+            self.device.turnAutostartOn()
+
+        def testGetAutostart(self):
+            self.device.autostartIsOn()            
+
+        def testTurnAutostartOn(self):
+            self.device.turnAutostartOn()            
+            self.assertTrue(self.device.autostartIsOn())
+
+        def testTurnAutostartOff(self):
+            self.device.turnAutostartOff()            
+            self.assertFalse(self.device.autostartIsOn())
 
         def testInterloc(self):
             self.assertTrue(self.device.interlock()) 

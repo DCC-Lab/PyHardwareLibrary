@@ -68,7 +68,7 @@ class CoboltDebugSerial:
         match = re.search("l1\r", string)
         if match is not None:
             replyData = bytearray()
-            if self.autostart:
+            if self.autostart == 1:
                 replyData = bytearray("Syntax error: not allowed in autostart mode\r\n", encoding='utf-8')
             else:
                 self.isOn = True

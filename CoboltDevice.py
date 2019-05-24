@@ -7,6 +7,9 @@ from CoboltDebugSerial import *
 import numpy as np
 import re
 
+class CoboltCantTurnOnWithAutostartOn(Exception):
+    pass
+
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
     def __init__(self, bsdPath=None, serialNumber: str = None,
@@ -14,8 +17,10 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
         self.laserPower = 0
         self.requestedPower = 0
-        self.interlockState = True
+        self.interlockState = None
+        self.autostart = None
         self.laserSerialNumber = None
+        self.isOn = None
 
         self.bsdPath = bsdPath
         PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
@@ -28,6 +33,15 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         except:
             # ignore if already closed
             return
+    def autostartIsOn(self) -> bool:
+        self.doGetAutostart()
+        return self.autostart
+
+    def turnAutostartOn(self):
+        self.doTurnAutostartOn()
+
+    def turnAutostartOff(self):
+        self.doTurnAutostartOff()
 
     def doInitializeDevice(self): 
         try:
@@ -41,6 +55,10 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
             self.port.open()
             self.doGetLaserSerialNumber()
+            self.doGetAutostart()
+            self.doTurnAutostartOn()
+            self.doGetInterlockState()
+            self.doGetPower()
         except Exception as error:
             if self.port is not None:
                 if self.port.isOpen:
@@ -56,21 +74,39 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         return
 
     def doGetInterlockState(self) -> bool:
-        value = self.port.writeStringExpectMatchingString('ilk?\r', replyPattern='([0|1])')
+        value = self.port.writeStringExpectMatchingString('ilk?\r', replyPattern='(0|1)')
         self.interlockState = bool(value)
         return self.interlockState
 
     def doGetLaserSerialNumber(self) -> str:
         self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
 
+    def doGetOnOffState(self) -> bool:
+        value = self.port.writeStringExpectMatchingString('l?\r', replyPattern='(0|1)')
+        self.isOn = bool(value)
+        return self.isOn        
+
     def doTurnOn(self):
-        if self.port.writeStringExpectMatchingString('@cobas?\r', '([0|1])') == 0:
+        if not self.doGetAutostart():
             self.port.writeStringExpectMatchingString('l1\r', replyPattern='OK')
         else:
-            self.port.writeStringExpectMatchingString('l1\r', replyPattern='Syntax error: not allowed in autostart mode')
+            raise CoboltCantTurnOnWithAutostartOn()
 
     def doTurnOff(self):
         self.port.writeStringExpectMatchingString('l0\r', replyPattern='OK')
+
+    def doGetAutostart(self) -> int:
+        value = self.port.writeStringReadFirstMatchingGroup('@cobas?\r', '([1|0])')
+        self.autostart = value == '1'
+        return self.autostart
+
+    def doTurnAutostartOn(self):
+        self.port.writeStringExpectMatchingString('@cobas 1\r', 'OK')
+        self.autostart = True
+
+    def doTurnAutostartOff(self):
+        self.port.writeStringExpectMatchingString('@cobas 0\r', 'OK')
+        self.autostart = False
 
     def doSetPower(self, powerInWatts):
         command = 'p {0:0.3f}\r'.format(powerInWatts)
@@ -80,23 +116,23 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
         return float(value)
 
-if __name__ == "__main__":
-    laser = None
-    try:
-        laser = CoboltDevice("debug")
-    except:
-        exit("No laser")
+# if __name__ == "__main__":
+#     laser = None
+#     try:
+#         laser = CoboltDevice("debug")
+#     except:
+#         exit("No laser")
 
-    laser.initializeDevice()
-    laser.turnOn()
-    laser.setPower(0.1)
-    print(laser.power())
-    laser.setPower(0.01)
-    print(laser.power())
-    laser.setPower(0.2)
-    print(laser.power())
-    laser.turnOff()
-    laser.shutdownDevice()
+#     laser.initializeDevice()
+#     laser.turnOn()
+#     laser.setPower(0.1)
+#     print(laser.power())
+#     laser.setPower(0.01)
+#     print(laser.power())
+#     laser.setPower(0.2)
+#     print(laser.power())
+#     laser.turnOff()
+#     laser.shutdownDevice()
 
 
 #laser.doTurnOn()
