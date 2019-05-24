@@ -30,7 +30,10 @@ class BaseTestCases:
             self.port.close()
 
         def testLaserOn(self):
-            self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
+            autostartString = self.port.writeStringReadFirstMatchingGroup('@cobas?\r',replyPattern='(1|0)')
+
+            if not bool(autostartString):
+                self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
 
         def testLaserOff(self):
             self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')

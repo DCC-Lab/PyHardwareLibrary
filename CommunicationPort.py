@@ -117,7 +117,7 @@ class CommunicationPort:
             if len(groups) >= 1:
                 return groups[0]
             else:
-                raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
+                raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}' in {1}".format(replyPattern, groups))
 
     def writeStringReadMatchingGroups(self, string, replyPattern, alternatePattern = None):
         with self.transactionLock:
