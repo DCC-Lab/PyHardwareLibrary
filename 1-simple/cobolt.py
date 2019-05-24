@@ -1,5 +1,6 @@
 try:
 	import serial as SP
+	import time
 except:
 	exit("pyserial must be installed with: pip install pyserial")
 
@@ -21,9 +22,12 @@ print("Power is {0}.".format(power))
 
 # Set power
 port.write(b'p 0.01\r')
-# There is no reply according to protocol defined p.27
+reply = port.readline()
+print(reply) # should print ok
 
-# Read power again
+
+# Read power again, after a delay
+time.sleep(1)
 port.write(b'pa?\r')
 reply = port.readline()
 power = int(reply)
