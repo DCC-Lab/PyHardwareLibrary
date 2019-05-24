@@ -56,6 +56,9 @@ class BaseTestCases:
             
             self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
 
+        def testIsLaserOn(self):
+            self.port.writeStringExpectMatchingString('l?\r',replyPattern='(1|0)')
+
         def testLaserOff(self):
             self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')
 

@@ -83,7 +83,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
     def doGetOnOffState(self) -> bool:
         value = self.port.writeStringExpectMatchingString('l?\r', replyPattern='(0|1)')
-        self.isOn = bool(value)
+        self.isOn = (int(value) == 1)
         return self.isOn        
 
     def doTurnOn(self):
@@ -95,9 +95,9 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
     def doTurnOff(self):
         self.port.writeStringExpectMatchingString('l0\r', replyPattern='OK')
 
-    def doGetAutostart(self) -> int:
+    def doGetAutostart(self) -> bool:
         value = self.port.writeStringReadFirstMatchingGroup('@cobas?\r', '([1|0])')
-        self.autostart = value == '1'
+        self.autostart = (int(value) == 1)
         return self.autostart
 
     def doTurnAutostartOn(self):

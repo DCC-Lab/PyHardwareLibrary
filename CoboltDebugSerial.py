@@ -6,7 +6,7 @@ class CoboltDebugSerial:
         self.outputBuffer = bytearray()
         self.lineEnding = b'\r'
         self.power = 0.1
-        self.isOn = True
+        self.isOn = 0
         self.requestedPower = 0
         self.autostart = 1
         self._isOpen = True
@@ -65,20 +65,26 @@ class CoboltDebugSerial:
             self.outputBuffer.extend(replyData)
             return len(data)
 
+        match = re.search("l\\?\r", string)
+        if match is not None:
+            replyData = bytearray("{0}\r\n".format(self.isOn), encoding='utf-8')
+            self.outputBuffer.extend(replyData)
+            return len(data)
+
         match = re.search("l1\r", string)
         if match is not None:
             replyData = bytearray()
             if self.autostart == 1:
                 replyData = bytearray("Syntax error: not allowed in autostart mode\r\n", encoding='utf-8')
             else:
-                self.isOn = True
+                self.isOn = 1
                 replyData = bytearray("OK\r\n", encoding='utf-8')
             self.outputBuffer.extend(replyData)
             return len(data)
 
         match = re.search("l0\r", string)
         if match is not None:
-            self.isOn = False
+            self.isOn = 0
             replyData = bytearray("OK\r\n", encoding='utf-8')
             self.outputBuffer.extend(replyData)
             return len(data)
