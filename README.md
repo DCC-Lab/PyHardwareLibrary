@@ -15,8 +15,8 @@ How does one go about supporting a new device? What is the best strategy?
 
 1. Obtain manual.  Look for connectivity information. 
 
-   1. If necessary, a driver may need to be installed to serialize the device (make it appear as a serial port).
-   2. If not, direct access with USB may be needed with libusb and PyUSB
+   1. If necessary, a driver may need to be installed to serialize the device (to make it appear as a serial port).
+   2. If not available, direct USB access may be needed with libusb and PyUSB
    3. Figure out (ideally through testing, see next point) how to connect with `Serial` `CommunicationPort`
 
 2. Identify commands and write very simple tests with `CommunicationPort`  to confirm connectivity and validate command syntax (see the other [section](#Testing-serial-ports) below for more details):
@@ -127,4 +127,4 @@ The strategy used by the present library is the following:
 2. Many methods are also common: all devices must be initialized, shutdown, etc… These methods are defined in the parent class, but call the device-specific method of the derived class. For instance, `initializeDevice()` does a bit of housekeeping (is the device already initialized? was the underlying initializing successful?) and calls `doInitializeDevice` that must be implemented by the derived class. If initialization fails, it must raise an error. The class must confirm the device responds to at least one internal command to confirm it is indeed the expected device.
 3. For specific classes of devices (e.g., `LaserSourceDevice`), specific methods are used to hide the details of the implementation: `LaserSourceDevice.turnOn()`, `LaserSourceDevice.power()`, `LaserSourceDevice.setPower()`, etc… These methods call device-specific methods with similar names (prefixed by `do`) in the derived class (e.g., `doTurnOn()`)
 4. Methods that start with `do` *will communicate* with the device through the serial port.  They must store the result of the request into an instance variable (to cache the value and to avoid to go back to the serial port each time the value is needed). For instance, an instance `self.power` stores the result obtained from `doGetPower()`.
-5. `do` methods are *never* called by users.  Users call the `turnOn()` method but not the `doTurnOn()` method. If Python as a language allowed it, the `do` methods would be hidden and private, but it does not look possible.
+5. `do` methods are *never* called by users.  Users call the `turnOn()` method but not the `doTurnOn()` method. If Python as a language allowed it, the `do` methods would be hidden and private, but it does not look possible: the only convention is to use `_do` but it is only a convention, functions can still be called.
