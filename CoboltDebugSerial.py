@@ -110,6 +110,10 @@ class CoboltDebugSerial:
 
             match = re.search("@cobas 1\r", string)
             if match is not None:
+                if self.autostart == 0:
+                    self.isOn = 0
+                else:
+                    pass
                 self.autostart = 1
                 replyData = bytearray("OK\r\n", encoding='utf-8')
                 self.outputBuffer.extend(replyData)
