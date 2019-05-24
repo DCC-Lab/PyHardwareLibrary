@@ -51,7 +51,8 @@ class BaseTestCases:
             self.device.turnOn()
             self.assertTrue(self.device.isLaserOn())
             self.device.setPower(0.01)
-            self.assertTrue(0.005 < self.device.power() < 0.015)
+            acceptableDifference = 0.1 * 0.01
+            self.assertTrue(abs(self.device.power() - 0.01) < acceptableDifference)
             self.device.turnAutostartOn()
 
         def testGetAutostart(self):
