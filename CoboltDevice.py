@@ -115,29 +115,3 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
     def doGetPower(self) -> float:
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
         return float(value)
-
-# if __name__ == "__main__":
-#     laser = None
-#     try:
-#         laser = CoboltDevice("debug")
-#     except:
-#         exit("No laser")
-
-#     laser.initializeDevice()
-#     laser.turnOn()
-#     laser.setPower(0.1)
-#     print(laser.power())
-#     laser.setPower(0.01)
-#     print(laser.power())
-#     laser.setPower(0.2)
-#     print(laser.power())
-#     laser.turnOff()
-#     laser.shutdownDevice()
-
-
-#laser.doTurnOn()
-#laser.doGetLaserSerialNumber()
-#laser.doGetPower()
-#laser.doGetInterlockState()
-#laser.doSetPower(powerInWatts=0.01)
-#print("Power is %f W" % laser.doGetPower())
