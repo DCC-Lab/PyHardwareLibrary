@@ -6,6 +6,7 @@ from CoboltDebugSerial import *
 
 import numpy as np
 import re
+import time
 
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
@@ -108,9 +109,18 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.port.writeStringExpectMatchingString('@cobas 0\r', 'OK')
         self.autostart = False
 
-    def doSetPower(self, powerInWatts):
+    def doSetPower(self, powerInWatts) -> float:
         command = 'p {0:0.3f}\r'.format(powerInWatts)
         self.port.writeStringExpectMatchingString(command, replyPattern='OK')
+        actualPower = 0
+        acceptableDifference = 0.1 * powerInWatts
+        for i in range(10): # It is not an error if we don't converge
+            actualPower = self.doGetPower()
+            if abs(actualPower - powerInWatts) < acceptableDifference:
+                break
+            else:
+                time.sleep(0.1)
+        return actualPower
 
     def doGetPower(self) -> float:
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
