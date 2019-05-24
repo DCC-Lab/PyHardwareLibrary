@@ -1,10 +1,10 @@
+import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
 
 from serial import *
-from CommunicationPort import *
-from CoboltDebugSerial import *
+from hardwarelibrary import *
 
 class BaseTestCases:
 
