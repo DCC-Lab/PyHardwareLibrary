@@ -67,6 +67,7 @@ class CoboltDebugSerial:
 
         match = re.search("l1\r", string)
         if match is not None:
+            replyData = bytearray()
             if self.autostart:
                 replyData = bytearray("Syntax error: not allowed in autostart mode\r\n", encoding='utf-8')
             else:
@@ -86,6 +87,20 @@ class CoboltDebugSerial:
         match = re.search("sn\\?\r", string)
         if match is not None:
             replyData = bytearray("123456\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
+            return len(data)
+
+        match = re.search("@cobas 1\r", string)
+        if match is not None:
+            self.autostart = 1
+            replyData = bytearray("OK\r\n", encoding='utf-8')
+            self.outputBuffer.extend(replyData)
+            return len(data)
+
+        match = re.search("@cobas 0\r", string)
+        if match is not None:
+            self.autostart = 0
+            replyData = bytearray("OK\r\n", encoding='utf-8')
             self.outputBuffer.extend(replyData)
             return len(data)
 

@@ -29,11 +29,34 @@ class BaseTestCases:
             self.port.close()
             self.port.close()
 
-        def testLaserOn(self):
+        def testCantReadEmptyPort(self):
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(Exception) as context:
+                self.port.readString()
+
+        def testLaserOnAutostartArbitrary(self):
             autostartString = self.port.writeStringReadFirstMatchingGroup('@cobas?\r',replyPattern='(1|0)')
 
             if not bool(autostartString):
                 self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
+            else:
+                self.port.writeStringExpectMatchingString('l1\r',replyPattern='Syntax')
+                # self.port.writeString('l1\r')
+                # print(self.port.readString())
+
+        def testDisableAutostartThenTurnOn(self):
+            self.port.writeStringExpectMatchingString('@cobas 0\r',replyPattern='OK')
+
+            self.port.writeStringExpectMatchingString('l1\r',replyPattern='OK')
+            
+            self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
+
+        def testEnableAutostartThenTurnOn(self):
+            self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
+
+            self.port.writeStringExpectMatchingString('l1\r',replyPattern='Syntax')
+            
+            self.port.writeStringExpectMatchingString('@cobas 1\r',replyPattern='OK')
 
         def testLaserOff(self):
             self.port.writeStringExpectMatchingString('l0\r',replyPattern='OK')
@@ -45,7 +68,7 @@ class BaseTestCases:
             self.port.writeStringExpectMatchingString('p?\r',replyPattern='\\d+.\\d+')
 
         def testReadInterlock(self):
-            self.port.writeStringExpectMatchingString('p?\r',replyPattern='\\d+.\\d+')
+            self.port.writeStringExpectMatchingString('ilk?\r',replyPattern='(1|0)')
 
         def testWriteSetPower(self):
             self.port.writeStringExpectMatchingString('p 0.001\r','OK')
