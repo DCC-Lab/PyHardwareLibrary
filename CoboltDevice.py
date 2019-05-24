@@ -37,17 +37,22 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
                 self.port = CommunicationPort(bsdPath=self.bsdPath)
             
             if self.port is None:
-                raise PhysicalDeviceUnableInitialize()
+                raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.bsdPath))
+
             self.port.open()
             self.doGetLaserSerialNumber()
-
         except Exception as error:
             if self.port is not None:
-                self.port.close()
-            raise PhysicalDeviceUnableInitialize()
+                if self.port.isOpen:
+                    self.port.close()
+            raise PhysicalDeviceUnableToInitialize()
+        except PhysicalDeviceUnableToInitialize as error:
+            raise error
+        
 
     def doShutdownDevice(self):
         self.port.close()
+        self.port = None
         return
 
     def doGetInterlockState(self) -> bool:

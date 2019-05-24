@@ -15,6 +15,11 @@ class BaseTestCases:
         def testCreate(self):
             self.assertIsNotNone(self.device)
 
+        def testDeviceCreationWithMissingPath(self):
+            aDevice = CoboltDevice(bsdPath="blabla") 
+            with self.assertRaises(PhysicalDeviceUnableToInitialize) as context:
+                aDevice.initializeDevice()
+
         def testInitializeShutdown(self):
             self.device.initializeDevice()
             self.device.shutdownDevice()

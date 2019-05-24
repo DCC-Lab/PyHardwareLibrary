@@ -29,14 +29,17 @@ class CommunicationPort:
 
         if port is not None and port.is_open:
             port.close()
-        self.port = port # direct port , must be closed.
+        self.port = port # direct port, must be closed.
 
         self.portLock = RLock()
         self.transactionLock = RLock()
 
     @property
     def isOpen(self):
-        return self.port.is_open    
+        if self.port is None:
+            return False    
+        else:
+            return self.port.is_open    
 
     def open(self):
         if self.port is None:
