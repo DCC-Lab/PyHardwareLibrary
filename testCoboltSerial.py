@@ -95,7 +95,7 @@ class TestRealCoboltSerialPort(BaseTestCases.TestCoboltSerialPort):
 
     def setUp(self):
         try:
-            self.port = CommunicationPort(port="COM5")
+            self.port = CommunicationPort(bsdPath="COM5")
             self.port.open()
         except:
             raise unittest.SkipTest("No cobolt serial port at COM5")
