@@ -80,6 +80,13 @@ class BaseTestCases:
         def testInterloc(self):
             self.assertTrue(self.device.interlock())
 
+        def testAutostartOffOn(self):
+            self.device.initializeDevice()
+            self.device.turnAutostartOff()
+            self.device.turnOn()
+            self.device.turnAutostartOn()
+            self.assertFalse(self.device.isLaserOn())
+
 
 class TestDebugCobolt(BaseTestCases.TestCobolt):
 
