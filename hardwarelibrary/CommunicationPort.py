@@ -24,8 +24,13 @@ class CommunicationPort:
        functions as pyserial.Serial() (open, close, read, write, readline)
     """
     
-    def __init__(self, bsdPath=None, port = None):
-        self.bsdPath = bsdPath
+    def __init__(self, bsdPath=None, portPath=None, port = None):
+        if bsdPath is not None:
+            self.portPath = bsdPath
+        elif portPath is not None:
+            self.portPath = portPath
+        else:
+            self.portPath = None
 
         if port is not None and port.is_open:
             port.close()
@@ -43,7 +48,7 @@ class CommunicationPort:
 
     def open(self):
         if self.port is None:
-            self.port = serial.Serial(self.bsdPath, 19200, timeout=0.3)
+            self.port = serial.Serial(self.portPath, 19200, timeout=0.3)
         else:
             self.port.open()
 

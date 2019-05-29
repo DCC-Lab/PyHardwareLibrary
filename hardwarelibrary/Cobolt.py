@@ -12,7 +12,7 @@ class CoboltCantTurnOnWithAutostartOn(Exception):
 
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
-    def __init__(self, bsdPath=None, serialNumber: str = None,
+    def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
                  productId: np.uint32 = None, vendorId: np.uint32 = None):
 
         self.laserPower = 0
@@ -22,7 +22,13 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         self.laserSerialNumber = None
         self.isOn = None
 
-        self.bsdPath = bsdPath
+        if bsdPath is not None:
+            self.portPath = bsdPath
+        elif portPath is not None:
+            self.portPath = portPath
+        else:
+            self.portPath = None
+
         PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
         LaserSourceDevice.__init__(self)
         self.port = None
@@ -45,13 +51,13 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
     def doInitializeDevice(self): 
         try:
-            if self.bsdPath == "debug":
+            if self.portPath == "debug":
                 self.port = CommunicationPort(port=CoboltDebugSerial())
             else:
-                self.port = CommunicationPort(bsdPath=self.bsdPath)
+                self.port = CommunicationPort(portPath=self.portPath)
             
             if self.port is None:
-                raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.bsdPath))
+                raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
             self.port.open()
             self.doGetLaserSerialNumber()
