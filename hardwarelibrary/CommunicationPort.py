@@ -24,8 +24,13 @@ class CommunicationPort:
        functions as pyserial.Serial() (open, close, read, write, readline)
     """
     
-    def __init__(self, bsdPath=None, port = None):
-        self.bsdPath = bsdPath
+    def __init__(self, bsdPath=None, portPath=None, port = None):
+        if bsdPath is not None:
+            self.portPath = bsdPath
+        elif portPath is not None:
+            self.portPath = portPath
+        else:
+            self.portPath = None
 
         if port is not None and port.is_open:
             port.close()
@@ -43,7 +48,7 @@ class CommunicationPort:
 
     def open(self):
         if self.port is None:
-            self.port = serial.Serial(self.bsdPath, 19200, timeout=0.3)
+            self.port = serial.Serial(self.portPath, 19200, timeout=0.3)
         else:
             self.port.open()
 
@@ -132,3 +137,49 @@ class CommunicationPort:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
 
+class DebugEchoCommunicationPort(CommunicationPort):
+    def __init__(self, delay=0):
+        self.buffer = bytearray()
+        self.delay = delay
+        self._isOpen = False
+        super(DebugEchoCommunicationPort, self).__init__()
+
+    @property
+    def isOpen(self):
+        return self._isOpen    
+
+    def open(self):
+        if self._isOpen:
+            raise Exception()
+
+        self._isOpen = True
+        return
+
+    def close(self):
+        self._isOpen = False
+        return
+
+    def bytesAvailable(self):
+        return len(self.buffer)
+
+    def flush(self):
+        self.buffer = bytearray()
+
+    def readData(self, length):
+        with self.portLock:
+            time.sleep(self.delay*random.random())
+            data = bytearray()
+            for i in range(0, length):
+                if len(self.buffer) > 0:
+                    byte = self.buffer.pop(0)
+                    data.append(byte)
+                else:
+                    raise CommunicationReadTimeout("Unable to read data")
+
+        return data
+
+    def writeData(self, data):
+        with self.portLock:
+            self.buffer.extend(data)
+
+        return len(data)

@@ -1,12 +1,10 @@
+import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
 
 from serial import *
-from CommunicationPort import *
-from DebugEchoCommunicationPort import *
-from CoboltDevice import *
-
+from hardwarelibrary import *
 
 class BaseTestCases:
     device: CoboltDevice = None

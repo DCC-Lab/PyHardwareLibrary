@@ -1,4 +1,4 @@
-from CoboltDevice import *
+from hardwarelibrary import *
 
 laser = CoboltDevice(bsdPath="COM5")
 

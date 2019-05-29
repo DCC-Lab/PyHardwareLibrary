@@ -1,10 +1,10 @@
+import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
 
 from serial import *
-from CommunicationPort import *
-from DebugEchoCommunicationPort import *
+from hardwarelibrary import *
 
 payloadData = b'1234'
 payloadString = '1234\n'

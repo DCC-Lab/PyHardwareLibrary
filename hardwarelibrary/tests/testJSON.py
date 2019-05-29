@@ -1,3 +1,4 @@
+import env # modifies path
 import json
 import unittest
 from serial import *

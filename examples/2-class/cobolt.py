@@ -22,6 +22,8 @@ class CoboltLaser:
         command = "p {0:0.3f}\r".format(powerInWatts)
         data = bytearray(command, "utf-8")
         self.port.write(data)
+        reply = self.port.readline()
+        print(reply)
 
     def power(self):    
         self.port.write(b'pa?\r') 
