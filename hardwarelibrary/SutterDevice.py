@@ -65,81 +65,9 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
         self.port = None
         return
 
-class CommandString:
-    def __init__(self, name, pattern):
-        self.text = ""
-        self.name = name
-        self.pattern = pattern
-        self.groups = ()
-
-    def match(self, inputString) -> Match:
-        return re.search(self.pattern, inputString)
-
-class CommandData:
-    def __init__(self, name, hexPattern, dataLength):
-        self.data = bytearray()
-        self.name = name
-        self.hexPattern = hexPattern
-        self.dataLength = dataLength
-        self.groups = ()
-
-    def match(self, inputData) -> Match:
-        inputHexString = inputData.hex()
-        return re.search(self.hexPattern, inputHexString)
-
-class DebugCommunicationPort:
+class SutterDebugSerialPort(DebugCommunicationPort):
     def __init__(self):
-        self.outputBuffer = bytearray()
-        self.lineEnding = b'\r'
-        self.commands = ()
-        self._isOpen = True
-
-    @property
-    def is_open(self):
-        return self._isOpen
-    
-    def open(self):
-        with globalLock:
-            if self._isOpen:
-                raise IOError("port is already open")
-            else:
-                self._isOpen = True
-
-        return
-
-    def close(self):
-        with globalLock:
-            self._isOpen = False
-
-        return
-
-    def flush(self):
-        return
-
-    def read(self, length) -> bytearray:
-        with globalLock:
-            data = bytearray()
-            for i in range(0, length):
-                if len(self.outputBuffer) > 0:
-                    byte = self.outputBuffer.pop(0)
-                    data.append(byte)
-                else:
-                    raise CommunicationReadTimeout("Unable to read data")
-
-        return data
-
-
-    def write(self, data:bytearray) -> int :
-        inputString = data.decode('utf-8')
-        replyData = bytearray()
-        for command in self.commands:
-            match = re.search(command.pattern, inputString)
-            if match is not None:
-                replyData = self.processCommand(command, match.groups(), inputString)
-                self.outputBuffer.append(replyData)
-                break
-
-        return len(replyData)
+        DebugCommunicationPort.__init__()
 
     def loadCommands(self):
         move = CommandData(name='move', hexPattern=b'M')

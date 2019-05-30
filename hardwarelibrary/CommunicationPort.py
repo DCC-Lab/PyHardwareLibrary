@@ -137,49 +137,99 @@ class CommunicationPort:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
 
-class DebugEchoCommunicationPort(CommunicationPort):
-    def __init__(self, delay=0):
-        self.buffer = bytearray()
-        self.delay = delay
-        self._isOpen = False
-        super(DebugEchoCommunicationPort, self).__init__()
+class CommandString:
+    def __init__(self, name, pattern):
+        self.text = ""
+        self.name = name
+        self.pattern = pattern
+        self.groups = ()
 
+    def match(self, inputData) -> re.Match:
+        inputString = inputData.decode('utf-8')
+        return re.search(self.pattern, inputString)
+
+class CommandData:
+    def __init__(self, name, hexPattern, dataLength):
+        self.data = bytearray()
+        self.name = name
+        self.hexPattern = hexPattern
+        self.dataLength = dataLength
+        self.groups = ()
+
+    def match(self, inputData) -> re.Match:
+        inputHexString = inputData.hex()
+        return re.search(self.hexPattern, inputHexString)
+
+class DebugCommunicationPort(CommunicationPort):
+    def __init__(self, isBinary=False, delay=0):
+        self.isBinary = isBinary
+        self.delay = delay
+        self.lineEnding = b'\r'
+        self.lock = RLock()
+
+        self.outputBuffer = bytearray()
+        self.commands = []
+        self._isOpen = False
+        super(DebugCommunicationPort, self).__init__()
+    
     @property
     def isOpen(self):
         return self._isOpen    
-
+    
     def open(self):
-        if self._isOpen:
-            raise Exception()
-
-        self._isOpen = True
+        with self.lock:
+            if self._isOpen:
+                raise IOError("port is already open")
+            else:
+                self._isOpen = True
         return
 
     def close(self):
-        self._isOpen = False
+        with self.lock:
+            self._isOpen = False
+
         return
 
-    def bytesAvailable(self):
-        return len(self.buffer)
-
     def flush(self):
-        self.buffer = bytearray()
+        return
 
-    def readData(self, length):
-        with self.portLock:
-            time.sleep(self.delay*random.random())
+    def readData(self, length) -> bytearray:
+        with self.lock:
             data = bytearray()
             for i in range(0, length):
-                if len(self.buffer) > 0:
-                    byte = self.buffer.pop(0)
+                if len(self.outputBuffer) > 0:
+                    byte = self.outputBuffer.pop(0)
                     data.append(byte)
                 else:
                     raise CommunicationReadTimeout("Unable to read data")
 
         return data
 
-    def writeData(self, data):
-        with self.portLock:
-            self.buffer.extend(data)
 
-        return len(data)
+    def writeData(self, data:bytearray) -> int :
+        with self.lock:
+            for command in self.commands:
+                match = command.match(data) 
+                if match is not None:      
+                    if command is isinstance(command, CommandData):            
+                        replyData = self.processCommand(command, match.groups(), data)
+                    else:
+                        replyString = self.processCommand(command, match.groups(), data.decode('utf-8') )
+                        replyData = replyString.encode()
+
+                    self.outputBuffer.extend(replyData)
+
+                    break
+
+            return len(replyData)
+
+class DebugEchoCommunicationPort(DebugCommunicationPort):
+    def __init__(self, delay=0):
+        super(DebugEchoCommunicationPort, self).__init__(delay=delay)
+        self.commands.append(CommandString(name='echo', pattern='(.)+'))
+
+    def processCommand(self, command, groups, inputString) -> bytearray:
+        if command.name == 'echo':
+            return inputString
+
+        raise CommunicationPortUnrecognizedCommand("Unrecognized command: {0}".format(inputString))

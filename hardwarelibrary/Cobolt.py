@@ -131,8 +131,6 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
         return float(value)
 
-globalLock = RLock()
-
 class CoboltDebugSerial:
     def __init__(self):
         self.outputBuffer = bytearray()
