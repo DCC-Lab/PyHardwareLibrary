@@ -149,11 +149,10 @@ class CommandString:
         return re.search(self.pattern, inputString)
 
 class CommandData:
-    def __init__(self, name, hexPattern, dataLength):
+    def __init__(self, name, hexPattern):
         self.data = bytearray()
         self.name = name
         self.hexPattern = hexPattern
-        self.dataLength = dataLength
         self.groups = ()
 
     def match(self, inputData) -> re.Match:
@@ -193,43 +192,57 @@ class DebugCommunicationPort(CommunicationPort):
     def flush(self):
         return
 
-    def readData(self, length) -> bytearray:
+    def readData(self, length = None) -> bytearray:
         with self.lock:
             data = bytearray()
-            for i in range(0, length):
-                if len(self.outputBuffer) > 0:
-                    byte = self.outputBuffer.pop(0)
-                    data.append(byte)
-                else:
-                    raise CommunicationReadTimeout("Unable to read data")
+            if length is not None:
+                for i in range(0, length):
+                    if len(self.outputBuffer) > 0:
+                        byte = self.outputBuffer.pop(0)
+                        data.append(byte)
+                    else:
+                        raise CommunicationReadTimeout("Unable to read data")
+            else:
+                data.append(self.outputBuffer)
+                self.outputBuffer = bytearray()
 
         return data
 
 
     def writeData(self, data:bytearray) -> int :
         with self.lock:
+            replyData = bytearray()
             for command in self.commands:
                 match = command.match(data) 
                 if match is not None:      
-                    if command is isinstance(command, CommandData):            
+                    if isinstance(command, CommandData):            
                         replyData = self.processCommand(command, match.groups(), data)
                     else:
                         replyString = self.processCommand(command, match.groups(), data.decode('utf-8') )
                         replyData = replyString.encode()
-
-                    self.outputBuffer.extend(replyData)
-
                     break
 
+            self.outputBuffer.extend(replyData)
             return len(replyData)
 
-class DebugEchoCommunicationPort(DebugCommunicationPort):
+class EchoStringDebugCommunicationPort(DebugCommunicationPort):
     def __init__(self, delay=0):
-        super(DebugEchoCommunicationPort, self).__init__(delay=delay)
-        self.commands.append(CommandString(name='echo', pattern='(.)+'))
+        super(EchoStringDebugCommunicationPort, self).__init__(delay=delay)
+        self.commands.append(CommandString(name='echoString', pattern='(.+)'))
 
     def processCommand(self, command, groups, inputString) -> bytearray:
-        if command.name == 'echo':
+        if command.name == 'echoString':
             return inputString
+
+        raise CommunicationPortUnrecognizedCommand("Unrecognized command: {0}".format(inputString))
+
+class EchoDataDebugCommunicationPort(DebugCommunicationPort):
+    def __init__(self, delay=0):
+        super(EchoDataDebugCommunicationPort, self).__init__(delay=delay)
+        self.commands.append(CommandData(name='echoData', hexPattern='(.+)'))
+
+    def processCommand(self, command, groups, inputData) -> bytearray:
+        if command.name == 'echoData':
+            return inputData
 
         raise CommunicationPortUnrecognizedCommand("Unrecognized command: {0}".format(inputString))

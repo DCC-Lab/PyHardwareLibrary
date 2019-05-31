@@ -197,10 +197,23 @@ def threadReadWrite(port, index):
 
 
 
-class TestDebugEchoPort(BaseTestCases.TestEchoPort):
+class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = DebugEchoCommunicationPort()
+        self.port = EchoStringDebugCommunicationPort()
+        self.assertIsNotNone(self.port)
+        self.port.open()
+        self.assertTrue(self.port.isOpen)
+        self.port.flush()
+
+    def tearDown(self):
+        self.port.close()
+        self.assertFalse(self.port.isOpen)
+
+class TestDebugEchoDataPort(BaseTestCases.TestEchoPort):
+
+    def setUp(self):
+        self.port = EchoDataDebugCommunicationPort()
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
@@ -213,8 +226,7 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = DebugEchoCommunicationPort()
-        self.assertIsNotNone(self.port)
+        self.port = EchoStringDebugCommunicationPort()
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
@@ -225,20 +237,20 @@ class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
         self.port.close()
 
 
-# class TestRealEchoPort(BaseTestCases.TestEchoPort):
+class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
-#     def setUp(self):
-#         try:
-#             self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
-#             self.assertIsNotNone(self.port)
-#             self.port.open()
-#             self.port.flush()
-#         except:
-#             raise unittest.SkipTest("No ECHO serial port at available")
+    def setUp(self):
+        try:
+            self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
+            self.assertIsNotNone(self.port)
+            self.port.open()
+            self.port.flush()
+        except:
+            raise unittest.SkipTest("No ECHO device connected")
 
-#     def tearDown(self):
-#         self.port.flush()
-#         self.port.close()
+    def tearDown(self):
+        self.port.flush()
+        self.port.close()
 
 
 if __name__ == '__main__':
