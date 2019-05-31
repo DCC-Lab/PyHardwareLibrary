@@ -87,5 +87,5 @@ class SutterDebugSerialPort(DebugCommunicationPort):
             replyData.extend(bytearray(pack("<l", self.x)))
             replyData.extend(bytearray(pack("<l", self.y)))
             replyData.extend(bytearray(pack("<l", self.z)))
-
+            replyData.extend(b'\r')
             return replyData
