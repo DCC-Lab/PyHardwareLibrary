@@ -138,26 +138,35 @@ class CommunicationPort:
 
 
 class CommandString:
-    def __init__(self, name, pattern):
+    def __init__(self, name:str, pattern:str):
         self.text = ""
         self.name = name
         self.pattern = pattern
         self.groups = ()
 
-    def match(self, inputData) -> re.Match:
+    def match(self, inputData:bytearray) -> [str]:
         inputString = inputData.decode('utf-8')
-        return re.search(self.pattern, inputString)
+        theMatch = re.search(self.pattern, inputString)
+        if theMatch is not None:
+            return theMatch.groups()
+        else:
+            return None
 
 class CommandData:
-    def __init__(self, name, hexPattern):
+    def __init__(self, name:str, hexPattern:str):
         self.data = bytearray()
         self.name = name
         self.hexPattern = hexPattern
         self.groups = ()
 
-    def match(self, inputData) -> re.Match:
+    def match(self, inputData:bytearray) -> [bytearray]:
         inputHexString = inputData.hex()
-        return re.search(self.hexPattern, inputHexString)
+        theMatch = re.search(self.hexPattern, inputHexString)
+        if theMatch is not None:
+            dataGroups = [ bytearray.fromhex(hexString) for hexString in theMatch.groups() ]           
+            return dataGroups
+        else:
+            return None
 
 class DebugCommunicationPort(CommunicationPort):
     def __init__(self, delay=0):
@@ -212,12 +221,12 @@ class DebugCommunicationPort(CommunicationPort):
         with self.lock:
             replyData = bytearray()
             for command in self.commands:
-                match = command.match(data) 
-                if match is not None:      
+                groups = command.match(data) 
+                if groups is not None:      
                     if isinstance(command, CommandData):            
-                        replyData = self.processCommand(command, match.groups(), data)
+                        replyData = self.processCommand(command, groups, data)
                     else:
-                        replyString = self.processCommand(command, match.groups(), data.decode('utf-8') )
+                        replyString = self.processCommand(command, groups, data.decode('utf-8') )
                         replyData = replyString.encode()
                     break
 
