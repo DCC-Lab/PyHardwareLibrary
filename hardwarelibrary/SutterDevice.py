@@ -41,7 +41,7 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
     def doInitializeDevice(self): 
         try:
             if self.portPath == "debug":
-                self.port = CommunicationPort(port=SutterDebugSerial())
+                self.port = SutterDebugSerialPort()
             else:
                 self.port = CommunicationPort(portPath=self.portPath)
             
@@ -68,17 +68,12 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
 class SutterDebugSerialPort(DebugCommunicationPort):
     def __init__(self):
         DebugCommunicationPort.__init__()
-
-    def loadCommands(self):
-        move = CommandData(name='move', hexPattern=b'M')
+        move = CommandData(name='move', hexPattern='..(........)(........)(........)')
         position = CommandData(name='position', hexPattern=b'C')
         self.commands.append(move)
         self.commands.append(position)
 
-    def processCommand(self, command, groups, inputString) -> bytearray:
-        if self.commands is None:
-            self.loadCommands()
-
+    def processCommand(self, command, groups, inputData) -> bytearray:
         if command.name == 'move':
             self.x = float(groups[0])
             self.y = float(groups[1])

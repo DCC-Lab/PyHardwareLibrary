@@ -160,8 +160,7 @@ class CommandData:
         return re.search(self.hexPattern, inputHexString)
 
 class DebugCommunicationPort(CommunicationPort):
-    def __init__(self, isBinary=False, delay=0):
-        self.isBinary = isBinary
+    def __init__(self, delay=0):
         self.delay = delay
         self.lineEnding = b'\r'
         self.lock = RLock()
