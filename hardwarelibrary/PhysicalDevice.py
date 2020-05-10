@@ -1,6 +1,7 @@
 from enum import Enum
 import typing
 import numpy as np
+from abc import ABC, abstractmethod
 
 class DeviceState(Enum):
     Unconfigured = 0 # Dont know anything
@@ -8,10 +9,12 @@ class DeviceState(Enum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
+
 class PhysicalDeviceUnableToInitialize(Exception):
     pass
 
-class PhysicalDevice:
+
+class PhysicalDevice(ABC):
 
     def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
         self.vendorId = vendorId
@@ -28,6 +31,7 @@ class PhysicalDevice:
                 self.state = DeviceState.Unrecognized
                 raise error
 
+    @abstractmethod
     def doInitializeDevice(self):
         raise NotImplementedError("Base class must override doInitializeDevice()")
 
@@ -40,5 +44,6 @@ class PhysicalDevice:
             finally:
                 self.state = DeviceState.Recognized
 
+    @abstractmethod
     def doShutdownDevice(self):
         raise NotImplementedError("Base class must override doShutdownDevice()")

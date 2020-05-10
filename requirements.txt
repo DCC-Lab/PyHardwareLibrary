@@ -1,0 +1,6 @@
+atpublic==1.0
+libusb==1.0.22b9
+numpy==1.18.4
+pyserial==3.4
+pyusb==1.0.2
+usb==0.0.83.dev0

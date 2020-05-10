@@ -1,14 +1,16 @@
-from .PhysicalDevice import *
+from hardwarelibrary.PhysicalDevice import *
 from .LaserSourceDevice import *
 
-from .CommunicationPort import *
+from hardwarelibrary.CommunicationPort import *
 
 import numpy as np
 import re
 import time
 
+
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
+
 
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
@@ -39,6 +41,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         except:
             # ignore if already closed
             return
+
     def autostartIsOn(self) -> bool:
         self.doGetAutostart()
         return self.autostart

@@ -3,8 +3,8 @@
 
 from .CommunicationPort import *
 from .PhysicalDevice import *
-from .LaserSourceDevice import *
-from .Cobolt import *
+from hardwarelibrary.cobolt.LaserSourceDevice import *
+from hardwarelibrary.cobolt.Cobolt import *
 
 __version__ = "0.9.0"
 __author__ = "Daniel Cote <dccote@cervo.ulaval.ca>"

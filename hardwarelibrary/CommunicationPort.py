@@ -4,14 +4,18 @@ import time
 import random
 from threading import Thread, RLock
 
+
 class CommunicationReadTimeout(serial.SerialException):
     pass
+
 
 class CommunicationReadNoMatch(Exception):
     pass
 
+
 class CommunicationReadAlternateMatch(Exception):
     pass
+
 
 class CommunicationPort:
     """CommunicationPort class with basic application-level protocol 
