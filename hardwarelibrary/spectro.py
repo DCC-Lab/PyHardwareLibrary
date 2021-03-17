@@ -27,13 +27,29 @@ class USB2000:
 
     def initializeDevice(self):
         self.ep1Out.write(b'0x01')
+        self.getCalibration()
         # self.getSpectrumData()
-        
+
     def setIntegrationTime(self, timeInMs):
         hi = timeInMs // 256
         lo = timeInMs % 256        
         self.ep1Out.write([0x02, lo, hi])
 
+    def getCalibration(self):
+        self.ep1Out.write([0x05, 0x01])        
+        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
+        self.a0 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
+        self.ep1Out.write([0x05, 0x02])        
+        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
+        self.a1 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
+        self.ep1Out.write([0x05, 0x03])        
+        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
+        self.a2 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
+        self.ep1Out.write([0x05, 0x04])        
+        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
+        self.a3 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
+        self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
+                            for x in range(2048)]
     def requestSpectrum(self):
         self.ep1Out.write(b'\x09')
         while not self.isSpectrumRequested():
@@ -66,7 +82,6 @@ class USB2000:
         return np.array(spectrum)
 
     def drawSpectrum(self):
-
         while True:
             self.requestSpectrum()
             while not self.isSpectrumReady():
@@ -74,11 +89,12 @@ class USB2000:
             spectrum = self.getSpectrumData()
 
             plt.clf()
-            plt.plot(spectrum,'k')
+            plt.plot(self.wavelength, spectrum,'k')
             plt.draw()
             plt.pause(0.001)
 
 if __name__ == "__main__":
     spectrometer = USB2000()
+    spectrometer.getCalibration()
     spectrometer.setIntegrationTime(100)
     spectrometer.drawSpectrum()
