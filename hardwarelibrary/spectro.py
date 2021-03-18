@@ -4,6 +4,7 @@ import usb.util
 import numpy as np
 import matplotlib.pyplot as plt
 from struct import *
+import csv
 
 from typing import NamedTuple
 
@@ -45,16 +46,17 @@ class USB2000:
         self.ep1Out.write([0x02, lo, hi])
 
     def getCalibration(self):
+        status = self.getStatus()
         self.a0 = float(self.getParameter(index=1))
         self.a1 = float(self.getParameter(index=2))
         self.a2 = float(self.getParameter(index=3))
         self.a3 = float(self.getParameter(index=4))
         self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
-                            for x in range(2048)]
+                            for x in range(status.pixels)]
 
     def getParameter(self, index):
         self.ep1Out.write([0x05, index])        
-        parameters = self.ep7In.read(size_or_buffer=17, timeout=1000)
+        parameters = self.ep7In.read(size_or_buffer=17, timeout=3000)
         return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
@@ -72,7 +74,7 @@ class USB2000:
 
     def getStatus(self):
         self.ep1Out.write(b'\xfe')
-        status = self.ep7In.read(size_or_buffer=16, timeout=1000)
+        status = self.ep7In.read(size_or_buffer=16, timeout=3000)
         statusList = unpack('>hh?B???xxxxxxx',status)
         return Status(*statusList)
 
@@ -90,19 +92,35 @@ class USB2000:
         assert(confirmation[0] == 0x69)
         return np.array(spectrum)
 
-    def drawSpectrum(self):
-        while True:
-            self.requestSpectrum()
-            while not self.isSpectrumReady():
-                plt.pause(0.001)
-            spectrum = self.getSpectrumData()
+    def getSpectrum(self, integrationTime=None):
+        if integrationTime is not None:
+            self.setIntegrationTime(integrationTime)
 
-            plt.clf()
-            plt.plot(self.wavelength, spectrum, 'k')
+        self.requestSpectrum()
+        while not self.isSpectrumReady():
+            plt.pause(0.001)
+        return self.getSpectrumData()
+
+    def saveSpectrum(self, filepath):
+        spectrum = self.getSpectrum()
+        with open(filepath, 'w', newline='\n') as csvfile:
+            fileWrite = csv.writer(csvfile, delimiter=',')
+            fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
+            for x,y in list(zip(self.wavelength, spectrum)):
+                fileWrite.writerow(["{0:.2f}".format(x),y])
+
+    def drawSpectrum(self):
+        fig, ax = plt.subplots()
+        while True:
+            spectrum = self.getSpectrum()
+            ax.cla()
+            ax.set_ylim(0,4096)
+            ax.plot(self.wavelength, spectrum, 'k')
             plt.draw()
             plt.pause(0.001)
 
 if __name__ == "__main__":
     spectrometer = USB2000()
     spectrometer.setIntegrationTime(10)
+    spectrometer.saveSpectrum('test.csv')
     spectrometer.drawSpectrum()
