@@ -204,5 +204,5 @@ if __name__ == "__main__":
     spectrometer = USB2000()
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
-    spectrometer.displayWithTkinter()
+    spectrometer.displayWithMatplotlib()
 
