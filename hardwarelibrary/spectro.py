@@ -5,6 +5,8 @@ from matplotlib.backends.backend_tkagg import (
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.widgets import Button
 
 import time
 import usb.core
@@ -25,6 +27,12 @@ class Status(NamedTuple):
     timerSwap: bool = None
     isSpectralDataReady : bool = None
 
+class GraphicsData(NamedTuple):
+    figure:Figure = None
+    axes:Axes = None
+    filepath:str = "spectrum"
+    quit:bool = False
+
 class USB2000:
     idVendor = 0x2457
     idProduct = 0x1002
@@ -44,8 +52,8 @@ class USB2000:
         self.epSecondaryIn = self.interface[3]
         self.initializeDevice()
         self.getCalibration()
-        self.fig = None
-        self.root = None
+
+        self.graphics = GraphicsData()
 
     def initializeDevice(self):
         self.epCommandOut.write(b'0x01')
@@ -159,50 +167,32 @@ class USB2000:
         axes.plot(self.wavelength, spectrum, 'k')
         #plt.draw()
 
-    def display(self):
-        if self.root is not None:
-            self.displayWithTkinter()
-        else:
-            self.displayWithMatplotlib()
-
-    def displayWithMatplotlib(self, ax=None):
+    def display(self, ax=None):
         fig, axes = self.createFigure()
-        while True:
-            self.plotCurrentSpectrum(fig, axes)
+        self.graphics = GraphicsData( fig, axes, "spectrum.txt", False )
+
+        axprev = plt.axes([0.7, 0.90, 0.1, 0.075])
+        axnext = plt.axes([0.81, 0.90, 0.1, 0.075])
+        bnext = Button(axnext, 'Save')
+        bnext.on_clicked(self.save)
+        bprev = Button(axprev, 'Quit')
+        bprev.on_clicked(self.quit)
+
+        self.quitFlag = False
+        while not self.quitFlag:
+            self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes)
             plt.pause(0.001)
 
-    def displayWithTkinter(self):
-        self.root = tkinter.Tk()
-        if self.root is None:
-            self.displayWithMatplotlib()
-            return
+    def save(self, event):
+        self.saveSpectrum("spectrum-{0}".format(time.time()))
 
-        fig, axes = self.createFigure()
-
-        canvas = FigureCanvasTkAgg(fig, master=self.root)  # A tk.DrawingArea.
-        self.plotCurrentSpectrum(fig, axes)
-        #canvas.draw()
-
-        button = tkinter.Button(master=self.root, text="Quit", command=self.root.quit)
-
-        # Packing order is important. Widgets are processed sequentially and if there
-        # is no space left, because the window is too small, they are not displayed.
-        # The canvas is rather flexible in its size, so we pack it last which makes
-        # sure the UI controls are displayed as long as possible.
-        button.pack(side=tkinter.BOTTOM)
-        canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
-        self.refreshTkinterCanvas(fig, axes)
-        tkinter.mainloop()
-
-    def refreshTkinterCanvas(self, fig, axes):
-        if self.isSpectrumReady:
-            self.plotCurrentSpectrum(fig, axes)
-        self.root.after(1, self.refreshTkinterCanvas, fig, axes)
+    def quit(self, event):
+        self.quitFlag = True
 
 
 if __name__ == "__main__":
     spectrometer = USB2000()
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
-    spectrometer.displayWithMatplotlib()
+    spectrometer.display()
 
