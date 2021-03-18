@@ -45,20 +45,17 @@ class USB2000:
         self.ep1Out.write([0x02, lo, hi])
 
     def getCalibration(self):
-        self.ep1Out.write([0x05, 0x01])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a0 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
-        self.ep1Out.write([0x05, 0x02])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a1 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
-        self.ep1Out.write([0x05, 0x03])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a2 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
-        self.ep1Out.write([0x05, 0x04])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a3 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
+        self.a0 = float(self.getParameter(index=1))
+        self.a1 = float(self.getParameter(index=2))
+        self.a2 = float(self.getParameter(index=3))
+        self.a3 = float(self.getParameter(index=4))
         self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
                             for x in range(2048)]
+
+    def getParameter(self, index):
+        self.ep1Out.write([0x05, index])        
+        parameters = self.ep7In.read(size_or_buffer=17, timeout=1000)
+        return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
         self.ep1Out.write(b'\x09')
