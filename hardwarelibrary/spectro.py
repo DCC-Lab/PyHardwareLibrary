@@ -83,7 +83,7 @@ class USB2000:
 
     def getStatus(self):
         self.ep1Out.write(b'\xfe')
-        return Status(self.ep7In.read(size_or_buffer=16, timeout=1000))
+        return self.ep7In.read(size_or_buffer=16, timeout=1000)
 
     def getSpectrumData(self):
         spectrum = []
