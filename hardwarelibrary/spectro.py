@@ -145,7 +145,7 @@ class USB2000:
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
         fig, axes = plt.subplots()
-        fig.set_size_inches(11, 8, forward=True)
+        fig.set_size_inches(7, 5, forward=True)
 
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
@@ -157,7 +157,7 @@ class USB2000:
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
         axes.plot(self.wavelength, spectrum, 'k')
-        plt.draw()
+        #plt.draw()
 
     def display(self):
         if self.root is not None:
@@ -175,12 +175,13 @@ class USB2000:
         self.root = tkinter.Tk()
         if self.root is None:
             self.displayWithMatplotlib()
+            return
 
         fig, axes = self.createFigure()
 
         canvas = FigureCanvasTkAgg(fig, master=self.root)  # A tk.DrawingArea.
         self.plotCurrentSpectrum(fig, axes)
-        canvas.draw()
+        #canvas.draw()
 
         button = tkinter.Button(master=self.root, text="Quit", command=self.root.quit)
 
@@ -195,12 +196,12 @@ class USB2000:
 
     def refreshTkinterCanvas(self, fig, axes):
         self.plotCurrentSpectrum(fig, axes)
-        self.root.after(10, self.refreshTkinterCanvas, fig, axes)
+        self.root.after(100, self.refreshTkinterCanvas, fig, axes)
 
 
 if __name__ == "__main__":
     spectrometer = USB2000()
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
-    spectrometer.displayWithMatplotlib()
+    spectrometer.displayWithTkinter()
 
