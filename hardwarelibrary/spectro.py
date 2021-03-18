@@ -108,7 +108,7 @@ class USB2000:
             
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
-        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=2)
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=3000)
         spectrum[0] = spectrum[1]
 
         assert(confirmation[0] == 0x69)
