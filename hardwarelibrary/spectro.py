@@ -1,33 +1,41 @@
+import tkinter
+
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg, NavigationToolbar2Tk)
+# Implement the default Matplotlib key bindings.
+from matplotlib.backend_bases import key_press_handler
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.widgets import Button
+
 import time
 import usb.core
 import usb.util
 import numpy as np
 import matplotlib.pyplot as plt
+from struct import *
+import csv
 
 from typing import NamedTuple
 
 class Status(NamedTuple):
-    pixelsLSB: int = None
-    pixelsMSB: int = None
-    integrationTimeMSB: int = None
-    integrationTimeLSB: int = None
-    lampEnable : bool = None
+    pixels : int = None
+    integrationTime: int = None
+    isLampEnabled : bool = None
     triggerMode : int = None    
-    requestSpectra: bool = None
+    isSpectrumRequested: bool = None
     timerSwap: bool = None
-    spectralDataReady : bool = None
-    reserved0 = None
-    reserved1 = None
-    reserved2 = None
-    reserved3 = None
-    reserved4 = None
-    reserved5 = None
-    reserved6 = None
+    isSpectralDataReady : bool = None
+
+class GraphicsData(NamedTuple):
+    figure:Figure = None
+    axes:Axes = None
+    filepath:str = "spectrum"
 
 class USB2000:
+    idVendor = 0x2457
+    idProduct = 0x1002
     def __init__(self):
-        self.idVendor = 0x2457
-        self.idProduct = 0x1002
         self.device = usb.core.find(idVendor=self.idVendor, 
                                     idProduct=self.idProduct)        
 
@@ -38,80 +46,173 @@ class USB2000:
         self.configuration = self.device.get_active_configuration()
         self.interface = self.configuration[(0,0)]
 
-        self.ep1Out = self.interface[0]
-        self.ep1In = self.interface[1]
-        self.ep7In = self.interface[3]
+        self.epCommandOut = self.interface[0]
+        self.epMainIn = self.interface[1]
+        self.epSecondaryIn = self.interface[3]
         self.initializeDevice()
         self.getCalibration()
 
+        self.graphics = GraphicsData()
+        self.quitFlag = False
+        self.bnext = None
+
     def initializeDevice(self):
-        self.ep1Out.write(b'0x01')
+        self.epCommandOut.write(b'0x01')
+
+    def shutdownDevice(self):
+        return
 
     def setIntegrationTime(self, timeInMs):
         hi = timeInMs // 256
         lo = timeInMs % 256        
-        self.ep1Out.write([0x02, lo, hi])
+        self.epCommandOut.write([0x02, lo, hi])
 
     def getCalibration(self):
-        self.ep1Out.write([0x05, 0x01])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a0 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
-        self.ep1Out.write([0x05, 0x02])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a1 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
-        self.ep1Out.write([0x05, 0x03])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a2 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
-        self.ep1Out.write([0x05, 0x04])        
-        coefficentBytes = self.ep7In.read(size_or_buffer=17, timeout=1000)
-        self.a3 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
+        status = self.getStatus()
+        self.a0 = float(self.getParameter(index=1))
+        self.a1 = float(self.getParameter(index=2))
+        self.a2 = float(self.getParameter(index=3))
+        self.a3 = float(self.getParameter(index=4))
         self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
-                            for x in range(2048)]
+                            for x in range(status.pixels)]
+
+    def getParameter(self, index):
+        self.epCommandOut.write([0x05, index])        
+        parameters = self.epSecondaryIn.read(size_or_buffer=17, timeout=5000)
+        return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
-        self.ep1Out.write(b'\x09')
+        self.epCommandOut.write(b'\x09')
         while not self.isSpectrumRequested():
             plt.pause(0.001)
 
     def isSpectrumRequested(self):
         status = self.getStatus()
-        return status[6] != 0
+        return status.isSpectrumRequested
 
     def isSpectrumReady(self):
         status = self.getStatus()
-        return status[8] != 0
+        return status.isSpectralDataReady
+
+    def sendTextCommand(self, command):
+        self.epCommandOut.write(command)
+        try:
+            while True:
+                print(self.epMainIn.read(size_or_buffer=1, timeout=1000))
+        except:
+            print("Command failed")
+            pass
 
     def getStatus(self):
-        self.ep1Out.write(b'\xfe')
-        return Status(self.ep7In.read(size_or_buffer=16, timeout=1000))
+        self.epCommandOut.write(b'\xfe')
+        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=5000)
+        statusList = unpack('>hh?B???xxxxxxx',status)
+        return Status(*statusList)
 
     def getSpectrumData(self):
         spectrum = []
         for packet in range(32):
-            bytesReadLow = self.ep1In.read(size_or_buffer=64, timeout=1000)
-            bytesReadHi = self.ep1In.read(size_or_buffer=64, timeout=1000)
+            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=5000)
+            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=5000)
             
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
-        confirmation = self.ep1In.read(size_or_buffer=1, timeout=2)
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=5000)
         spectrum[0] = spectrum[1]
 
         assert(confirmation[0] == 0x69)
         return np.array(spectrum)
 
-    def drawSpectrum(self):
-        while True:
-            self.requestSpectrum()
-            while not self.isSpectrumReady():
-                plt.pause(0.001)
-            spectrum = self.getSpectrumData()
+    def getSpectrum(self, integrationTime=None):
+        if integrationTime is not None:
+            self.setIntegrationTime(integrationTime)
 
-            plt.clf()
-            plt.plot(self.wavelength, spectrum,'k')
-            plt.draw()
+        self.requestSpectrum()
+        timeOut = time.time() + 1
+        while not self.isSpectrumReady():
             plt.pause(0.001)
+            if time.time() > timeOut:
+                raise TimeoutError("Data never ready")
+
+        return self.getSpectrumData()
+
+    def saveSpectrum(self, filepath):
+        try:
+            spectrum = self.getSpectrum()
+            with open(filepath, 'w', newline='\n') as csvfile:
+                fileWrite = csv.writer(csvfile, delimiter=',')
+                fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
+                for x,y in list(zip(self.wavelength, spectrum)):
+                    fileWrite.writerow(["{0:.2f}".format(x),y])
+        except:
+            print("Unable to save data. Trying again")
+
+    def createFigure(self):
+        SMALL_SIZE = 14
+        MEDIUM_SIZE = 18
+        BIGGER_SIZE = 36
+
+        plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
+        plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
+        plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
+        plt.rc('ytick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
+        plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
+        plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+        fig, axes = plt.subplots()
+        fig.set_size_inches(7, 5, forward=True)
+
+        axes.set_xlabel("Wavelength [nm]")
+        axes.set_ylabel("Intensity [arb.u]")
+        return fig, axes
+
+    def plotCurrentSpectrum(self, fig, axes):
+        try:
+            spectrum = self.getSpectrum()
+
+            for artist in axes.lines + axes.collections:
+                artist.remove()
+
+            axes.set_xlabel("Wavelength [nm]")
+            axes.set_ylabel("Intensity [arb.u]")
+            axes.plot(self.wavelength, spectrum, 'k')
+        except:
+            pass
+
+    def display(self, ax=None):
+        fig, axes = self.createFigure()
+        self.graphics = GraphicsData( fig, axes, "spectrum")
+
+        axprev = plt.axes([0.7, 0.90, 0.1, 0.075])
+        axnext = plt.axes([0.81, 0.90, 0.1, 0.075])
+        self.bnext = Button(axnext, 'Save')
+        self.bnext.on_clicked(self.save)
+        bprev = Button(axprev, 'Quit')
+        bprev.on_clicked(self.quit)
+        fig.canvas.mpl_connect('key_press_event', self.keyPress)
+
+        self.quitFlag = False
+        while not self.quitFlag:
+            self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes)
+            plt.pause(0.01)
+
+    def keyPress(self, event):
+        if event.key == 'cmd+q':
+            self.quitFlag = True
+
+    def save(self, event):
+        self.bnext.label.set_text("••••")
+        self.saveSpectrum("{0}-{1:.0f}.txt".format(self.graphics.filepath, time.time()))
+        self.bnext.label.set_text("Save")
+
+    def quit(self, event):
+        self.quitFlag = True
+
 
 if __name__ == "__main__":
     spectrometer = USB2000()
-    spectrometer.setIntegrationTime(50)
-    spectrometer.drawSpectrum()
+    spectrometer.setIntegrationTime(10)
+    spectrometer.saveSpectrum('test.csv')
+    spectrometer.display()
+
