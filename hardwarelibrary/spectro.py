@@ -72,6 +72,15 @@ class USB2000:
         status = self.getStatus()
         return status.isSpectralDataReady
 
+    def sendTextCommand(self, command):
+        self.ep1Out.write(command)
+        try:
+            while True:
+                print(self.ep1In.read(size_or_buffer=1, timeout=500))
+        except:
+            print("Command failed")
+            pass
+
     def getStatus(self):
         self.ep1Out.write(b'\xfe')
         status = self.ep7In.read(size_or_buffer=16, timeout=3000)
@@ -117,8 +126,8 @@ class USB2000:
         plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
         plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
         plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
-        plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
-        plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+        plt.rc('xtick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
+        plt.rc('ytick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
         plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
@@ -127,7 +136,6 @@ class USB2000:
         while True:
             spectrum = self.getSpectrum()
             ax.cla()
-#            ax.set_ylim(0,4096)
             ax.set_xlabel("Wavelength [nm]")
             ax.set_ylabel("Intensity [arb.u]")
             ax.plot(self.wavelength, spectrum, 'k')
@@ -136,6 +144,9 @@ class USB2000:
 
 if __name__ == "__main__":
     spectrometer = USB2000()
+    #spectrometer.sendTextCommand(b'A\x00\x01')
+    #exit(0)
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
+
     spectrometer.drawSpectrum()
