@@ -75,12 +75,11 @@ class USB2000:
 
     def isSpectrumRequested(self):
         status = self.getStatus()
-        requested = status[6]
-        return requested != 0
+        return status[6] != 0
 
     def isSpectrumReady(self):
         status = self.getStatus()
-        return status.spectralDataReady != 0
+        return status[8] != 0
 
     def getStatus(self):
         self.ep1Out.write(b'\xfe')
