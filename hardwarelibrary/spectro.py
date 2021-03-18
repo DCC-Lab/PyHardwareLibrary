@@ -31,7 +31,6 @@ class GraphicsData(NamedTuple):
     figure:Figure = None
     axes:Axes = None
     filepath:str = "spectrum"
-    quit:bool = False
 
 class USB2000:
     idVendor = 0x2457
@@ -54,6 +53,8 @@ class USB2000:
         self.getCalibration()
 
         self.graphics = GraphicsData()
+        self.quitFlag = False
+        self.bnext = None
 
     def initializeDevice(self):
         self.epCommandOut.write(b'0x01')
@@ -77,7 +78,7 @@ class USB2000:
 
     def getParameter(self, index):
         self.epCommandOut.write([0x05, index])        
-        parameters = self.epSecondaryIn.read(size_or_buffer=17, timeout=3000)
+        parameters = self.epSecondaryIn.read(size_or_buffer=17, timeout=5000)
         return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
@@ -104,19 +105,19 @@ class USB2000:
 
     def getStatus(self):
         self.epCommandOut.write(b'\xfe')
-        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=3000)
+        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=5000)
         statusList = unpack('>hh?B???xxxxxxx',status)
         return Status(*statusList)
 
     def getSpectrumData(self):
         spectrum = []
         for packet in range(32):
-            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=3000)
-            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=3000)
+            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=5000)
+            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=5000)
             
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
-        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=3000)
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=5000)
         spectrum[0] = spectrum[1]
 
         assert(confirmation[0] == 0x69)
@@ -127,17 +128,24 @@ class USB2000:
             self.setIntegrationTime(integrationTime)
 
         self.requestSpectrum()
+        timeOut = time.time() + 1
         while not self.isSpectrumReady():
             plt.pause(0.001)
+            if time.time() > timeOut:
+                raise TimeoutError("Data never ready")
+
         return self.getSpectrumData()
 
     def saveSpectrum(self, filepath):
-        spectrum = self.getSpectrum()
-        with open(filepath, 'w', newline='\n') as csvfile:
-            fileWrite = csv.writer(csvfile, delimiter=',')
-            fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
-            for x,y in list(zip(self.wavelength, spectrum)):
-                fileWrite.writerow(["{0:.2f}".format(x),y])
+        try:
+            spectrum = self.getSpectrum()
+            with open(filepath, 'w', newline='\n') as csvfile:
+                fileWrite = csv.writer(csvfile, delimiter=',')
+                fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
+                for x,y in list(zip(self.wavelength, spectrum)):
+                    fileWrite.writerow(["{0:.2f}".format(x),y])
+        except:
+            print("Unable to save data. Trying again")
 
     def createFigure(self):
         SMALL_SIZE = 14
@@ -160,31 +168,43 @@ class USB2000:
         return fig, axes
 
     def plotCurrentSpectrum(self, fig, axes):
-        spectrum = self.getSpectrum()
-        axes.cla()
-        axes.set_xlabel("Wavelength [nm]")
-        axes.set_ylabel("Intensity [arb.u]")
-        axes.plot(self.wavelength, spectrum, 'k')
-        #plt.draw()
+        try:
+            spectrum = self.getSpectrum()
+
+            for artist in axes.lines + axes.collections:
+                artist.remove()
+
+            axes.set_xlabel("Wavelength [nm]")
+            axes.set_ylabel("Intensity [arb.u]")
+            axes.plot(self.wavelength, spectrum, 'k')
+        except:
+            pass
 
     def display(self, ax=None):
         fig, axes = self.createFigure()
-        self.graphics = GraphicsData( fig, axes, "spectrum.txt", False )
+        self.graphics = GraphicsData( fig, axes, "spectrum")
 
         axprev = plt.axes([0.7, 0.90, 0.1, 0.075])
         axnext = plt.axes([0.81, 0.90, 0.1, 0.075])
-        bnext = Button(axnext, 'Save')
-        bnext.on_clicked(self.save)
+        self.bnext = Button(axnext, 'Save')
+        self.bnext.on_clicked(self.save)
         bprev = Button(axprev, 'Quit')
         bprev.on_clicked(self.quit)
+        fig.canvas.mpl_connect('key_press_event', self.keyPress)
 
         self.quitFlag = False
         while not self.quitFlag:
             self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes)
-            plt.pause(0.001)
+            plt.pause(0.01)
+
+    def keyPress(self, event):
+        if event.key == 'cmd+q':
+            self.quitFlag = True
 
     def save(self, event):
-        self.saveSpectrum("spectrum-{0}".format(time.time()))
+        self.bnext.label.set_text("••••")
+        self.saveSpectrum("{0}-{1:.0f}.txt".format(self.graphics.filepath, time.time()))
+        self.bnext.label.set_text("Save")
 
     def quit(self, event):
         self.quitFlag = True
