@@ -1,3 +1,11 @@
+import tkinter
+
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg, NavigationToolbar2Tk)
+# Implement the default Matplotlib key bindings.
+from matplotlib.backend_bases import key_press_handler
+from matplotlib.figure import Figure
+
 import time
 import usb.core
 import usb.util
@@ -36,6 +44,7 @@ class USB2000:
         self.ep7In = self.interface[3]
         self.initializeDevice()
         self.getCalibration()
+        self.fig = None
 
     def initializeDevice(self):
         self.ep1Out.write(b'0x01')
@@ -76,7 +85,7 @@ class USB2000:
         self.ep1Out.write(command)
         try:
             while True:
-                print(self.ep1In.read(size_or_buffer=1, timeout=500))
+                print(self.ep1In.read(size_or_buffer=1, timeout=1000))
         except:
             print("Command failed")
             pass
@@ -118,7 +127,7 @@ class USB2000:
             for x,y in list(zip(self.wavelength, spectrum)):
                 fileWrite.writerow(["{0:.2f}".format(x),y])
 
-    def drawSpectrum(self):
+    def drawSpectrum(self, ax=None):
         SMALL_SIZE = 14
         MEDIUM_SIZE = 18
         BIGGER_SIZE = 36
@@ -131,8 +140,10 @@ class USB2000:
         plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-        fig, ax = plt.subplots()
-        fig.set_size_inches(11, 8, forward=True)
+        if ax is None:
+            fig, ax = plt.subplots()
+            fig.set_size_inches(11, 8, forward=True)
+
         while True:
             spectrum = self.getSpectrum()
             ax.cla()
@@ -142,11 +153,37 @@ class USB2000:
             plt.draw()
             plt.pause(0.001)
 
+    def display(self):
+        self.root = tkinter.Tk()
+
+        fig, ax = plt.subplots()
+        fig.set_size_inches(11, 8, forward=True)
+        self.drawSpectrum(ax)
+
+        canvas = FigureCanvasTkAgg(fig, master=self.root)  # A tk.DrawingArea.
+        canvas.draw()
+
+        # pack_toolbar=False will make it easier to use a layout manager later on.
+        toolbar = NavigationToolbar2Tk(canvas, self.root, pack_toolbar=False)
+        toolbar.update()
+
+        button = tkinter.Button(master=self.root, text="Quit", command=self.root.quit)
+
+        # Packing order is important. Widgets are processed sequentially and if there
+        # is no space left, because the window is too small, they are not displayed.
+        # The canvas is rather flexible in its size, so we pack it last which makes
+        # sure the UI controls are displayed as long as possible.
+        button.pack(side=tkinter.BOTTOM)
+        toolbar.pack(side=tkinter.BOTTOM, fill=tkinter.X)
+        canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+        self.root.after(10, self.drawSpectrum, ax)
+        tkinter.mainloop()
+
+
 if __name__ == "__main__":
     spectrometer = USB2000()
-    #spectrometer.sendTextCommand(b'A\x00\x01')
-    #exit(0)
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
+    spectrometer.display()
+    # spectrometer.drawSpectrum()
 
-    spectrometer.drawSpectrum()
