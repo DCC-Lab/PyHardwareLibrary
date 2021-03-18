@@ -26,9 +26,9 @@ class Status(NamedTuple):
     isSpectralDataReady : bool = None
 
 class USB2000:
+    idVendor = 0x2457
+    idProduct = 0x1002
     def __init__(self):
-        self.idVendor = 0x2457
-        self.idProduct = 0x1002
         self.device = usb.core.find(idVendor=self.idVendor, 
                                     idProduct=self.idProduct)        
 
@@ -39,20 +39,28 @@ class USB2000:
         self.configuration = self.device.get_active_configuration()
         self.interface = self.configuration[(0,0)]
 
-        self.ep1Out = self.interface[0]
-        self.ep1In = self.interface[1]
-        self.ep7In = self.interface[3]
+        self.epCommandOut = self.interface[0]
+        self.epMainIn = self.interface[1]
+        self.epSecondaryIn = self.interface[3]
         self.initializeDevice()
         self.getCalibration()
         self.fig = None
 
+        if tkinter is not None:
+            self.root = tkinter.Tk()
+        else:
+            self.root = None
+
     def initializeDevice(self):
-        self.ep1Out.write(b'0x01')
+        self.epCommandOut.write(b'0x01')
+
+    def shutdownDevice(self):
+        return
 
     def setIntegrationTime(self, timeInMs):
         hi = timeInMs // 256
         lo = timeInMs % 256        
-        self.ep1Out.write([0x02, lo, hi])
+        self.epCommandOut.write([0x02, lo, hi])
 
     def getCalibration(self):
         status = self.getStatus()
@@ -64,12 +72,12 @@ class USB2000:
                             for x in range(status.pixels)]
 
     def getParameter(self, index):
-        self.ep1Out.write([0x05, index])        
-        parameters = self.ep7In.read(size_or_buffer=17, timeout=3000)
+        self.epCommandOut.write([0x05, index])        
+        parameters = self.epSecondaryIn.read(size_or_buffer=17, timeout=3000)
         return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
-        self.ep1Out.write(b'\x09')
+        self.epCommandOut.write(b'\x09')
         while not self.isSpectrumRequested():
             plt.pause(0.001)
 
@@ -82,29 +90,29 @@ class USB2000:
         return status.isSpectralDataReady
 
     def sendTextCommand(self, command):
-        self.ep1Out.write(command)
+        self.epCommandOut.write(command)
         try:
             while True:
-                print(self.ep1In.read(size_or_buffer=1, timeout=1000))
+                print(self.epMainIn.read(size_or_buffer=1, timeout=1000))
         except:
             print("Command failed")
             pass
 
     def getStatus(self):
-        self.ep1Out.write(b'\xfe')
-        status = self.ep7In.read(size_or_buffer=16, timeout=3000)
+        self.epCommandOut.write(b'\xfe')
+        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=3000)
         statusList = unpack('>hh?B???xxxxxxx',status)
         return Status(*statusList)
 
     def getSpectrumData(self):
         spectrum = []
         for packet in range(32):
-            bytesReadLow = self.ep1In.read(size_or_buffer=64, timeout=3000)
-            bytesReadHi = self.ep1In.read(size_or_buffer=64, timeout=3000)
+            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=3000)
+            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=3000)
             
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
-        confirmation = self.ep1In.read(size_or_buffer=1, timeout=2)
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=2)
         spectrum[0] = spectrum[1]
 
         assert(confirmation[0] == 0x69)
@@ -127,7 +135,7 @@ class USB2000:
             for x,y in list(zip(self.wavelength, spectrum)):
                 fileWrite.writerow(["{0:.2f}".format(x),y])
 
-    def drawSpectrum(self, ax=None):
+    def createFigure(self):
         SMALL_SIZE = 14
         MEDIUM_SIZE = 18
         BIGGER_SIZE = 36
@@ -140,32 +148,39 @@ class USB2000:
         plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-        if ax is None:
-            fig, ax = plt.subplots()
-            fig.set_size_inches(11, 8, forward=True)
+        fig, axes = plt.subplots()
+        fig.set_size_inches(11, 8, forward=True)
 
-        while True:
-            spectrum = self.getSpectrum()
-            ax.cla()
-            ax.set_xlabel("Wavelength [nm]")
-            ax.set_ylabel("Intensity [arb.u]")
-            ax.plot(self.wavelength, spectrum, 'k')
-            plt.draw()
-            plt.pause(0.001)
+        axes.set_xlabel("Wavelength [nm]")
+        axes.set_ylabel("Intensity [arb.u]")
+        return fig, axes
+
+    def plotCurrentSpectrum(self, fig, axes):
+        axes.cla()
+        axes.set_xlabel("Wavelength [nm]")
+        axes.set_ylabel("Intensity [arb.u]")
+        spectrum = self.getSpectrum()
+        axes.plot(self.wavelength, spectrum, 'k')
+        plt.draw()
 
     def display(self):
-        self.root = tkinter.Tk()
+        if self.root is not None:
+            self.displayWithTkinter()
+        else:
+            self.displayWithMatplotlib()
 
-        fig, ax = plt.subplots()
-        fig.set_size_inches(11, 8, forward=True)
-        self.drawSpectrum(ax)
+    def displayWithMatplotlib(self, ax=None):
+        fig, axes = self.createFigure()
+        while True:
+            self.plotCurrentSpectrum(fig, axes)
+            plt.pause(0.001)
+
+    def displayWithTkinter(self):
+        fig, axes = self.createFigure()
 
         canvas = FigureCanvasTkAgg(fig, master=self.root)  # A tk.DrawingArea.
+        self.plotCurrentSpectrum(fig, axes)
         canvas.draw()
-
-        # pack_toolbar=False will make it easier to use a layout manager later on.
-        toolbar = NavigationToolbar2Tk(canvas, self.root, pack_toolbar=False)
-        toolbar.update()
 
         button = tkinter.Button(master=self.root, text="Quit", command=self.root.quit)
 
@@ -174,10 +189,13 @@ class USB2000:
         # The canvas is rather flexible in its size, so we pack it last which makes
         # sure the UI controls are displayed as long as possible.
         button.pack(side=tkinter.BOTTOM)
-        toolbar.pack(side=tkinter.BOTTOM, fill=tkinter.X)
         canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
-        self.root.after(10, self.drawSpectrum, ax)
+        self.refreshTkinterCanvas(fig, axes)
         tkinter.mainloop()
+
+    def refreshTkinterCanvas(self, fig, axes):
+        self.plotCurrentSpectrum(fig, axes)
+        self.root.after(10, self.refreshTkinterCanvas, fig, axes)
 
 
 if __name__ == "__main__":
@@ -185,5 +203,4 @@ if __name__ == "__main__":
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
     spectrometer.display()
-    # spectrometer.drawSpectrum()
 
