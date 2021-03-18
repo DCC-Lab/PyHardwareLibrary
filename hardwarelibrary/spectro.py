@@ -195,8 +195,9 @@ class USB2000:
         tkinter.mainloop()
 
     def refreshTkinterCanvas(self, fig, axes):
-        self.plotCurrentSpectrum(fig, axes)
-        self.root.after(100, self.refreshTkinterCanvas, fig, axes)
+        if self.isSpectrumReady:
+            self.plotCurrentSpectrum(fig, axes)
+        self.root.after(1, self.refreshTkinterCanvas, fig, axes)
 
 
 if __name__ == "__main__":
