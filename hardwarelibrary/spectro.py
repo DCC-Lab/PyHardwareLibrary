@@ -45,11 +45,7 @@ class USB2000:
         self.initializeDevice()
         self.getCalibration()
         self.fig = None
-
-        if tkinter is not None:
-            self.root = tkinter.Tk()
-        else:
-            self.root = None
+        self.root = None
 
     def initializeDevice(self):
         self.epCommandOut.write(b'0x01')
@@ -156,10 +152,10 @@ class USB2000:
         return fig, axes
 
     def plotCurrentSpectrum(self, fig, axes):
+        spectrum = self.getSpectrum()
         axes.cla()
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
-        spectrum = self.getSpectrum()
         axes.plot(self.wavelength, spectrum, 'k')
         plt.draw()
 
@@ -176,6 +172,10 @@ class USB2000:
             plt.pause(0.001)
 
     def displayWithTkinter(self):
+        self.root = tkinter.Tk()
+        if self.root is None:
+            self.displayWithMatplotlib()
+
         fig, axes = self.createFigure()
 
         canvas = FigureCanvasTkAgg(fig, master=self.root)  # A tk.DrawingArea.
@@ -202,5 +202,5 @@ if __name__ == "__main__":
     spectrometer = USB2000()
     spectrometer.setIntegrationTime(10)
     spectrometer.saveSpectrum('test.csv')
-    spectrometer.display()
+    spectrometer.displayWithMatplotlib()
 
