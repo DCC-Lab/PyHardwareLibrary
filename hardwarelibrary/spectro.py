@@ -4,6 +4,26 @@ import usb.util
 import numpy as np
 import matplotlib.pyplot as plt
 
+from typing import NamedTuple
+
+class Status(NamedTuple):
+    pixelsLSB: int = None
+    pixelsMSB: int = None
+    integrationTimeMSB: int = None
+    integrationTimeLSB: int = None
+    lampEnable : bool = None
+    triggerMode : int = None    
+    requestSpectra: bool = None
+    timerSwap: bool = None
+    spectralDataReady : bool = None
+    reserved0 = None
+    reserved1 = None
+    reserved2 = None
+    reserved3 = None
+    reserved4 = None
+    reserved5 = None
+    reserved6 = None
+
 class USB2000:
     def __init__(self):
         self.idVendor = 0x2457
@@ -14,9 +34,7 @@ class USB2000:
         if self.device is None:
             raise ValueError('Device not found')
 
-        # set the active configuration. With no arguments, the first
-        # configuration will be the active one
-        self.device.set_configuration(1)
+        self.device.set_configuration()
         self.configuration = self.device.get_active_configuration()
         self.interface = self.configuration[(0,0)]
 
@@ -24,11 +42,10 @@ class USB2000:
         self.ep1In = self.interface[1]
         self.ep7In = self.interface[3]
         self.initializeDevice()
+        self.getCalibration()
 
     def initializeDevice(self):
         self.ep1Out.write(b'0x01')
-        self.getCalibration()
-        # self.getSpectrumData()
 
     def setIntegrationTime(self, timeInMs):
         hi = timeInMs // 256
@@ -50,22 +67,24 @@ class USB2000:
         self.a3 = float(bytes(coefficentBytes[2:]).decode().rstrip('\x00'))
         self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
                             for x in range(2048)]
+
     def requestSpectrum(self):
         self.ep1Out.write(b'\x09')
         while not self.isSpectrumRequested():
             plt.pause(0.001)
 
     def isSpectrumRequested(self):
-        self.ep1Out.write(b'\xfe')
-        status = self.ep7In.read(size_or_buffer=16, timeout=1000)
+        status = self.getStatus()
         requested = status[6]
         return requested != 0
 
     def isSpectrumReady(self):
+        status = self.getStatus()
+        return status.spectralDataReady != 0
+
+    def getStatus(self):
         self.ep1Out.write(b'\xfe')
-        status = self.ep7In.read(size_or_buffer=16, timeout=1000)
-        ready = status[8]
-        return ready != 0
+        return Status(self.ep7In.read(size_or_buffer=16, timeout=1000))
 
     def getSpectrumData(self):
         spectrum = []
@@ -95,6 +114,5 @@ class USB2000:
 
 if __name__ == "__main__":
     spectrometer = USB2000()
-    spectrometer.getCalibration()
-    spectrometer.setIntegrationTime(100)
+    spectrometer.setIntegrationTime(50)
     spectrometer.drawSpectrum()
