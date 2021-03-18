@@ -3,26 +3,18 @@ import usb.core
 import usb.util
 import numpy as np
 import matplotlib.pyplot as plt
+from struct import *
 
 from typing import NamedTuple
 
 class Status(NamedTuple):
-    pixelsLSB: int = None
-    pixelsMSB: int = None
-    integrationTimeMSB: int = None
-    integrationTimeLSB: int = None
-    lampEnable : bool = None
+    pixels : int = None
+    integrationTime: int = None
+    isLampEnabled : bool = None
     triggerMode : int = None    
-    requestSpectra: bool = None
+    isSpectrumRequested: bool = None
     timerSwap: bool = None
-    spectralDataReady : bool = None
-    reserved0 = None
-    reserved1 = None
-    reserved2 = None
-    reserved3 = None
-    reserved4 = None
-    reserved5 = None
-    reserved6 = None
+    isSpectralDataReady : bool = None
 
 class USB2000:
     def __init__(self):
@@ -75,21 +67,23 @@ class USB2000:
 
     def isSpectrumRequested(self):
         status = self.getStatus()
-        return status[6] != 0
+        return status.isSpectrumRequested
 
     def isSpectrumReady(self):
         status = self.getStatus()
-        return status[8] != 0
+        return status.isSpectralDataReady
 
     def getStatus(self):
         self.ep1Out.write(b'\xfe')
-        return self.ep7In.read(size_or_buffer=16, timeout=1000)
+        status = self.ep7In.read(size_or_buffer=16, timeout=1000)
+        statusList = unpack('>hh?B???xxxxxxx',status)
+        return Status(*statusList)
 
     def getSpectrumData(self):
         spectrum = []
         for packet in range(32):
-            bytesReadLow = self.ep1In.read(size_or_buffer=64, timeout=1000)
-            bytesReadHi = self.ep1In.read(size_or_buffer=64, timeout=1000)
+            bytesReadLow = self.ep1In.read(size_or_buffer=64, timeout=3000)
+            bytesReadHi = self.ep1In.read(size_or_buffer=64, timeout=3000)
             
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
@@ -107,11 +101,11 @@ class USB2000:
             spectrum = self.getSpectrumData()
 
             plt.clf()
-            plt.plot(self.wavelength, spectrum,'k')
+            plt.plot(self.wavelength, spectrum, 'k')
             plt.draw()
             plt.pause(0.001)
 
 if __name__ == "__main__":
     spectrometer = USB2000()
-    spectrometer.setIntegrationTime(50)
+    spectrometer.setIntegrationTime(10)
     spectrometer.drawSpectrum()
