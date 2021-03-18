@@ -110,11 +110,26 @@ class USB2000:
                 fileWrite.writerow(["{0:.2f}".format(x),y])
 
     def drawSpectrum(self):
+        SMALL_SIZE = 14
+        MEDIUM_SIZE = 18
+        BIGGER_SIZE = 36
+
+        plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
+        plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
+        plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+        plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
+        plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
+        plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
         fig, ax = plt.subplots()
+        fig.set_size_inches(11, 8, forward=True)
         while True:
             spectrum = self.getSpectrum()
             ax.cla()
-            ax.set_ylim(0,4096)
+#            ax.set_ylim(0,4096)
+            ax.set_xlabel("Wavelength [nm]")
+            ax.set_ylabel("Intensity [arb.u]")
             ax.plot(self.wavelength, spectrum, 'k')
             plt.draw()
             plt.pause(0.001)
