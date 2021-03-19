@@ -12,18 +12,24 @@ class USBParameters(NamedTuple):
     alternate: int = 0
     outputEndpoint : int = None
     inputEndpoint : int = None    
+
+class DeviceCommand(NamedTuple):
+    text : str = None
+    data : bytearray = None
+    reply: str = None
     
 class USBDeviceDescription:
-    def __init__(self, name, idVendor=None, idProduct=None, isSerializable=False):
+    def __init__(self, name, idVendor=None, idProduct=None):
         self.name = name
         self.idVendor = idVendor
         self.idProduct = idProduct
-        self.isSerializable = isSerializable
-        self.serialPort = None
+
+        self._serialPort = None
         self.regexPOSIXPort = "Nothing"
 
-        self.usbPort = None
+        self._usbPort = None
         self.usbParameters = None
+        self.deviceCommands = []
 
     @property
     def isVisible(self):
@@ -92,19 +98,92 @@ class USBDeviceDescription:
         return False
 
     @property
+    def usbPort(self):
+        if not self.hasUniquePOSIXPortMatch:
+            return None
+        
+        if self._serialPort is None:
+            self._serialPort = SerialPort(bsdPath=self.bsdPath)
+
+        return self._serialPort
+ 
+    @property
+    def posixPort(self):
+        if not self.hasUniquePOSIXPortMatch:
+            return None
+        
+        if self._serialPort is None:
+            self._serialPort = SerialPort(bsdPath=self.bsdPath)
+
+        return self._serialPort
+    
+    @property
     def posixPortCanBeOpened(self):
-        if self.hasUniquePOSIXPortMatch:
-            port = SerialPort(bsdPath=self.bsdPath)
-        else:
+        if self.posixPort is None:
             return False
+
         isOpen = False
         try:
-            port.open()
-            isOpen = port.isOpen
-            port.close()
+            self.posixPort.open()
+            isOpen = self.posixPort.isOpen
         except Exception as err:
-            isOpen = False
+            raise err
+        finally:
+            self.posixPort.close()
+
         return isOpen
+
+    @property
+    def canWritePOSIXCommands(self):
+        self.posixPort.open()
+        self.posixPort.flush()
+
+        try:
+            for command in self.deviceCommands:
+                if command.text is not None:
+                    bytesWritten = self.posixPort.writeString(command.text)
+                    if bytesWritten != len(command.text):
+                        return False
+                elif command.data is not None:
+                    bytesWritten = self.posixPort.writeData(command.data)
+                    if bytesWritten != len(command.data):
+                        return False
+
+                if command.reply is not None:
+                    reply = self.posixPort.readString()
+                    if reply != command.reply:
+                        return False
+        except Exception as err:
+            raise err
+        finally:
+            self.posixPort.close()
+
+        return True
+
+    @property
+    def canWriteUSBCommands(self):
+        port = USBPort(idVendor=self.idVendor, idProduct=self.idProduct, interfaceNumber=1)
+        assert(port is not None)
+
+        try:
+            for command in self.deviceCommands:
+                if command.text is not None:
+                    bytesWritten = port.writeString(command.text)
+                    if bytesWritten != len(command.text):
+                        return False
+                elif command.data is not None:
+                    bytesWritten = port.writeData(command.data)
+                    if bytesWritten != len(command.data):
+                        return False
+
+                if command.reply is not None:
+                    reply = port.readString()
+                    if reply != command.reply:
+                        return False
+        except Exception as err:
+            raise err
+
+        return True
 
     def assertEqual(self, property, expectation):
         try:
@@ -113,7 +192,6 @@ class USBDeviceDescription:
                 print("✅ {0} == {1}".format(property, expectation))
             else:
                 print("🚫 {0} != {1}".format(property, expectation))
-
         except Exception as err:
             print("🚫 {0} failed. Exception {1}".format(property, err))
 
@@ -125,18 +203,20 @@ class USBDeviceDescription:
                 print("✅ {0} != {1}".format(property, expectation))
             else:
                 print("🚫 {0} == {1}".format(property, expectation))
-
         except Exception as err:
             print("🚫 {0} failed. Exception {1}".format(property, err))
 
     def report(self):
         print("Diagnostic report for device {0} [vid{1} pid{2}]".format(self.name, self.idVendor, self.idProduct))
+        print(self.__dict__)
         self.assertEqual('isVisible', True)
         self.assertEqual('isVisibleOnUSBHub', True)
         self.assertEqual('isVisibleAsPOSIXPort', True)
         self.assertEqual('posixPortCanBeOpened', True)
         self.assertEqual('hasUniquePOSIXPortMatch', True)
         self.assertEqual('usbPortCanBeOpened', True)
+        self.assertEqual('canWritePOSIXCommands', True)
+        self.assertEqual('canWriteUSBCommands', True)
 
 
 if __name__ == '__main__':
@@ -144,8 +224,12 @@ if __name__ == '__main__':
     dev.regexPOSIXPort = r"cu.usbmodem\d{6}"
     dev.usbParameters = USBParameters(configuration=0, 
                                       interface=1,
+                                      alternate=0,
                                       outputEndpoint=0,
                                       inputEndpoint=1)
+    
+    dev.deviceCommands.append(DeviceCommand(text='Start',reply='Ready\r\n'))
+    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
 
     dev.report()
 

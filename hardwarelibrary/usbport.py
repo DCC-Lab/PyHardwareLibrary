@@ -5,7 +5,7 @@ import re
 import time
 import random
 from threading import Thread, RLock
-
+import array
 
 class USBPort(CommunicationPort):
     """USBPort class with basic application-level protocol 
@@ -42,10 +42,11 @@ class USBPort(CommunicationPort):
         self.configuration = self.device.get_active_configuration()
 
         self.interface = self.configuration[(interfaceNumber,0)]
-        self.outputEndPoint = [None, None, None, None, None]
-        self.outputEndPoint[1] = self.interface[0]
-        self.inputEndPoint = [None, None, None, None, None]
-        self.inputEndPoint[1] = self.interface[1]
+        self.outputEndPoints = [None, None, None, None, None]
+        self.outputEndPoints[1] = self.interface[0]
+
+        self.inputEndPoints = [None, None, None, None, None]
+        self.inputEndPoints[1] = self.interface[1]
 
         self.portLock = RLock()
         self.transactionLock = RLock()
@@ -71,20 +72,27 @@ class USBPort(CommunicationPort):
 
     def readData(self, length, endPoint=1) -> bytearray:
         with self.portLock:
-            data = self.inputEndPoint[endPoint].read(size_or_buffer=length)
-            if len(data) != length:
-                raise CommunicationReadTimeout()
+            data = array.array('B',[0]*16)
+            nBytesRead = self.interface[1].read(size_or_buffer=data)
+            return data[:nBytesRead]
 
-        return data
+    def writeData(self, data, endPoint=None) -> int:
+        if endPoint is None:
+            endPoint = 1
 
-    def writeData(self, data, endPoint=1) -> int:
         with self.portLock:
-            nBytesWritten = self.outputEndPoint[endPoint].write(data)
+            nBytesWritten = self.interface[0].write(data)
             if nBytesWritten != len(data):
                 raise IOError("Not all bytes written to port")
 
         return nBytesWritten
 
+    def readString(self, endpoint=0) -> str:      
+        data = self.readData(length=16)
+        if data[-1] == 10: # How to write?
+            return bytearray(data).decode(encoding='utf-8')
+
+        raise ValueError("Not a string {0}".format(data))
 
 class DebugEchoCommunicationPort(CommunicationPort):
     def __init__(self, delay=0):
