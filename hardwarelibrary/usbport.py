@@ -34,51 +34,71 @@ class USBPort(CommunicationPort):
     def __init__(self, idVendor=None, idProduct=None, interfaceNumber=0, defaultEndPoints=(0, 1)):
         CommunicationPort.__init__(self)
 
-        self.device = usb.core.find(idVendor=idVendor)
+        self.device = usb.core.find(idVendor=idVendor, idProduct=idProduct)
         if self.device is None:
             raise IOError("Can't find device")
 
         self.device.set_configuration()
         self.configuration = self.device.get_active_configuration()
-
         self.interface = self.configuration[(interfaceNumber,0)]
         
         self.defaultOutputEndPoint = self.interface[defaultEndPoints[0]]
         self.defaultInputEndPoint = self.interface[defaultEndPoints[1]]
+
+        self._internalBuffer = bytearray()
 
         self.portLock = RLock()
         self.transactionLock = RLock()
 
     @property
     def isOpen(self):
-        if self.mainOutputEP is None:
+        if self.defaultOutputEndPoint is None:
             return False    
         else:
             return True    
 
     def open(self):
+        self._internalBuffer = bytearray()
         return
 
     def close(self):
+        self._internalBuffer = bytearray()
         return
 
-    def bytesAvailable(self) -> int:
-        return 0
+    def bytesAvailable(self, endPoint=None) -> int:
+        return len(self._internalBuffer)
 
-    def flush(self):
-        return
-
-    def readData(self, length, endPoint=None) -> bytearray:
+    def flush(self, endPoint=None):
         if endPoint is None:
             inputEndPoint = self.defaultInputEndPoint
         else:
             inputEndPoint = self.interface[endPoint]
-
+        
         with self.portLock:
+            self._internalBuffer = bytearray()
             maxPacket = inputEndPoint.wMaxPacketSize
             data = array.array('B',[0]*maxPacket)
-            nBytesRead = inputEndPoint.read(size_or_buffer=data)
-            return bytearray(data[:nBytesRead])
+            nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=30)
+            self._internalBuffer += bytearray(data[:nBytesRead])
+
+    def readData(self, length, endPoint=None) -> bytearray:
+        while length > len(self._internalBuffer):
+            if endPoint is None:
+                inputEndPoint = self.defaultInputEndPoint
+            else:
+                inputEndPoint = self.interface[endPoint]
+
+            with self.portLock:
+                maxPacket = inputEndPoint.wMaxPacketSize
+                data = array.array('B',[0]*maxPacket)
+                nBytesRead = inputEndPoint.read(size_or_buffer=data)
+                self._internalBuffer += bytearray(data[:nBytesRead])
+
+        with self.portLock:
+            data = self._internalBuffer[:length]
+            self._internalBuffer = self._internalBuffer[length:]
+
+        return data
 
     def writeData(self, data, endPoint=None) -> int:
         if endPoint is None:
@@ -99,13 +119,14 @@ class USBPort(CommunicationPort):
         else:
             inputEndPoint = self.interface[endPoint]
 
+        data = bytearray()
         while True:
-            maxPacket = inputEndPoint.wMaxPacketSize
-            data = self.readData(length=maxPacket, endPoint=endPoint)
-            if data[-1] != 10: # How to write?
-                raise ValueError("Not a string {0}, {1}".format(data, data[-1]))
-        
-            return data.decode(encoding='utf-8')
+            try:
+                data += self.readData(length=1, endPoint=endPoint)
+                if data[-1] == 10: # How to write?
+                    return data.decode(encoding='utf-8')
+            except:
+                raise IOError("Unable to read string terminator: {0}".format(data.decode(encoding='utf-8')))
 
 class DebugEchoCommunicationPort(CommunicationPort):
     def __init__(self, delay=0):
