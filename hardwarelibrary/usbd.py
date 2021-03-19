@@ -25,7 +25,7 @@ class USBDeviceDescription:
 
     @property
     def portCanBeOpened(self):
-        return False
+        return self.usbPortCanBeOpened or self.posixPortCanBeOpened
     
     @property
     def usbPortCanBeOpened(self):
@@ -38,9 +38,9 @@ class USBDeviceDescription:
     def report(self):
         print("Diagnostic report for device {0}".format(self.name))
         if self.isVisible:
-            print("✅ visible")
+            print("✅ visible on USB or POSIX")
         else:
-            print("🚫 not visible (USB or POSIX)")
+            print("🚫 not visible on USB or POSIX")
         if self.isVisibleOnUSBHub:
             print(" ✅ visible on USB HUB")
         else:
