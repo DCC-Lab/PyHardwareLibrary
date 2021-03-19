@@ -1,13 +1,8 @@
-import tkinter
-
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg, NavigationToolbar2Tk)
-# Implement the default Matplotlib key bindings.
-from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.widgets import Button
 import matplotlib.animation as animation
+import matplotlib
 
 import time
 import usb.core
@@ -31,7 +26,6 @@ class Status(NamedTuple):
 class GraphicsData(NamedTuple):
     figure:Figure = None
     axes:Axes = None
-    filepath:str = "spectrum"
 
 class USB2000:
     idVendor = 0x2457
@@ -52,6 +46,7 @@ class USB2000:
         self.epSecondaryIn = self.interface[3]
         self.initializeDevice()
         self.getCalibration()
+        self.lastSpectrum = []
 
         self.graphics = GraphicsData()
         self.quitFlag = False
@@ -132,9 +127,11 @@ class USB2000:
 
         return self.getSpectrumData()
 
-    def saveSpectrum(self, filepath):
+    def saveSpectrum(self, filepath, spectrum=None):
         try:
-            spectrum = self.getSpectrum()
+            if spectrum is None:
+                spectrum = self.getSpectrum()
+
             with open(filepath, 'w', newline='\n') as csvfile:
                 fileWrite = csv.writer(csvfile, delimiter=',')
                 fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
@@ -163,9 +160,10 @@ class USB2000:
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
 
-    def plotCurrentSpectrum(self, fig, axes):
+    def plotCurrentSpectrum(self, fig, axes, spectrum=None):
         try:
-            spectrum = self.getSpectrum()
+            if spectrum is None:
+                spectrum = self.getSpectrum()
 
             if len(axes.lines) == 0:
                 axes.plot(self.wavelength, spectrum, 'k')
@@ -178,7 +176,7 @@ class USB2000:
 
     def display(self, ax=None):
         fig, axes = self.createFigure()
-        self.graphics = GraphicsData( fig, axes, "spectrum")
+        self.graphics = GraphicsData( fig, axes)
 
         axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
         axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
@@ -198,16 +196,33 @@ class USB2000:
             self.animation = None
             plt.close()
 
-        self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes)
+        self.lastSpectrum = self.getSpectrum()
+        self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes, spectrum=self.lastSpectrum)
 
     def keyPress(self, event):
         if event.key == 'cmd+q':
             self.quitFlag = True
 
     def clickSave(self, event):
-        self.saveBtn.label.set_text("••••")
-        self.saveSpectrum("{0}-{1:.0f}.txt".format(self.graphics.filepath, time.time()))
-        self.saveBtn.label.set_text("Save")
+        self.animation.event_source.stop()
+        filepath = "spectrum.csv"
+        try:
+            filepath = matplotlib.backends.backend_macosx._macosx.choose_save_file('Save the data',filepath)
+        except:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            filepath = filedialog.asksaveasfilename()
+
+        if filepath is not None: 
+            self.saveBtn.label.set_text("••••")
+            self.saveSpectrum(filepath, spectrum=self.lastSpectrum)
+            #plt.savefig("{0}.pdf".format(filepath),dpi=600)
+            self.saveBtn.label.set_text("Save")
+
+        self.animation.event_source.start()
 
     def clickQuit(self, event):
         self.quitFlag = True
