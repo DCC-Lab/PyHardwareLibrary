@@ -1,8 +1,8 @@
+import matplotlib
+import matplotlib.animation as animation
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.widgets import Button
-import matplotlib.animation as animation
-import matplotlib
 
 import time
 import usb.core
@@ -44,9 +44,9 @@ class USB2000:
         self.epCommandOut = self.interface[0]
         self.epMainIn = self.interface[1]
         self.epSecondaryIn = self.interface[3]
-        self.initializeDevice()
-        self.getCalibration()
         self.lastSpectrum = []
+
+        self.initializeDevice()
 
         self.graphics = GraphicsData()
         self.quitFlag = False
@@ -55,6 +55,7 @@ class USB2000:
 
     def initializeDevice(self):
         self.epCommandOut.write(b'0x01')
+        self.getCalibration()
 
     def shutdownDevice(self):
         return
@@ -140,6 +141,22 @@ class USB2000:
         except:
             print("Unable to save data.")
 
+    def display(self, ax=None):
+        fig, axes = self.createFigure()
+        self.graphics = GraphicsData( fig, axes)
+
+        axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
+        axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
+        self.saveBtn = Button(axSave, 'Save')
+        self.saveBtn.on_clicked(self.clickSave)
+        quitBtn = Button(axQuit, 'Quit')
+        quitBtn.on_clicked(self.clickQuit)
+        fig.canvas.mpl_connect('key_press_event', self.keyPress)
+
+        self.quitFlag = False
+        self.animation = animation.FuncAnimation(fig, self.animate, interval=25)
+        plt.show()
+
     def createFigure(self):
         SMALL_SIZE = 14
         MEDIUM_SIZE = 18
@@ -173,22 +190,6 @@ class USB2000:
                 axes.lines[0].set_data( self.wavelength, spectrum) # set plot data
         except:
             pass
-
-    def display(self, ax=None):
-        fig, axes = self.createFigure()
-        self.graphics = GraphicsData( fig, axes)
-
-        axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
-        axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
-        self.saveBtn = Button(axSave, 'Save')
-        self.saveBtn.on_clicked(self.clickSave)
-        quitBtn = Button(axQuit, 'Quit')
-        quitBtn.on_clicked(self.clickQuit)
-        fig.canvas.mpl_connect('key_press_event', self.keyPress)
-
-        self.quitFlag = False
-        self.animation = animation.FuncAnimation(fig, self.animate, interval=25)
-        plt.show()
 
     def animate(self, i):
         if self.quitFlag:
