@@ -1,7 +1,5 @@
 import matplotlib
 import matplotlib.animation as animation
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from matplotlib.widgets import Button
 
 import time
@@ -23,10 +21,6 @@ class Status(NamedTuple):
     timerSwap: bool = None
     isSpectralDataReady : bool = None
 
-class GraphicsData(NamedTuple):
-    figure:Figure = None
-    axes:Axes = None
-
 class USB2000:
     idVendor = 0x2457
     idProduct = 0x1002
@@ -44,14 +38,8 @@ class USB2000:
         self.epCommandOut = self.interface[0]
         self.epMainIn = self.interface[1]
         self.epSecondaryIn = self.interface[3]
-        self.lastSpectrum = []
 
         self.initializeDevice()
-
-        self.graphics = GraphicsData()
-        self.quitFlag = False
-        self.saveBtn = None
-        self.animation = None
 
     def initializeDevice(self):
         self.epCommandOut.write(b'0x01')
@@ -141,9 +129,22 @@ class USB2000:
         except:
             print("Unable to save data.")
 
-    def display(self, ax=None):
-        fig, axes = self.createFigure()
-        self.graphics = GraphicsData( fig, axes)
+    def display(self):
+        viewer = SpectraViewer(spectrometer=self)
+        viewer.display()
+
+class SpectraViewer:
+    def __init__(self, spectrometer):
+        self.spectrometer = spectrometer
+        self.lastSpectrum = []
+        self.figure = None
+        self.axes = None
+        self.quitFlag = False
+        self.saveBtn = None
+        self.animation = None
+
+    def display(self):
+        self.figure, self.axes = self.createFigure()
 
         axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
         axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
@@ -151,10 +152,10 @@ class USB2000:
         self.saveBtn.on_clicked(self.clickSave)
         quitBtn = Button(axQuit, 'Quit')
         quitBtn.on_clicked(self.clickQuit)
-        fig.canvas.mpl_connect('key_press_event', self.keyPress)
+        self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
 
         self.quitFlag = False
-        self.animation = animation.FuncAnimation(fig, self.animate, interval=25)
+        self.animation = animation.FuncAnimation(self.figure, self.animate, interval=25)
         plt.show()
 
     def createFigure(self):
@@ -177,17 +178,17 @@ class USB2000:
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
 
-    def plotCurrentSpectrum(self, fig, axes, spectrum=None):
+    def plotSpectrum(self, spectrum=None):
         try:
             if spectrum is None:
-                spectrum = self.getSpectrum()
+                spectrum = self.spectrometer.getSpectrum()
 
-            if len(axes.lines) == 0:
-                axes.plot(self.wavelength, spectrum, 'k')
-                axes.set_xlabel("Wavelength [nm]")
-                axes.set_ylabel("Intensity [arb.u]")
+            if len(self.axes.lines) == 0:
+                self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
+                self.axes.set_xlabel("Wavelength [nm]")
+                self.axes.set_ylabel("Intensity [arb.u]")
             else: 
-                axes.lines[0].set_data( self.wavelength, spectrum) # set plot data
+                self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
         except:
             pass
 
@@ -197,12 +198,12 @@ class USB2000:
             self.animation = None
             plt.close()
 
-        self.lastSpectrum = self.getSpectrum()
-        self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes, spectrum=self.lastSpectrum)
+        self.lastSpectrum = self.spectrometer.getSpectrum()
+        self.plotSpectrum(spectrum=self.lastSpectrum)
 
     def keyPress(self, event):
-        if event.key == 'cmd+q':
-            self.quitFlag = True
+        if event.key == 'cmd+q' or event.key == 'q':
+            self.clickQuit()
 
     def clickSave(self, event):
         self.animation.event_source.stop()
@@ -218,10 +219,7 @@ class USB2000:
             filepath = filedialog.asksaveasfilename()
 
         if filepath is not None: 
-            self.saveBtn.label.set_text("••••")
-            self.saveSpectrum(filepath, spectrum=self.lastSpectrum)
-            #plt.savefig("{0}.pdf".format(filepath),dpi=600)
-            self.saveBtn.label.set_text("Save")
+            self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum)
 
         self.animation.event_source.start()
 
