@@ -170,7 +170,8 @@ class SerialPort(CommunicationPort):
 
         if port is not None and port.is_open:
             port.close()
-        self.port = port # direct port, must be closed.
+            
+        self.port = None # direct port, must be closed.
 
         self.portLock = RLock()
         self.transactionLock = RLock()
