@@ -13,15 +13,23 @@ class USBPort(CommunicationPort):
     the details of the communication.
     """
     @classmethod
-    def allDevices(cls, verbose=True):
+    def allDevices(cls, verbose=False):
         for bus in usb.busses():
             for device in bus.devices:
                 if device != None:
                     usbDevice = usb.core.find(idVendor=device.idVendor, idProduct=device.idProduct)
-                    iManufacturer = usb.util.get_string(usbDevice, usbDevice.iManufacturer)
-                    iProduct = usb.util.get_string(usbDevice, usbDevice.iProduct)
+                    print("{2}, {3} ({0:04x}, {1:04x})".format(usbDevice.idVendor, usbDevice.idProduct, usbDevice.manufacturer, usbDevice.product))
+                    for conf in usbDevice:
+                        print("  conf #:{0}, num of interfaces: {1}".format(conf.bConfigurationValue, conf.bNumInterfaces))                        
+                        for intf in conf:
+                            print("    #int:{0} #endpoints: {1}".format(intf.bInterfaceNumber, intf.bNumEndpoints))
 
-                    print("({0:04x}, {1:04x}) {2}, {3}".format(usbDevice.idVendor, usbDevice.idProduct, iManufacturer, iProduct))
+        if verbose:
+            for bus in usb.busses():
+                for device in bus.devices:
+                    if device != None:
+                        usbDevice = usb.core.find(idVendor=device.idVendor, idProduct=device.idProduct)
+                        print(usbDevice)
 
     def __init__(self, idVendor=None, idProduct=None, interfaceNumber=0):
         CommunicationPort.__init__(self)
