@@ -98,7 +98,7 @@ class TestCobolt(unittest.TestCase):
                 self.assertTrue(False)
         self.assertEqual(bytesRead[-1], 10)
         self.assertEqual(bytesRead[-2], 13)
-        print(self.asString(bytesRead))
+        # print(self.asString(bytesRead))
         usb.util.dispose_resources(cobolt)
 
     def asString(self, bytesRead):
@@ -106,6 +106,9 @@ class TestCobolt(unittest.TestCase):
 
     def testUSBPort(self):
         self.assertIsNotNone(USBPort(idVendor=self.idVendor, interfaceNumber=1))
+
+    def testConnected(self):
+        USBPort.allDevices()
 
 if __name__ == '__main__':
     unittest.main()

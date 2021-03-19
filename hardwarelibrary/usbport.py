@@ -12,7 +12,17 @@ class USBPort(CommunicationPort):
     functions to write strings and read strings, and abstract away
     the details of the communication.
     """
-    
+    @classmethod
+    def allDevices(cls, verbose=True):
+        for bus in usb.busses():
+            for device in bus.devices:
+                if device != None:
+                    usbDevice = usb.core.find(idVendor=device.idVendor, idProduct=device.idProduct)
+                    iManufacturer = usb.util.get_string(usbDevice, usbDevice.iManufacturer)
+                    iProduct = usb.util.get_string(usbDevice, usbDevice.iProduct)
+
+                    print("({0:04x}, {1:04x}) {2}, {3}".format(usbDevice.idVendor, usbDevice.idProduct, iManufacturer, iProduct))
+
     def __init__(self, idVendor=None, idProduct=None, interfaceNumber=0):
         CommunicationPort.__init__(self)
 

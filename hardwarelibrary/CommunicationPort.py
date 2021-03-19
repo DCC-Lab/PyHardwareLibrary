@@ -63,7 +63,7 @@ class CommunicationPort:
             self.port.reset_input_buffer()
             self.port.reset_output_buffer()
 
-    def readData(self, length) -> bytearray:
+    def readData(self, length, endpoint=0) -> bytearray:
         with self.portLock:
             data = self.port.read(length)
             if len(data) != length:
@@ -71,7 +71,7 @@ class CommunicationPort:
 
         return data
 
-    def writeData(self, data) -> int:
+    def writeData(self, data, endpoint=0) -> int:
         with self.portLock:
             nBytesWritten = self.port.write(data)
             if nBytesWritten != len(data):
@@ -80,12 +80,12 @@ class CommunicationPort:
 
         return nBytesWritten
 
-    def readString(self) -> str:      
+    def readString(self, endpoint=0) -> str:      
         with self.portLock:
             byte = None
             data = bytearray(0)
             while (byte != b''):
-                byte = self.readData(1)
+                byte = self.readData(1, endpoint)
                 data += byte
                 if byte == b'\n':
                     break
@@ -94,18 +94,18 @@ class CommunicationPort:
 
         return string
 
-    def writeString(self, string) -> int:
+    def writeString(self, string, endpoint=0) -> int:
         nBytes = 0
         with self.portLock:
             data = bytearray(string, "utf-8")
-            nBytes = self.writeData(data)
+            nBytes = self.writeData(data, endpoint)
 
         return nBytes
 
-    def writeStringExpectMatchingString(self, string, replyPattern, alternatePattern = None):
+    def writeStringExpectMatchingString(self, string, replyPattern, alternatePattern = None, endPoints=(0,0)):
         with self.transactionLock:
-            self.writeString(string)
-            reply = self.readString()
+            self.writeString(string, endPoints[0])
+            reply = self.readString(endPoints[1])
             match = re.search(replyPattern, reply)
             if match is None:
                 if alternatePattern is not None:
@@ -116,18 +116,18 @@ class CommunicationPort:
 
         return reply
 
-    def writeStringReadFirstMatchingGroup(self, string, replyPattern, alternatePattern = None):
+    def writeStringReadFirstMatchingGroup(self, string, replyPattern, alternatePattern = None, endPoints=(0,0)):
         with self.transactionLock:
-            groups = self.writeStringReadMatchingGroups(string, replyPattern, alternatePattern)
+            groups = self.writeStringReadMatchingGroups(string, replyPattern, alternatePattern, endPoints)
             if len(groups) >= 1:
                 return groups[0]
             else:
                 raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}' in {1}".format(replyPattern, groups))
 
-    def writeStringReadMatchingGroups(self, string, replyPattern, alternatePattern = None):
+    def writeStringReadMatchingGroups(self, string, replyPattern, alternatePattern = None, endPoints=(0,0)):
         with self.transactionLock:
-            self.writeString(string)
-            reply = self.readString()
+            self.writeString(string, endPoints[0])
+            reply = self.readString(endPoints[1])
 
             match = re.search(replyPattern, reply)
 
