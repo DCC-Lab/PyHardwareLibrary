@@ -53,12 +53,16 @@ class USB2000:
         lo = timeInMs % 256        
         self.epCommandOut.write([0x02, lo, hi])
 
-    def getCalibration(self):
+    def getIntegrationTime(self):
         status = self.getStatus()
+        return status.integrationTime
+
+    def getCalibration(self):
         self.a0 = float(self.getParameter(index=1))
         self.a1 = float(self.getParameter(index=2))
         self.a2 = float(self.getParameter(index=3))
         self.a3 = float(self.getParameter(index=4))
+        status = self.getStatus()
         self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
                             for x in range(status.pixels)]
 
@@ -85,19 +89,19 @@ class USB2000:
 
     def getStatus(self):
         self.epCommandOut.write(b'\xfe')
-        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=5000)
+        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=1000)
         statusList = unpack('>hh?B???xxxxxxx',status)
         return Status(*statusList)
 
     def getSpectrumData(self):
         spectrum = []
         for packet in range(32):
-            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=5000)
-            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=5000)
+            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=200)
+            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=200)
             
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
-        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=5000)
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
         spectrum[0] = spectrum[1]
 
         assert(confirmation[0] == 0x69)
@@ -147,6 +151,7 @@ class SpectraViewer:
     def display(self):
         self.figure, self.axes = self.createFigure()
 
+        axScale = plt.axes([0.12, 0.90, 0.15, 0.075])
         axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
         axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
         axTime = plt.axes([0.59, 0.90, 0.1, 0.075])
@@ -154,8 +159,13 @@ class SpectraViewer:
         self.saveBtn.on_clicked(self.clickSave)
         quitBtn = Button(axQuit, 'Quit')
         quitBtn.on_clicked(self.clickQuit)
+        autoscaleBtn = Button(axScale, 'Autoscale')
+        autoscaleBtn.on_clicked(self.clickAutoscale)
 
-        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]', initial="100", label_pad=0.1)
+        currentIntegrationTime = self.spectrometer.getIntegrationTime()
+        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
+                                          initial="{0}".format(currentIntegrationTime),
+                                          label_pad=0.1)
         self.integrationTimeBox.on_submit(self.submitTime)
         self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
 
@@ -217,8 +227,13 @@ class SpectraViewer:
             if time == 0:
                 raise ValueError()
             self.spectrometer.setIntegrationTime(time)
+            plt.pause(0.3)
+            self.axes.autoscale_view()
         except:
             self.integrationTimeBox.set_val("3")
+
+    def clickAutoscale(self, event):
+        self.axes.autoscale_view()
 
     def clickSave(self, event):
         self.animation.event_source.stop()
