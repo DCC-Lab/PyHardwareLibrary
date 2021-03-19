@@ -1,6 +1,6 @@
 import matplotlib
 import matplotlib.animation as animation
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, TextBox
 
 import time
 import usb.core
@@ -141,6 +141,7 @@ class SpectraViewer:
         self.axes = None
         self.quitFlag = False
         self.saveBtn = None
+        self.integrationTimeBox = None
         self.animation = None
 
     def display(self):
@@ -148,10 +149,14 @@ class SpectraViewer:
 
         axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
         axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
+        axTime = plt.axes([0.59, 0.90, 0.1, 0.075])
         self.saveBtn = Button(axSave, 'Save')
         self.saveBtn.on_clicked(self.clickSave)
         quitBtn = Button(axQuit, 'Quit')
         quitBtn.on_clicked(self.clickQuit)
+
+        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]', initial="100", label_pad=0.1)
+        self.integrationTimeBox.on_submit(self.submitTime)
         self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
 
         self.quitFlag = False
@@ -189,6 +194,7 @@ class SpectraViewer:
                 self.axes.set_ylabel("Intensity [arb.u]")
             else: 
                 self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
+                self.axes.relim()
         except:
             pass
 
@@ -202,8 +208,17 @@ class SpectraViewer:
         self.plotSpectrum(spectrum=self.lastSpectrum)
 
     def keyPress(self, event):
-        if event.key == 'cmd+q' or event.key == 'q':
-            self.clickQuit()
+        if event.key == 'cmd+q':
+            self.clickQuit(event)
+
+    def submitTime(self, event):
+        try:
+            time = int(self.integrationTimeBox.text)
+            if time == 0:
+                raise ValueError()
+            self.spectrometer.setIntegrationTime(time)
+        except:
+            self.integrationTimeBox.set_val("3")
 
     def clickSave(self, event):
         self.animation.event_source.stop()
