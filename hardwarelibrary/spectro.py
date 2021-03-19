@@ -7,6 +7,7 @@ from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.widgets import Button
+import matplotlib.animation as animation
 
 import time
 import usb.core
@@ -54,7 +55,8 @@ class USB2000:
 
         self.graphics = GraphicsData()
         self.quitFlag = False
-        self.bnext = None
+        self.saveBtn = None
+        self.animation = None
 
     def initializeDevice(self):
         self.epCommandOut.write(b'0x01')
@@ -83,8 +85,11 @@ class USB2000:
 
     def requestSpectrum(self):
         self.epCommandOut.write(b'\x09')
+        timeOut = time.time() + 1
         while not self.isSpectrumRequested():
-            plt.pause(0.001)
+            time.sleep(0.001)
+            if time.time() > timeOut:
+                raise TimeoutError()
 
     def isSpectrumRequested(self):
         status = self.getStatus()
@@ -93,15 +98,6 @@ class USB2000:
     def isSpectrumReady(self):
         status = self.getStatus()
         return status.isSpectralDataReady
-
-    def sendTextCommand(self, command):
-        self.epCommandOut.write(command)
-        try:
-            while True:
-                print(self.epMainIn.read(size_or_buffer=1, timeout=1000))
-        except:
-            print("Command failed")
-            pass
 
     def getStatus(self):
         self.epCommandOut.write(b'\xfe')
@@ -130,7 +126,7 @@ class USB2000:
         self.requestSpectrum()
         timeOut = time.time() + 1
         while not self.isSpectrumReady():
-            plt.pause(0.001)
+            time.sleep(0.001)
             if time.time() > timeOut:
                 raise TimeoutError("Data never ready")
 
@@ -145,7 +141,7 @@ class USB2000:
                 for x,y in list(zip(self.wavelength, spectrum)):
                     fileWrite.writerow(["{0:.2f}".format(x),y])
         except:
-            print("Unable to save data. Trying again")
+            print("Unable to save data.")
 
     def createFigure(self):
         SMALL_SIZE = 14
@@ -161,7 +157,7 @@ class USB2000:
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
         fig, axes = plt.subplots()
-        fig.set_size_inches(7, 5, forward=True)
+        fig.set_size_inches(9, 6, forward=True)
 
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
@@ -171,12 +167,12 @@ class USB2000:
         try:
             spectrum = self.getSpectrum()
 
-            for artist in axes.lines + axes.collections:
-                artist.remove()
-
-            axes.set_xlabel("Wavelength [nm]")
-            axes.set_ylabel("Intensity [arb.u]")
-            axes.plot(self.wavelength, spectrum, 'k')
+            if len(axes.lines) == 0:
+                axes.plot(self.wavelength, spectrum, 'k')
+                axes.set_xlabel("Wavelength [nm]")
+                axes.set_ylabel("Intensity [arb.u]")
+            else: 
+                axes.lines[0].set_data( self.wavelength, spectrum) # set plot data
         except:
             pass
 
@@ -184,29 +180,36 @@ class USB2000:
         fig, axes = self.createFigure()
         self.graphics = GraphicsData( fig, axes, "spectrum")
 
-        axprev = plt.axes([0.7, 0.90, 0.1, 0.075])
-        axnext = plt.axes([0.81, 0.90, 0.1, 0.075])
-        self.bnext = Button(axnext, 'Save')
-        self.bnext.on_clicked(self.save)
-        bprev = Button(axprev, 'Quit')
-        bprev.on_clicked(self.quit)
+        axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
+        axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
+        self.saveBtn = Button(axSave, 'Save')
+        self.saveBtn.on_clicked(self.clickSave)
+        quitBtn = Button(axQuit, 'Quit')
+        quitBtn.on_clicked(self.clickQuit)
         fig.canvas.mpl_connect('key_press_event', self.keyPress)
 
         self.quitFlag = False
-        while not self.quitFlag:
-            self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes)
-            plt.pause(0.01)
+        self.animation = animation.FuncAnimation(fig, self.animate, interval=25)
+        plt.show()
+
+    def animate(self, i):
+        if self.quitFlag:
+            self.animation.event_source.stop()
+            self.animation = None
+            plt.close()
+
+        self.plotCurrentSpectrum(self.graphics.figure, self.graphics.axes)
 
     def keyPress(self, event):
         if event.key == 'cmd+q':
             self.quitFlag = True
 
-    def save(self, event):
-        self.bnext.label.set_text("••••")
+    def clickSave(self, event):
+        self.saveBtn.label.set_text("••••")
         self.saveSpectrum("{0}-{1:.0f}.txt".format(self.graphics.filepath, time.time()))
-        self.bnext.label.set_text("Save")
+        self.saveBtn.label.set_text("Save")
 
-    def quit(self, event):
+    def clickQuit(self, event):
         self.quitFlag = True
 
 
