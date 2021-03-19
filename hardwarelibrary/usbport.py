@@ -31,7 +31,7 @@ class USBPort(CommunicationPort):
                         usbDevice = usb.core.find(idVendor=device.idVendor, idProduct=device.idProduct)
                         print(usbDevice)
 
-    def __init__(self, idVendor=None, idProduct=None, interfaceNumber=0):
+    def __init__(self, idVendor=None, idProduct=None, interfaceNumber=0, defaultEndPoints=(0, 1)):
         CommunicationPort.__init__(self)
 
         self.device = usb.core.find(idVendor=idVendor)
@@ -42,18 +42,16 @@ class USBPort(CommunicationPort):
         self.configuration = self.device.get_active_configuration()
 
         self.interface = self.configuration[(interfaceNumber,0)]
-        self.outputEndPoints = [None, None, None, None, None]
-        self.outputEndPoints[1] = self.interface[0]
-
-        self.inputEndPoints = [None, None, None, None, None]
-        self.inputEndPoints[1] = self.interface[1]
+        
+        self.defaultOutputEndPoint = self.interface[defaultEndPoints[0]]
+        self.defaultInputEndPoint = self.interface[defaultEndPoints[1]]
 
         self.portLock = RLock()
         self.transactionLock = RLock()
 
     @property
     def isOpen(self):
-        if self.mainOut is None:
+        if self.mainOutputEP is None:
             return False    
         else:
             return True    
@@ -70,29 +68,44 @@ class USBPort(CommunicationPort):
     def flush(self):
         return
 
-    def readData(self, length, endPoint=1) -> bytearray:
+    def readData(self, length, endPoint=None) -> bytearray:
+        if endPoint is None:
+            inputEndPoint = self.defaultInputEndPoint
+        else:
+            inputEndPoint = self.interface[endPoint]
+
         with self.portLock:
-            data = array.array('B',[0]*16)
-            nBytesRead = self.interface[1].read(size_or_buffer=data)
-            return data[:nBytesRead]
+            maxPacket = inputEndPoint.wMaxPacketSize
+            data = array.array('B',[0]*maxPacket)
+            nBytesRead = inputEndPoint.read(size_or_buffer=data)
+            return bytearray(data[:nBytesRead])
 
     def writeData(self, data, endPoint=None) -> int:
         if endPoint is None:
-            endPoint = 1
+            outputEndPoint = self.defaultOutputEndPoint
+        else:
+            outputEndPoint = self.interface[endPoint]
 
         with self.portLock:
-            nBytesWritten = self.interface[0].write(data)
+            nBytesWritten = outputEndPoint.write(data)
             if nBytesWritten != len(data):
                 raise IOError("Not all bytes written to port")
 
         return nBytesWritten
 
-    def readString(self, endpoint=0) -> str:      
-        data = self.readData(length=16)
-        if data[-1] == 10: # How to write?
-            return bytearray(data).decode(encoding='utf-8')
+    def readString(self, endPoint=None) -> str:      
+        if endPoint is None:
+            inputEndPoint = self.defaultInputEndPoint
+        else:
+            inputEndPoint = self.interface[endPoint]
 
-        raise ValueError("Not a string {0}".format(data))
+        while True:
+            maxPacket = inputEndPoint.wMaxPacketSize
+            data = self.readData(length=maxPacket, endPoint=endPoint)
+            if data[-1] != 10: # How to write?
+                raise ValueError("Not a string {0}, {1}".format(data, data[-1]))
+        
+            return data.decode(encoding='utf-8')
 
 class DebugEchoCommunicationPort(CommunicationPort):
     def __init__(self, delay=0):
