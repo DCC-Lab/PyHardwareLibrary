@@ -1,17 +1,22 @@
-import time
-import numpy as np
-from struct import *
-import csv
-from typing import NamedTuple
+try:
+    import time
+    import numpy as np
+    from struct import *
+    import csv
+    from typing import NamedTuple
 
-import usb.core
-import usb.util
+    import usb.core
+    import usb.util
 
-import matplotlib.backends as backends
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.widgets import Button, TextBox
+    import matplotlib.backends as backends
+    import matplotlib.pyplot as plt
+    import matplotlib.animation as animation
+    from matplotlib.widgets import Button, TextBox
 
+except Exception as err:
+    print('** Error importing modules. {0}'.format(err))
+    print('We will attempt to continue and hope for the best.')
+    
 """
 This is a simple script to use an Ocean Insight USB2000 spectrometer. You can
 use a simple interface or just use the USB2000 class and integrate it in your
