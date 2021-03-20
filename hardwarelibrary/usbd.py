@@ -1,8 +1,8 @@
 import usb.core
 import usb.util
 from usbport import *
-from os import listdir
-from os.path import isfile, join
+from os import listdir, stat
+from os.path import isfile, join, exists, isfile
 import re
 from typing import NamedTuple
 
@@ -17,6 +17,7 @@ class DeviceCommand(NamedTuple):
     text : str = None
     data : bytearray = None
     reply: str = None
+    replyData: bytearray = None
     
 class USBDeviceDescription:
     def __init__(self, name, idVendor=None, idProduct=None):
@@ -38,15 +39,33 @@ class USBDeviceDescription:
     @property
     def isVisibleOnUSBHub(self):
         dev = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
+        if dev is None:
+            raise RuntimeError("Device not visible on USB")
+
         isVisible = dev is not None
         usb.util.dispose_resources(dev)
         return isVisible
 
     @property
     def isVisibleAsPOSIXPort(self):
-        if len(self.bsdPathMatches) == 1:
+        if self.hasUniquePOSIXPortMatch:
+            if not exists(self.bsdPath):
+                raise RuntimeError("POSIX path does not exist: {0}".format(self.bsdPath))
+            stat(self.bsdPath)
             return True
+        else:
+            raise RuntimeError("POSIX path does not exist: {0}".format(self.bsdPath))
+        return False
 
+    @property
+    def isVisibleAsPOSIXPort(self):
+        if self.hasUniquePOSIXPortMatch:
+            if not exists(self.bsdPath):
+                raise RuntimeError("POSIX path does not exist: {0}".format(self.bsdPath))
+            permissions = stat(self.bsdPath)
+            return True
+        else:
+            raise RuntimeError("POSIX path does not exist: {0}".format(self.bsdPath))
         return False
 
     @property
@@ -56,7 +75,7 @@ class USBDeviceDescription:
     @property
     def bsdPath(self):
         if self.hasUniquePOSIXPortMatch:
-            return "/dev/{0}".format(self.bsdPathMatches[0])
+            return self.bsdPathMatches[0]
         return None
 
     @property
@@ -66,7 +85,7 @@ class USBDeviceDescription:
         matches = []
         for path in listdir("/dev"):
             if prog.match(path):
-                matches.append(path)
+                matches.append("/dev/{0}".format(path))
 
         return matches
 
@@ -134,7 +153,7 @@ class USBDeviceDescription:
         return isOpen
 
     @property
-    def canWritePOSIXCommands(self):
+    def canReadWritePOSIXCommands(self):
         self.posixPort.open()
         self.posixPort.flush()
 
@@ -153,6 +172,11 @@ class USBDeviceDescription:
                     reply = self.posixPort.readString()
                     if reply != command.reply:
                         return False
+                elif command.replyData is not None:
+                    replyData = self.posixPort.readData()
+                    if replyData != command.replyData:
+                        return False
+
         except Exception as err:
             raise err
         finally:
@@ -161,29 +185,45 @@ class USBDeviceDescription:
         return True
 
     @property
-    def canWriteUSBCommands(self):
+    def canReadWriteUSBCommands(self):
         port = USBPort(idVendor=self.idVendor, idProduct=self.idProduct, interfaceNumber=1)
         assert(port is not None)
 
+        success = True
         try:
             for command in self.deviceCommands:
                 if command.text is not None:
                     bytesWritten = port.writeString(command.text)
                     if bytesWritten != len(command.text):
-                        return False
+                        success = False
                 elif command.data is not None:
                     bytesWritten = port.writeData(command.data)
                     if bytesWritten != len(command.data):
-                        return False
+                        success = False
 
                 if command.reply is not None:
                     reply = port.readString()
                     if reply != command.reply:
-                        return False
+                        success = False
+                elif command.replyData is not None:
+                    replyData = port.readData(length=len(command.replyData))
+                    if replyData != command.replyData:
+                        success = False
+
         except Exception as err:
             raise err
 
-        return True
+        return success
+
+    def assertTrue(self, property):
+        try:
+            value = getattr(self, property)
+            if value:
+                print("✅ {0}".format(property))
+            else:
+                print("🚫 !{0}".format(property))
+        except Exception as err:
+            print("🚫 {0} failed: {1}".format(property, err))
 
     def assertEqual(self, property, expectation):
         try:
@@ -193,7 +233,7 @@ class USBDeviceDescription:
             else:
                 print("🚫 {0} != {1}".format(property, expectation))
         except Exception as err:
-            print("🚫 {0} failed. Exception {1}".format(property, err))
+            print("🚫 {0} failed: {1}".format(property, err))
 
 
     def assertNotEqual(self, property, expectation):
@@ -204,19 +244,26 @@ class USBDeviceDescription:
             else:
                 print("🚫 {0} == {1}".format(property, expectation))
         except Exception as err:
-            print("🚫 {0} failed. Exception {1}".format(property, err))
+            print("🚫 {0} failed: {1}".format(property, err))
 
     def report(self):
-        print("Diagnostic report for device {0} [vid{1} pid{2}]".format(self.name, self.idVendor, self.idProduct))
-        print(self.__dict__)
-        self.assertEqual('isVisible', True)
-        self.assertEqual('isVisibleOnUSBHub', True)
-        self.assertEqual('isVisibleAsPOSIXPort', True)
-        self.assertEqual('posixPortCanBeOpened', True)
-        self.assertEqual('hasUniquePOSIXPortMatch', True)
-        self.assertEqual('usbPortCanBeOpened', True)
-        self.assertEqual('canWritePOSIXCommands', True)
-        self.assertEqual('canWriteUSBCommands', True)
+        print("============================================================")
+        print("Diagnostic report for device {0} [vid 0x{1:04x} pid 0x{2:04x}]".format(self.name, self.idVendor, self.idProduct))
+        print("============================================================")
+        for key, value in self.__dict__.items():
+            if key[0] == "_":
+                continue # private
+            print("{0} = {1}".format(key, value))
+
+        print("------------------------------------------------------------")
+        self.assertTrue('isVisible')
+        self.assertTrue('isVisibleOnUSBHub')
+        self.assertTrue('isVisibleAsPOSIXPort')
+        self.assertTrue('posixPortCanBeOpened')
+        self.assertTrue('hasUniquePOSIXPortMatch')
+        self.assertTrue('usbPortCanBeOpened')
+        self.assertTrue('canReadWritePOSIXCommands')
+        self.assertTrue('canReadWriteUSBCommands')
 
 
 if __name__ == '__main__':
@@ -230,6 +277,7 @@ if __name__ == '__main__':
     
     dev.deviceCommands.append(DeviceCommand(text='Start',reply='Ready\r\n'))
     dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
-
+    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
+    #dev.usbPort.open()
     dev.report()
 
