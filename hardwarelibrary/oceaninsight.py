@@ -2,16 +2,40 @@ import time
 import numpy as np
 from struct import *
 import csv
-
-import usb.core
-import usb.util
-
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.widgets import Button, TextBox
-
 from typing import NamedTuple
+
+"""
+This is a simple script to use an Ocean Insight USB2000 spectrometer. You can
+use a simple interface or just use the USB2000 class and integrate it in your
+own project.
+
+If you simply run `python oceaninsight.py`, you wil get a spectrum in
+real-time that you can view and save.
+
+The USB2000 class encapsulates all the functions to access the device:  it
+instantiates a communication channel with the device with PyUSB, which needs
+to be installed and operational. All functions that access the USB
+communication to the spectrometer start with: 'get' and 'set'. A convenience
+display() function will create a SpectraViewer and call it with itself as a
+parameter.  The USB2000 class can easily be used in your own program and does not
+depend on GUI modules.
+
+The SpectraViewer class includes all functions to display the spectra and manage 
+user interactions. If you don't use SpectraViewer, you don't need matplotlib
+or Tkinter.
+
+Note
+----
+
+This project aims to replace the ill-conceived, shame-inducing, mind-boggingly
+sucky OceanView "software"-ish that Ocean Insight appears to think is a decent option
+for reasonable human beings to do science. It is not. Shame on you. On the bright
+side, the OEM documentation for their spectrometers is excellent, so this 
+implementation was not difficult to code.
+
+It is in a single python file to simplify usage by others.
+
+"""
 
 class Status(NamedTuple):
     """
@@ -32,7 +56,7 @@ class Status(NamedTuple):
     isSpectrumRequested: bool
         A spectrum is currently being acquired and prepared for transfer.
     timerSwap: bool
-        Use an 8-bit timer or 16-bit timer
+        Use an 8-bit timer or 16-bit timer for integration. Default 16-bit
     isSpectralDataReady : bool
         The spectrum requested is ready to be transferred.
     """
@@ -536,29 +560,23 @@ class SpectraViewer:
 
         self.quitFlag = True
 
+def showHelp(err):
+    print("There was an error when starting: '{0}'".format(err))
 
-if __name__ == "__main__":
-    try:
-        raise ValueError()
-        spectrometer = USB2000()
-        spectrometer.display()
-    except Exception as err:
-        """ Something unexpected occurred, which is probably a module not available.
-        We provide some help.
-        """
-        print("""
+    print("""
+    There may be missing modules, missing spectrometer or anything else.
     To use this `{0}` python script, you *must* have:
 
-    1. PyUSB installed.
+    1. PyUSB module installed.
         This can be done with `pip install pyusb`.  On ome platforms,
         you also need to install libusb, a free package to access
         USB devices.  
         On Windows, you can leave the libusb.dll file
         directly in the same directory as this script.
-    2. matplotlib installed
+    2. matplotlib module installed
         If you want to use the display function, you need matplotlib.
         This can be installed with `pip install matplotlib`
-    3. Tkinter installed.
+    3. Tkinter module installed.
         If you click "Save" in the window, you may need the Tkinter module.
         This comes standard with most python distributions.
     4. Obviously, a connected USB2000 spectrometer. It really needs to be 
@@ -567,3 +585,21 @@ if __name__ == "__main__":
         More spectrometers will be supported in the future.
             """.format(__file__)
             )
+
+if __name__ == "__main__":
+    try:
+        import usb.core
+        import usb.util
+
+        import matplotlib
+        import matplotlib.pyplot as plt
+        import matplotlib.animation as animation
+        from matplotlib.widgets import Button, TextBox
+
+        spectrometer = USB2000()
+        spectrometer.display()
+    except Exception as err:
+        """ Something unexpected occurred, which is probably a module not available.
+        We show some help.
+        """
+        showHelp(err)
