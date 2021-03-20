@@ -392,8 +392,8 @@ class SpectraViewer:
         self.figure, self.axes = self.createFigure()
 
         axScale = plt.axes([0.12, 0.90, 0.15, 0.075])
-        axQuit = plt.axes([0.7, 0.90, 0.1, 0.075])
-        axSave = plt.axes([0.81, 0.90, 0.1, 0.075])
+        axSave = plt.axes([0.7, 0.90, 0.1, 0.075])
+        axQuit = plt.axes([0.81, 0.90, 0.1, 0.075])
         axTime = plt.axes([0.59, 0.90, 0.1, 0.075])
         self.saveBtn = Button(axSave, 'Save')
         self.saveBtn.on_clicked(self.clickSave)
@@ -430,7 +430,8 @@ class SpectraViewer:
 
         fig, axes = plt.subplots()
         fig.set_size_inches(9, 6, forward=True)
-
+        serialNumber = self.spectrometer.getSerialNumber()
+        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model USB2000]'.format(serialNumber))
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
