@@ -4,6 +4,14 @@ from struct import *
 import csv
 from typing import NamedTuple
 
+import usb.core
+import usb.util
+
+import matplotlib.backends as backends
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.widgets import Button, TextBox
+
 """
 This is a simple script to use an Ocean Insight USB2000 spectrometer. You can
 use a simple interface or just use the USB2000 class and integrate it in your
@@ -81,7 +89,8 @@ class USB2000:
 
     Methods starting with "get" and "set" will actually communication with the
     spectrometer and correspond to a command as defined in the OEM
-    manual "USB2000 Data Sheet".
+    manual "USB2000 Data Sheet". The manuals can be found here:
+    https://github.com/DCC-Lab/PyHardwareLibrary/tree/master/hardwarelibrary/manuals
 
     Attributes
     ----------
@@ -116,20 +125,21 @@ class USB2000:
         for spectral data and other commands
 
     """
-    idVendor = 0x2457
-    idProduct = 0x1002
     def __init__(self):
         """
         Finds and initialize the communication with the USB2000 spectrometer
         if there is one connected.
 
-        If two are connected, it will pick one randomly.
+        If two spectrometers are connected, it will pick one randomly.
         """
+        self.idVendor = 0x2457
+        self.idProduct = 0x1002
+
         self.device = usb.core.find(idVendor=self.idVendor, 
                                     idProduct=self.idProduct)        
 
         if self.device is None:
-            raise RuntimeError('Device not found')
+            raise RuntimeError('USB2000 device not found')
 
         self.device.set_configuration()
         self.configuration = self.device.get_active_configuration()
@@ -241,7 +251,8 @@ class USB2000:
         while not self.isSpectrumRequested():
             time.sleep(0.001)
             if time.time() > timeOut:
-                raise TimeoutError()
+                raise TimeoutError('The spectrometer never acknowledged \
+the reception of the spectrum request')
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to 
@@ -507,7 +518,7 @@ class SpectraViewer:
 
         We must autoscale the plot because the intensities could be very different.
         However, it takes a small amount of time for the spectrometer to react.
-        We wait 0.3 seconds, which is small enough to need be annoying and seems to
+        We wait 0.3 seconds, which is small enough to not be annoying and seems to
         work fine.
 
         Anything incorrect will bring the integration time to 3 milliseconds.
@@ -515,7 +526,8 @@ class SpectraViewer:
         try:
             time = int(self.integrationTimeBox.text)
             if time == 0:
-                raise ValueError()
+                raise ValueError('Requested integration time is invalid: \
+the text "{0}" converts to 0.  Use a valid value (≥3).')
             self.spectrometer.setIntegrationTime(time)
             plt.pause(0.3)
             self.axes.autoscale_view()
@@ -541,7 +553,7 @@ class SpectraViewer:
         self.animation.event_source.stop()
         filepath = "spectrum.csv"
         try:
-            filepath = matplotlib.backends.backend_macosx._macosx.choose_save_file('Save the data',filepath)
+            filepath = backends.backend_macosx._macosx.choose_save_file('Save the data',filepath)
         except:
             import tkinter as tk
             from tkinter import filedialog
@@ -588,14 +600,6 @@ def showHelp(err):
 
 if __name__ == "__main__":
     try:
-        import usb.core
-        import usb.util
-
-        import matplotlib
-        import matplotlib.pyplot as plt
-        import matplotlib.animation as animation
-        from matplotlib.widgets import Button, TextBox
-
         spectrometer = USB2000()
         spectrometer.display()
     except Exception as err:
