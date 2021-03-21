@@ -120,6 +120,9 @@ class OISpectrometer:
     interface: Interface
         The active USB interface from the configuration
 
+    serialNumber: str
+        The serial number from the USB configuration descriptor
+
     epCommandOut: EndPoint
         The USB endpoint (i.e. the USB communication channel) to send commands
 
@@ -132,15 +135,20 @@ class OISpectrometer:
         for spectral data and other commands
 
     """
-    def __init__(self, idProduct, model):
+    idVendor = 0x2457 # Ocean Insight USB idVendor
+
+    def __init__(self, idProduct, model, serialNumber=None):
         """
         Finds and initialize the communication with the Ocean Insight spectrometer
         if there is one connected. All subclasses must provide the USB product id
         that corresponds to this model (0x1002 for USB2000 for instance) and 
         a string that describes the model, for the user.
 
-        If two spectrometers of the same model are connected, it will pick one
-        randomly. 
+        If two spectrometers of the same model are connected, it will match the serial
+        number. If a serial number is not provided, it will take the first one. 
+        This may not always be the one you expect or the same every day: it depends
+        on many things that you don't control.  Just find out the serial number
+        and use it.
 
         USB Details
         -----------
@@ -169,17 +177,26 @@ class OISpectrometer:
         for several OI spectrometers seems to indicate that the first input
         and output channels are the main channels, and the second input
         channel is for data.
+
+        Parameters
+        ----------
+
+        idProduct: int
+            The USB product id for the spectrometer, found in the documentation
+            or by connecting it.
+        model: str
+            A model name to be displayed to the user
+        serialNumber: str Default None
+            A serial number that can be used to specify which spectrometer
+            we want to use when there are more than one connected. Most of the
+            time, this is not needed, we simply pick the first one if no
+            serial number is provided.
         """
 
-        self.idVendor = 0x2457 # Ocean Insight
         self.idProduct = idProduct
         self.model = model
-
-        self.device = usb.core.find(idVendor=self.idVendor, 
-                                    idProduct=self.idProduct)        
-
-        if self.device is None:
-            raise RuntimeError('Ocean Insight device not found ({0})'.format(model))
+        self.device = OISpectrometer.matchUniqueDevice( idProduct=idProduct, 
+                                       serialNumber=serialNumber)
 
         """ Below are all the USB protocol details.  This requires reading
         the USB documentation, the Spectrometer documentation and many other 
@@ -219,6 +236,62 @@ class OISpectrometer:
             self.epCommandOut = outputEndpoints[0]
             self.epMainIn = inputEndpoints[0]
             self.epSecondaryIn = inputEndpoints[1]
+
+    @classmethod
+    def connectedDevices(cls, idProduct=None, serialNumber=None):
+        """ Return a list of USB devices from Ocean Insight that are currently
+        connected. If idProduct is provided, match only these products.
+        If a serial number is provided, return the matching device otherwise return 
+        an empty list.
+        If no serial number is provided, return all devices.
+        """
+        if idProduct is None:
+            devices = list(usb.core.find(find_all=True, idVendor=cls.idVendor))
+        else:
+            devices = list(usb.core.find(find_all=True, 
+                                    idVendor=cls.idVendor, 
+                                    idProduct=idProduct))
+
+        if serialNumber is not None: # A serial number was provided, try to match
+            for device in devices:
+                deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
+                if deviceSerialNumber == serialNumber:
+                    return [device]
+
+            return [] # Nothing matched
+
+        return devices
+
+    @classmethod
+    def matchUniqueDevice(cls, idProduct=None, serialNumber=None):
+        """ Find a unique device that matches the criteria provided. If there
+        is a single device connected, then the default parameters will make it return
+        that single device.  However, when there are more than one, idProduct is first
+        used to keep only the wanted products. If there are more than one of the same
+        product type, then the serial number is used to separate them. If we can't
+        find a unique device, we raise an exception to suggest what to do. """
+
+        devices = OISpectrometer.connectedDevices(idProduct=idProduct, 
+                                                  serialNumber=serialNumber)
+
+        device = None
+        if len(devices) == 1:
+            device = devices[0]
+        elif len(devices) > 1:
+            if serialNumber is not None:
+                raise RuntimeError('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
+            else:
+                # No serial number provided, just take the first one
+                device = devices[0]
+        else:
+            # No devices with criteria provided
+            anyOIDevices = OISpectrometer.connectedDevices()
+            if len(anyOIDevices) == 0:
+                raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
+            else:
+                raise RuntimeError('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
+
+        return device
 
     def initializeDevice(self):
         """
@@ -523,6 +596,7 @@ class SpectraViewer:
         to this Python script.  It is simpler to call it directly from the
         spectrometer object with its own display function that will instantiate
         a SpectraViewer and call its display function with itself as a paramater.
+        There are now attributes of interest to a user.
 
         Parameters
         ----------
