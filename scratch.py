@@ -1,4 +1,5 @@
-from hardwarelibrary import *
+from hardwarelibrary.communication import SerialPort
+from hardwarelibrary.lasersources import CoboltDevice
 
 laser = CoboltDevice(bsdPath="COM5")
 

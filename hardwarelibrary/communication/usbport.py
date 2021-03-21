@@ -1,6 +1,7 @@
+from .communicationport import *
+
 import usb.core
 import usb.util
-from communicationport import *
 import re
 import time
 import random
