@@ -81,20 +81,22 @@ class Status(NamedTuple):
     timerSwap: bool = None
     isSpectralDataReady : bool = None
 
-class USB2000:
+class OISpectrometer:
     """
-    A USB2000 spectrometer.  This allows complete access to the hardware
-    with simple functions to get the spectrum, or modify the integration time.
+    An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
+    to the hardware with simple functions to get the spectrum, or modify the
+    integration time.
     
-    Access to the device is done with pyusb and does not require any additional
-    information. The USB-specific attributes of the USB2000 are available, 
-    but are not needed for standard usage.  If you need to implement additional
-    functions and communicate with the device (not all capabilities are currently
-    coded), then you could implement them in a separate function.
+    Access to the device is done with pyusb and does not require any
+    additional information. The USB-specific attributes of the spectrometers are
+    available,  but are not needed for standard usage.  If you need to
+    implement additional functions and communicate with the device (not all
+    capabilities are currently coded), then you could implement them in a
+    separate function.
 
     Methods starting with "get" and "set" will actually communication with the
-    spectrometer and correspond to a command as defined in the OEM
-    manual "USB2000 Data Sheet". The manuals can be found here:
+    spectrometer and correspond to a command as defined in the OEM manual
+    "USB2000 Data Sheet". The manuals can be found here:
     https://github.com/DCC-Lab/PyHardwareLibrary/tree/master/hardwarelibrary/manuals
 
     Attributes
@@ -118,6 +120,9 @@ class USB2000:
     interface: Interface
         The active USB interface from the configuration
 
+    serialNumber: str
+        The serial number from the USB configuration descriptor
+
     epCommandOut: EndPoint
         The USB endpoint (i.e. the USB communication channel) to send commands
 
@@ -130,31 +135,198 @@ class USB2000:
         for spectral data and other commands
 
     """
-    def __init__(self):
+    idVendor = 0x2457 # Ocean Insight USB idVendor
+
+    def __init__(self, idProduct, model, serialNumber=None):
         """
-        Finds and initialize the communication with the USB2000 spectrometer
-        if there is one connected.
+        Finds and initialize the communication with the Ocean Insight spectrometer
+        if there is one connected. All subclasses must provide the USB product id
+        that corresponds to this model (0x1002 for USB2000 for instance) and 
+        a string that describes the model, for the user.
 
-        If two spectrometers are connected, it will pick one randomly.
+        If two spectrometers of the same model are connected, it will match the serial
+        number. If a serial number is not provided, it will take the first one. 
+        This may not always be the one you expect or the same every day: it depends
+        on many things that you don't control.  Just find out the serial number
+        and use it.
+
+        USB Details
+        -----------
+
+        The USB protocol is daunting for beginners and even for advanced
+        programmers. It is not the place here to explain all the details,  but
+        if you need to understand, here is the minimum info. The USB  protocol
+        helps define the details for any device (it is *extremely* general). A device,
+        when connected, needs to be configured for our purpose.
+
+        1. A device has a "USB Configuration" that we can retrieve. 
+        2. That configuration has a "USB Interface" that we pick to determine
+        what we want to do with the device.
+        3. That device defines communication channels (EndPoints) that are
+        either input or output. Contrary to a simple serial port that has a
+        single output channel and a single input channel, the USB port can
+        have many  of those channels (i.e. endpoints) that can be used for
+        different purpose.  For instance,  the OI Spectrometers have a channel
+        for commands Input/Output and an input channel to send the data. All
+        of those USB details are highly device-sepcific.  
+
+        Ocean Insight spectrometers have 1 USB configuration descriptor only,
+        we can use the default when configuring. Also, they appear to have a
+        single USB interface without alternate settings, se we can use (0,0)
+        to retrieve the appropriate one. Finally, reading the documentation 
+        for several OI spectrometers seems to indicate that the first input
+        and output channels are the main channels, and the second input
+        channel is for data.
+
+        Parameters
+        ----------
+
+        idProduct: int
+            The USB product id for the spectrometer, found in the documentation
+            or by connecting it.
+        model: str
+            A model name to be displayed to the user
+        serialNumber: str Default None
+            A serial number that can be used to specify which spectrometer
+            we want to use when there are more than one connected. Most of the
+            time, this is not needed, we simply pick the first one if no
+            serial number is provided.
         """
-        self.idVendor = 0x2457
-        self.idProduct = 0x1002
 
-        self.device = usb.core.find(idVendor=self.idVendor, 
-                                    idProduct=self.idProduct)        
+        self.idProduct = idProduct
+        self.model = model
+        self.device = OISpectrometer.matchUniqueDevice( idProduct=idProduct, 
+                                       serialNumber=serialNumber)
 
-        if self.device is None:
-            raise RuntimeError('USB2000 device not found')
+        """ Below are all the USB protocol details.  This requires reading
+        the USB documentation, the Spectrometer documentation and many other 
+        details. What follows may sound like gibberish.
 
+        There is a single USB Configuration (default) with a single USB Interface 
+        without alternate settings, so we can use (0,0).
+        """
         self.device.set_configuration()
         self.configuration = self.device.get_active_configuration()
         self.interface = self.configuration[(0,0)]
 
-        self.epCommandOut = self.interface[0]
-        self.epMainIn = self.interface[1]
-        self.epSecondaryIn = self.interface[3]
+        """
+        We are working on the reasonable assumption from the documentation
+        that the first input and output endpoints are the main endpoints and the
+        second input is the data endpoint. If that is not the case, the subclass can
+        simply reassign the endpoints properly in its __init__ function. 
+        """
+        inputEndpoints = []
+        outputEndpoints = []
+        for endpoint in self.interface:
+            """ The endpoint address has the 8th bit set to 1 when it is an input.
+            We can check with the bitwise operator & (and) 0x80. It will be zero
+            if an output and non-zero if an input. """
+            if endpoint.bEndpointAddress & 0x80 != 0:
+                inputEndpoints.append(endpoint)
+            else:
+                outputEndpoints.append(endpoint)
 
-        self.initializeDevice()
+        self.epCommandOut = None
+        self.epMainIn = None
+        self.epSecondaryIn = None
+        if len(inputEndpoints) >= 2 or len(outputEndpoints) > 0:
+            """ We have at least 2 input endpoints and 1 output. We assign the
+            endpoints according to the documentation, otherwise
+            the subclass will need to assign them."""
+            self.epCommandOut = outputEndpoints[0]
+            self.epMainIn = inputEndpoints[0]
+            self.epSecondaryIn = inputEndpoints[1]
+
+    @classmethod
+    def connectedDevices(cls, idProduct=None, serialNumber=None):
+        """ Return a list of USB devices from Ocean Insight that are currently
+        connected. If idProduct is provided, match only these products.
+        If a serial number is provided, return the matching device otherwise return 
+        an empty list.
+        If no serial number is provided, return all devices.
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one after
+            filtering out the idProduct.  if there is a single match, the serial number
+            is disregarded.
+
+        Returns
+        -------
+
+        devices: list of Device
+            A list of connected devices matching the criteria provided
+        """
+        if idProduct is None:
+            devices = list(usb.core.find(find_all=True, idVendor=cls.idVendor))
+        else:
+            devices = list(usb.core.find(find_all=True, 
+                                    idVendor=cls.idVendor, 
+                                    idProduct=idProduct))
+
+        if serialNumber is not None: # A serial number was provided, try to match
+            for device in devices:
+                deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
+                if deviceSerialNumber == serialNumber:
+                    return [device]
+
+            return [] # Nothing matched
+
+        return devices
+
+    @classmethod
+    def matchUniqueDevice(cls, idProduct=None, serialNumber=None):
+        """ A class method to find a unique device that matches the criteria provided. If there
+        is a single device connected, then the default parameters will make it return
+        that single device. The idProduct is used to filter out unwanted products. If
+        there are still more than one of the same product type, then the serial number
+        is used to separate them. If we can't find a unique device, we raise an
+        exception to suggest what to do. 
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one after
+            filtering out the idProduct.  if there is a single match, the serial number
+            is disregarded.
+
+        Returns
+        -------
+
+        device: Device
+            A single device matching the criteria
+
+        Raises
+        ------
+            RuntimeError if a single device cannot be found.
+        """
+
+        devices = OISpectrometer.connectedDevices(idProduct=idProduct, 
+                                                  serialNumber=serialNumber)
+
+        device = None
+        if len(devices) == 1:
+            device = devices[0]
+        elif len(devices) > 1:
+            if serialNumber is not None:
+                raise RuntimeError('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
+            else:
+                # No serial number provided, just take the first one
+                device = devices[0]
+        else:
+            # No devices with criteria provided
+            anyOIDevices = OISpectrometer.connectedDevices()
+            if len(anyOIDevices) == 0:
+                raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
+            else:
+                raise RuntimeError('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
+
+        return device
 
     def initializeDevice(self):
         """
@@ -398,6 +570,59 @@ the reception of the spectrum request')
         viewer = SpectraViewer(spectrometer=self)
         viewer.display()
 
+class USB2000(OISpectrometer):
+    """
+    A USB2000 spectrometer.  The main differences:
+    1. The integration time is 16-bit
+    3. The format of the retrieved data is different for each spectrometer.
+    """
+    def __init__(self):
+        OISpectrometer.__init__(self, idProduct=0x1002, model="USB2000")
+        self.initializeDevice()
+
+    def getSpectrumData(self):
+        """ Retrieve the spectral data.  You must call requestSpectrum first.
+        If the spectrum is not ready yet, it will simply wait. The timeout 
+        is set short so it may timeout.  You would normally check with
+        isSpectrumReady before calling this function.
+
+        The format for the USB2000 is all the least significant bytes in a packet
+        then the most significant bytes. We combine them to get the values.
+
+        Returns
+        -------
+        spectrum : np.array(float)
+            The spectrum, in 16-bit integers corresponding to each wavelength
+            available in self.wavelength.
+        """
+        spectrum = []
+        for packet in range(32):
+            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=200)
+            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=200)
+            
+            spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
+
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
+        spectrum[0] = spectrum[1]
+
+        assert(confirmation[0] == 0x69)
+        return np.array(spectrum)
+
+    def setIntegrationTime(self, timeInMs):
+        """ Set the integration time in an integer value of milliseconds 
+        for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
+        """
+        hi = timeInMs // 256
+        lo = timeInMs % 256        
+        self.epCommandOut.write([0x02, lo, hi])
+
+    def getIntegrationTime(self):
+        """ Get the integration time in as an integer value in milliseconds
+        """
+        status = self.getStatus()
+        return status.integrationTime
+
+
 class SpectraViewer:
     def __init__(self, spectrometer):
         """ A matplotlib-based window to display and manage a spectrometer
@@ -406,12 +631,13 @@ class SpectraViewer:
         to this Python script.  It is simpler to call it directly from the
         spectrometer object with its own display function that will instantiate
         a SpectraViewer and call its display function with itself as a paramater.
+        There are now attributes of interest to a user.
 
         Parameters
         ----------
 
-        spectrometer: USB2000
-            A spectrometer from Ocean Insight.
+        spectrometer: OISpectrometer
+            A spectrometer from Ocean Insight (for now, only USB2000)
         """
 
         self.spectrometer = spectrometer
@@ -454,7 +680,7 @@ class SpectraViewer:
         plt.show()
 
     def createFigure(self):
-        """ Create matplotlib figure with decent properties. """
+        """ Create a matplotlib figure with decent properties. """
 
         SMALL_SIZE = 14
         MEDIUM_SIZE = 18
@@ -471,7 +697,7 @@ class SpectraViewer:
         fig, axes = plt.subplots()
         fig.set_size_inches(9, 6, forward=True)
         serialNumber = self.spectrometer.getSerialNumber()
-        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model USB2000]'.format(serialNumber))
+        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model {1}]'.format(serialNumber, self.model))
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
@@ -581,25 +807,26 @@ def showHelp(err):
     print("There was an error when starting: '{0}'".format(err))
 
     print("""
-    There may be missing modules, missing spectrometer or anything else.
-    To use this `{0}` python script, you *must* have:
+There may be missing modules, missing spectrometer or anything else.
+To use this `{0}` python script, you *must* have:
 
-    1. PyUSB module installed.
-        This can be done with `pip install pyusb`.  On ome platforms,
-        you also need to install libusb, a free package to access
-        USB devices.  
-        On Windows, you can leave the libusb.dll file
-        directly in the same directory as this script.
-    2. matplotlib module installed
-        If you want to use the display function, you need matplotlib.
-        This can be installed with `pip install matplotlib`
-    3. Tkinter module installed.
-        If you click "Save" in the window, you may need the Tkinter module.
-        This comes standard with most python distributions.
-    4. Obviously, a connected USB2000 spectrometer. It really needs to be 
-        a USB2000 spectrometer.  The details of all the spectrometers
-        are different (number of pixels, bits, wavelengths, speed, etc...)
-        More spectrometers will be supported in the future.
+1. PyUSB module installed. 
+    This can be done with `pip install pyusb`.  On some platforms, you
+    also need to install libusb, a free package to access USB devices.  
+    On Windows, you can leave the libusb.dll file directly in the same
+    directory as this script.
+2. matplotlib module installed
+    If you want to use the display function, you need matplotlib.
+    This can be installed with `pip install matplotlib`
+3. Tkinter module installed.
+    If you click "Save" in the window, you may need the Tkinter module.
+    This comes standard with most python distributions.
+4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
+    a supported spectrometer (only USB2000 for now).  The details of all 
+    the spectrometers are different (number of pixels, bits, wavelengths,
+    speed, etc...). More spectrometers will be supported in the future.
+    Look at the class USB2000 to see what you have to provide to support
+    a new spectrometer (it is not that much work, but you need one to test).
             """.format(__file__)
             )
 
