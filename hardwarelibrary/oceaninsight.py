@@ -264,12 +264,22 @@ class OISpectrometer:
 
     @classmethod
     def matchUniqueDevice(cls, idProduct=None, serialNumber=None):
-        """ Find a unique device that matches the criteria provided. If there
+        """ A class method to find a unique device that matches the criteria provided. If there
         is a single device connected, then the default parameters will make it return
-        that single device.  However, when there are more than one, idProduct is first
-        used to keep only the wanted products. If there are more than one of the same
-        product type, then the serial number is used to separate them. If we can't
-        find a unique device, we raise an exception to suggest what to do. """
+        that single device. The idProduct is used to filter out unwanted products. If
+        there are still more than one of the same product type, then the serial number
+        is used to separate them. If we can't find a unique device, we raise an
+        exception to suggest what to do. 
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one after
+            filtering out the idProduct.  if there is a single match, the serial number
+            is disregarded.
+        """
 
         devices = OISpectrometer.connectedDevices(idProduct=idProduct, 
                                                   serialNumber=serialNumber)
@@ -772,25 +782,26 @@ def showHelp(err):
     print("There was an error when starting: '{0}'".format(err))
 
     print("""
-    There may be missing modules, missing spectrometer or anything else.
-    To use this `{0}` python script, you *must* have:
+There may be missing modules, missing spectrometer or anything else.
+To use this `{0}` python script, you *must* have:
 
-    1. PyUSB module installed.
-        This can be done with `pip install pyusb`.  On ome platforms,
-        you also need to install libusb, a free package to access
-        USB devices.  
-        On Windows, you can leave the libusb.dll file
-        directly in the same directory as this script.
-    2. matplotlib module installed
-        If you want to use the display function, you need matplotlib.
-        This can be installed with `pip install matplotlib`
-    3. Tkinter module installed.
-        If you click "Save" in the window, you may need the Tkinter module.
-        This comes standard with most python distributions.
-    4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
-        a supported spectrometer (USB2000 only for now).  The details of all 
-        the spectrometers are different (number of pixels, bits, wavelengths,
-        speed, etc...). More spectrometers will be supported in the future.
+1. PyUSB module installed. 
+    This can be done with `pip install pyusb`.  On some platforms, you
+    also need to install libusb, a free package to access USB devices.  
+    On Windows, you can leave the libusb.dll file directly in the same
+    directory as this script.
+2. matplotlib module installed
+    If you want to use the display function, you need matplotlib.
+    This can be installed with `pip install matplotlib`
+3. Tkinter module installed.
+    If you click "Save" in the window, you may need the Tkinter module.
+    This comes standard with most python distributions.
+4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
+    a supported spectrometer (only USB2000 for now).  The details of all 
+    the spectrometers are different (number of pixels, bits, wavelengths,
+    speed, etc...). More spectrometers will be supported in the future.
+    Look at the class USB2000 to see what you have to provide to support
+    a new spectrometer (it is not that much work, but you need one to test).
             """.format(__file__)
             )
 
