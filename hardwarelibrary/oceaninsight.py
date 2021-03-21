@@ -237,112 +237,6 @@ class OISpectrometer:
             self.epMainIn = inputEndpoints[0]
             self.epSecondaryIn = inputEndpoints[1]
 
-    @classmethod
-    def any(cls):
-        supportedClasses = cls.__subclasses__()
-
-        devices = cls.connectedUSBDevices()
-        for device in devices:
-            for aClass in supportedClasses:
-                if device.idProduct == aClass.idProduct:
-                    return aClass()
-
-        if len(devices) == 0:
-            raise RuntimeError('No Ocean Optics spectrometer connected.')
-        else:
-            raise RuntimeError('No supported Ocean Optics spectrometer connected. The devices {0} are not supported.'.format(devices))
-
-    @classmethod
-    def connectedUSBDevices(cls, idProduct=None, serialNumber=None):
-        """ Return a list of USB devices from Ocean Insight that are currently
-        connected. If idProduct is provided, match only these products.
-        If a serial number is provided, return the matching device otherwise return 
-        an empty list.
-        If no serial number is provided, return all devices.
-
-        Parameters
-        ----------
-        idProduct: int Default: None
-            The USB idProduct to match
-        serialNumber: str Default: None
-            The serial number to match, when there are still more than one after
-            filtering out the idProduct.  if there is a single match, the serial number
-            is disregarded.
-
-        Returns
-        -------
-
-        devices: list of Device
-            A list of connected devices matching the criteria provided
-        """
-        if idProduct is None:
-            devices = list(usb.core.find(find_all=True, idVendor=cls.idVendor))
-        else:
-            devices = list(usb.core.find(find_all=True, 
-                                    idVendor=cls.idVendor, 
-                                    idProduct=idProduct))
-
-        if serialNumber is not None: # A serial number was provided, try to match
-            for device in devices:
-                deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
-                if deviceSerialNumber == serialNumber:
-                    return [device]
-
-            return [] # Nothing matched
-
-        return devices
-
-    @classmethod
-    def matchUniqueUSBDevice(cls, idProduct=None, serialNumber=None):
-        """ A class method to find a unique device that matches the criteria provided. If there
-        is a single device connected, then the default parameters will make it return
-        that single device. The idProduct is used to filter out unwanted products. If
-        there are still more than one of the same product type, then the serial number
-        is used to separate them. If we can't find a unique device, we raise an
-        exception to suggest what to do. 
-
-        Parameters
-        ----------
-        idProduct: int Default: None
-            The USB idProduct to match
-        serialNumber: str Default: None
-            The serial number to match, when there are still more than one after
-            filtering out the idProduct.  if there is a single match, the serial number
-            is disregarded.
-
-        Returns
-        -------
-
-        device: Device
-            A single device matching the criteria
-
-        Raises
-        ------
-            RuntimeError if a single device cannot be found.
-        """
-
-        devices = OISpectrometer.connectedUSBDevices(idProduct=idProduct, 
-                                                  serialNumber=serialNumber)
-
-        device = None
-        if len(devices) == 1:
-            device = devices[0]
-        elif len(devices) > 1:
-            if serialNumber is not None:
-                raise RuntimeError('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
-            else:
-                # No serial number provided, just take the first one
-                device = devices[0]
-        else:
-            # No devices with criteria provided
-            anyOIDevices = OISpectrometer.connectedUSBDevices()
-            if len(anyOIDevices) == 0:
-                raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
-            else:
-                raise RuntimeError('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
-
-        return device
-
     def initializeDevice(self):
         """
         Initialize the Spectrometer and obtain calibration information.
@@ -513,9 +407,15 @@ the reception of the spectrum request')
             spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
 
         confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
-        spectrum[0] = spectrum[1]
+        spectrum[0] = spectrum[1] # For some reason, the first value is always 0
 
-        assert(confirmation[0] == 0x69)
+        if confirmation[0] != 0x69:
+            """ What do we do? The data is probably garbage because the
+            confirmation byte is wrong. We will print a message to the user
+            (who may not see it) and hope for the best.
+            """
+            print("Warning: data may be corrupted.  You may have to disconnect and reconnect the device.")
+
         return np.array(spectrum)
 
     def getSpectrum(self, integrationTime=None):
@@ -584,6 +484,151 @@ the reception of the spectrum request')
         """ Display the spectrum with the SpectraViewer class."""
         viewer = SpectraViewer(spectrometer=self)
         viewer.display()
+
+    @classmethod
+    def showHelp(cls, err=None):
+        if err is not None:
+            print("There was an error when starting: '{0}'".format(err))
+
+        print("""
+    There may be missing modules, missing spectrometer or anything else.
+    To use this `{0}` python script, you *must* have:
+
+    1. PyUSB module installed. 
+        This can be done with `pip install pyusb`.  On some platforms, you
+        also need to install libusb, a free package to access USB devices.  
+        On Windows, you can leave the libusb.dll file directly in the same
+        directory as this script.
+    2. matplotlib module installed
+        If you want to use the display function, you need matplotlib.
+        This can be installed with `pip install matplotlib`
+    3. Tkinter module installed.
+        If you click "Save" in the window, you may need the Tkinter module.
+        This comes standard with most python distributions.
+    4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
+        a supported spectrometer (only USB2000 for now).  The details of all 
+        the spectrometers are different (number of pixels, bits, wavelengths,
+        speed, etc...). More spectrometers will be supported in the future.
+        Look at the class USB2000 to see what you have to provide to support
+        a new spectrometer (it is not that much work, but you need one to test).
+                """.format(__file__)
+                )
+
+    @classmethod
+    def any(cls) -> 'OISpectrometer':
+        """ Return the first supported spectrometer found as a Python object
+        that can be used immediately.
+
+        Returns
+        -------
+        device: subclass of OISpectrometer
+            An instance of a supported spectrometer that can be used immediately.
+        """
+
+        supportedClasses = cls.__subclasses__()
+
+        devices = cls.connectedUSBDevices()
+        for device in devices:
+            for aClass in supportedClasses:
+                if device.idProduct == aClass.idProduct:
+                    return aClass()
+
+        if len(devices) == 0:
+            raise RuntimeError('No Ocean Optics spectrometer connected.')
+        else:
+            raise RuntimeError('No supported Ocean Optics spectrometer connected. The devices {0} are not supported.'.format(devices))
+
+    @classmethod
+    def connectedUSBDevices(cls, idProduct=None, serialNumber=None):
+        """ Return a list of USB devices from Ocean Insight that are currently
+        connected. If idProduct is provided, match only these products.
+        If a serial number is provided, return the matching device otherwise return 
+        an empty list.
+        If no serial number is provided, return all devices.
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one after
+            filtering out the idProduct.  if there is a single match, the serial number
+            is disregarded.
+
+        Returns
+        -------
+
+        devices: list of Device
+            A list of connected devices matching the criteria provided
+        """
+        if idProduct is None:
+            devices = list(usb.core.find(find_all=True, idVendor=cls.idVendor))
+        else:
+            devices = list(usb.core.find(find_all=True, 
+                                    idVendor=cls.idVendor, 
+                                    idProduct=idProduct))
+
+        if serialNumber is not None: # A serial number was provided, try to match
+            for device in devices:
+                deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
+                if deviceSerialNumber == serialNumber:
+                    return [device]
+
+            return [] # Nothing matched
+
+        return devices
+
+    @classmethod
+    def matchUniqueUSBDevice(cls, idProduct=None, serialNumber=None):
+        """ A class method to find a unique device that matches the criteria provided. If there
+        is a single device connected, then the default parameters will make it return
+        that single device. The idProduct is used to filter out unwanted products. If
+        there are still more than one of the same product type, then the serial number
+        is used to separate them. If we can't find a unique device, we raise an
+        exception to suggest what to do. 
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one after
+            filtering out the idProduct.  if there is a single match, the serial number
+            is disregarded.
+
+        Returns
+        -------
+
+        device: Device
+            A single device matching the criteria
+
+        Raises
+        ------
+            RuntimeError if a single device cannot be found.
+        """
+
+        devices = OISpectrometer.connectedUSBDevices(idProduct=idProduct, 
+                                                  serialNumber=serialNumber)
+
+        device = None
+        if len(devices) == 1:
+            device = devices[0]
+        elif len(devices) > 1:
+            if serialNumber is not None:
+                raise RuntimeError('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
+            else:
+                # No serial number provided, just take the first one
+                device = devices[0]
+        else:
+            # No devices with criteria provided
+            anyOIDevices = OISpectrometer.connectedUSBDevices()
+            if len(anyOIDevices) == 0:
+                raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
+            else:
+                raise RuntimeError('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
+
+        return device
+
 
 class USB2000(OISpectrometer):
     """
@@ -821,33 +866,6 @@ the text "{0}" converts to 0.  Use a valid value (≥3).')
 
         self.quitFlag = True
 
-def showHelp(err):
-    print("There was an error when starting: '{0}'".format(err))
-
-    print("""
-There may be missing modules, missing spectrometer or anything else.
-To use this `{0}` python script, you *must* have:
-
-1. PyUSB module installed. 
-    This can be done with `pip install pyusb`.  On some platforms, you
-    also need to install libusb, a free package to access USB devices.  
-    On Windows, you can leave the libusb.dll file directly in the same
-    directory as this script.
-2. matplotlib module installed
-    If you want to use the display function, you need matplotlib.
-    This can be installed with `pip install matplotlib`
-3. Tkinter module installed.
-    If you click "Save" in the window, you may need the Tkinter module.
-    This comes standard with most python distributions.
-4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
-    a supported spectrometer (only USB2000 for now).  The details of all 
-    the spectrometers are different (number of pixels, bits, wavelengths,
-    speed, etc...). More spectrometers will be supported in the future.
-    Look at the class USB2000 to see what you have to provide to support
-    a new spectrometer (it is not that much work, but you need one to test).
-            """.format(__file__)
-            )
-
 if __name__ == "__main__":
     try:
         spectrometer = OISpectrometer.any()
@@ -856,4 +874,4 @@ if __name__ == "__main__":
         """ Something unexpected occurred, which is probably a module not available.
         We show some help.
         """
-        showHelp(err)
+        OISpectrometer.showHelp(err)
