@@ -244,6 +244,21 @@ class OISpectrometer:
         If a serial number is provided, return the matching device otherwise return 
         an empty list.
         If no serial number is provided, return all devices.
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one after
+            filtering out the idProduct.  if there is a single match, the serial number
+            is disregarded.
+
+        Returns
+        -------
+
+        devices: list of Device
+            A list of connected devices matching the criteria provided
         """
         if idProduct is None:
             devices = list(usb.core.find(find_all=True, idVendor=cls.idVendor))
@@ -279,6 +294,16 @@ class OISpectrometer:
             The serial number to match, when there are still more than one after
             filtering out the idProduct.  if there is a single match, the serial number
             is disregarded.
+
+        Returns
+        -------
+
+        device: Device
+            A single device matching the criteria
+
+        Raises
+        ------
+            RuntimeError if a single device cannot be found.
         """
 
         devices = OISpectrometer.connectedDevices(idProduct=idProduct, 
