@@ -195,7 +195,7 @@ class OISpectrometer:
 
         self.idProduct = idProduct
         self.model = model
-        self.device = OISpectrometer.matchUniqueDevice( idProduct=idProduct, 
+        self.device = OISpectrometer.matchUniqueUSBDevice( idProduct=idProduct, 
                                        serialNumber=serialNumber)
 
         """ Below are all the USB protocol details.  This requires reading
@@ -238,7 +238,22 @@ class OISpectrometer:
             self.epSecondaryIn = inputEndpoints[1]
 
     @classmethod
-    def connectedDevices(cls, idProduct=None, serialNumber=None):
+    def any(cls):
+        supportedClasses = cls.__subclasses__()
+
+        devices = cls.connectedUSBDevices()
+        for device in devices:
+            for aClass in supportedClasses:
+                if device.idProduct == aClass.idProduct:
+                    return aClass()
+
+        if len(devices) == 0:
+            raise RuntimeError('No Ocean Optics spectrometer connected.')
+        else:
+            raise RuntimeError('No supported Ocean Optics spectrometer connected. The devices {0} are not supported.'.format(devices))
+
+    @classmethod
+    def connectedUSBDevices(cls, idProduct=None, serialNumber=None):
         """ Return a list of USB devices from Ocean Insight that are currently
         connected. If idProduct is provided, match only these products.
         If a serial number is provided, return the matching device otherwise return 
@@ -278,7 +293,7 @@ class OISpectrometer:
         return devices
 
     @classmethod
-    def matchUniqueDevice(cls, idProduct=None, serialNumber=None):
+    def matchUniqueUSBDevice(cls, idProduct=None, serialNumber=None):
         """ A class method to find a unique device that matches the criteria provided. If there
         is a single device connected, then the default parameters will make it return
         that single device. The idProduct is used to filter out unwanted products. If
@@ -306,7 +321,7 @@ class OISpectrometer:
             RuntimeError if a single device cannot be found.
         """
 
-        devices = OISpectrometer.connectedDevices(idProduct=idProduct, 
+        devices = OISpectrometer.connectedUSBDevices(idProduct=idProduct, 
                                                   serialNumber=serialNumber)
 
         device = None
@@ -320,7 +335,7 @@ class OISpectrometer:
                 device = devices[0]
         else:
             # No devices with criteria provided
-            anyOIDevices = OISpectrometer.connectedDevices()
+            anyOIDevices = OISpectrometer.connectedUSBDevices()
             if len(anyOIDevices) == 0:
                 raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
             else:
@@ -573,11 +588,14 @@ the reception of the spectrum request')
 class USB2000(OISpectrometer):
     """
     A USB2000 spectrometer.  The main differences:
-    1. The integration time is 16-bit
+    1. The idProduct is 0x1002
+    2. The integration time is 16-bit
     3. The format of the retrieved data is different for each spectrometer.
+
     """
+    idProduct = 0x1002
     def __init__(self):
-        OISpectrometer.__init__(self, idProduct=0x1002, model="USB2000")
+        OISpectrometer.__init__(self, idProduct=USB2000.idProduct, model="USB2000")
         self.initializeDevice()
 
     def getSpectrumData(self):
@@ -832,7 +850,7 @@ To use this `{0}` python script, you *must* have:
 
 if __name__ == "__main__":
     try:
-        spectrometer = USB2000()
+        spectrometer = OISpectrometer.any()
         spectrometer.display()
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
