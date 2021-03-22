@@ -1,6 +1,6 @@
 import usb.core
 import usb.util
-from usbport import *
+from .usbport import *
 from os import listdir, stat, system
 from stat import *
 from os.path import isfile, join, exists, isfile
@@ -21,6 +21,47 @@ class DeviceCommand(NamedTuple):
     replyData: bytearray = None
     
 class USBDeviceDescription:
+    @classmethod
+    def connectedUSBDevices(cls, idVendor=None, idProduct=None, serialNumber=None):
+        """ Return a list of USB devices from Ocean Insight that are currently
+        connected (idVendor = 0x2457). If idProduct is provided, match only these
+        products. If a serial number is provided, return the matching device otherwise
+        return  an empty list. If no serial number is provided, return all devices.
+
+        Parameters
+        ----------
+        idProduct: int Default: None
+            The USB idProduct to match
+        serialNumber: str Default: None
+            The serial number to match, when there are still more than one device after
+            filtering out the idProduct.  If there is a single match, the serial number
+            is disregarded.
+
+        Returns
+        -------
+
+        devices: list of Device
+            A list of connected devices matching the criteria provided
+        """
+        if idProduct is None and idVendor is None:
+            devices = list(usb.core.find(find_all=True))
+        elif idProduct is None:
+            devices = list(usb.core.find(find_all=True, idVendor=idVendor))
+        else:
+            devices = list(usb.core.find(find_all=True, 
+                                    idVendor=idVendor, 
+                                    idProduct=idProduct))
+
+        if serialNumber is not None: # A serial number was provided, try to match
+            for device in devices:
+                deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
+                if deviceSerialNumber == serialNumber:
+                    return [device]
+
+            return [] # Nothing matched
+
+        return devices
+
     def __init__(self, name, idVendor=None, idProduct=None):
         self.name = name
         self.idVendor = idVendor
@@ -166,13 +207,14 @@ class USBDeviceDescription:
 
     @property
     def usbPort(self):
-        if not self.hasUniquePOSIXPortMatch:
-            return None
-        
-        if self._serialPort is None:
-            self._serialPort = SerialPort(bsdPath=self.bsdPath)
+        if self._usbPort is None:
+            self._usbPort = USBPort(idVendor=self.idVendor, 
+                                    idProduct=self.idProduct, 
+                                    interfaceNumber=self.usbParameters.interface, 
+                                    defaultEndPoints=(self.usbParameters.outputEndpoint, 
+                                        self.usbParameters.inputEndpoint) )
 
-        return self._serialPort
+        return self._usbPort
  
     @property
     def posixPort(self):
@@ -227,6 +269,7 @@ class USBDeviceDescription:
 
         except Exception as err:
             raise err
+            return False
         finally:
             self.posixPort.close()
 
@@ -234,44 +277,75 @@ class USBDeviceDescription:
 
     @property
     def canReadWriteUSBCommands(self):
-        port = USBPort(idVendor=self.idVendor, idProduct=self.idProduct, interfaceNumber=1)
-        assert(port is not None)
+        port = self.usbPort
+
+        results = []
+        if len(self.deviceCommands) == 0:
+            return False
 
         success = True
         try:
+            print("Testing {0} commands.".format( len(self.deviceCommands)))
             for command in self.deviceCommands:
-                if command.text is not None:
-                    bytesWritten = port.writeString(command.text)
-                    if bytesWritten != len(command.text):
-                        success = False
-                elif command.data is not None:
-                    bytesWritten = port.writeData(command.data)
-                    if bytesWritten != len(command.data):
-                        success = False
+                try:
+                    if command.text is not None:
+                        bytesWritten = port.writeString(command.text)
+                        if bytesWritten != len(command.text):
+                            success = False
+                    elif command.data is not None:
+                        bytesWritten = port.writeData(command.data)
+                        if bytesWritten != len(command.data):
+                            success = False
 
-                if command.reply is not None:
-                    reply = port.readString()
-                    if reply != command.reply:
-                        success = False
-                elif command.replyData is not None:
-                    replyData = port.readData(length=len(command.replyData))
-                    if replyData != command.replyData:
-                        success = False
+                    if command.reply is not None:
+                        reply = port.readString()
+                        if reply != command.reply:
+                            success = False
+                    elif command.replyData is not None:
+                        replyData = port.readData(length=len(command.replyData))
+                        if replyData != command.replyData:
+                            success = False
+
+                    results.append(success)
+                except Exception as err:
+                    pass
 
         except Exception as err:
-            raise err
+            success = False
 
+        for res, command in zip(results, self.deviceCommands):
+            print(" {0} for {1}".format(res, command))
         return success
 
     def assertTrue(self, property):
         try:
             value = getattr(self, property)
             if value:
+                print("✅ {0} is True".format(property))
+            else:
+                print("🚫 {0} is not True".format(property))
+        except Exception as err:
+            print("🚫 {0} failed: {1}".format(property, err))
+
+    def assertFalseOrRaise(self, property):
+        try:
+            value = getattr(self, property)
+            if not value:
+                print("✅ NOT {0} is True".format(property))
+            else:
+                print("🚫 NOT {0} is not True".format(property))
+        except Exception as err:
+            print("✅ NOT {0} is True [Exception: {1}]".format(property, err))
+
+    def assertRaise(self, property):
+        try:
+            value = getattr(self, property)
+            if not value:
                 print("✅ {0}".format(property))
             else:
                 print("🚫 !{0}".format(property))
         except Exception as err:
-            print("🚫 {0} failed: {1}".format(property, err))
+            print("✅ {0} failed as expected: {1}".format(property, err))
 
     def assertEqual(self, property, expectation):
         try:
@@ -306,27 +380,30 @@ class USBDeviceDescription:
         print("------------------------------------------------------------")
         for property in self.mustAssertTrue:
             self.assertTrue(property)
+        for property in self.mustAssertFalse:
+            self.assertFalseOrRaise(property)
 
-if __name__ == '__main__':
-    dev = USBDeviceDescription("Optotune LD", idVendor=0x03eb, idProduct=0x2018)
-    dev.regexPOSIXPort = r"cu.usbmodem\d{6}"
-    dev.usbParameters = USBParameters(configuration=0, 
-                                      interface=1,
-                                      alternate=0,
-                                      outputEndpoint=0,
-                                      inputEndpoint=1)
-    dev.mustAssertTrue = ['isVisible', 'isVisibleOnUSBHub','isVisibleAsPOSIXPort',
-                          'isValidPOSIXPath','posixPortCanBeOpened', 'hasUniquePOSIXPortMatch', 
-                          'usbPortCanBeOpened', 'canReadWritePOSIXCommands',
-                          'canReadWriteUSBCommands']
-    dev.mustAssertFalse = []
+# if __name__ == '__main__':
+
+#     dev = USBDeviceDescription("Optotune LD", idVendor=0x03eb, idProduct=0x2018)
+#     dev.regexPOSIXPort = None
+#     dev.usbParameters = USBParameters(configuration=0, 
+#                                       interface=0,
+#                                       alternate=0,
+#                                       outputEndpoint=0,
+#                                       inputEndpoint=1)
+#     dev.mustAssertTrue = ['isVisible', 'isVisibleOnUSBHub','isVisibleAsPOSIXPort',
+#                           'isValidPOSIXPath','posixPortCanBeOpened', 'hasUniquePOSIXPortMatch', 
+#                           'usbPortCanBeOpened', 'canReadWritePOSIXCommands',
+#                           'canReadWriteUSBCommands']
+#     dev.mustAssertFalse = []
     
-    dev.deviceCommands.append(DeviceCommand(text='Start',reply='Ready\r\n'))
-    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
-#    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd', replyData='\x00'))
+#     dev.deviceCommands.append(DeviceCommand(text='Start',reply='Ready\r\n'))
+#     dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
+# #    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd', replyData='\x00'))
 
-    #dev.usbPort.open()
-    # print(dev.__dict__)
-    dev.diagnoseConnectivity()
-#    dev.report()
+#     #dev.usbPort.open()
+#     # print(dev.__dict__)
+#     dev.diagnoseConnectivity()
+# #    dev.report()
 
