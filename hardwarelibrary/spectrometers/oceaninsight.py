@@ -105,7 +105,7 @@ class OISpectrometer:
         USB idVendor for OceanInsight (0x2457)
 
     idProduct: int
-        USB idProduct for USB2000 (0x1002)
+        USB idProduct for spetrometer (e.g., USB2000 is 0x1002)
 
     wavelength: np.array(float)
         The wavelength corresponding to each pixel, as obtained from 
@@ -236,6 +236,7 @@ class OISpectrometer:
             self.epCommandOut = outputEndpoints[0]
             self.epMainIn = inputEndpoints[0]
             self.epSecondaryIn = inputEndpoints[1]
+        self.wavelength = None
 
     def initializeDevice(self):
         """
@@ -337,8 +338,7 @@ class OISpectrometer:
         while not self.isSpectrumRequested():
             time.sleep(0.001)
             if time.time() > timeOut:
-                raise TimeoutError('The spectrometer never acknowledged \
-the reception of the spectrum request')
+                raise TimeoutError('The spectrometer never acknowledged the reception of the spectrum request')
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to 
@@ -464,7 +464,7 @@ the reception of the spectrum request')
             with the python script was invoked.
 
         spectrum: array_like
-            A spectrum previously acquired or None to reuqest a spectrum
+            A spectrum previously acquired or None to request a new spectrum
 
         """
 
