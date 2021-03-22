@@ -41,16 +41,20 @@ class TextCommand(Command):
         self.replyPattern: str = replyPattern
         self.alternatePattern: str = alternatePattern
 
-    def send(self, port):
+    def send(self, port) -> bool:
         try:
-            if self.replyRegex is not None:
-                self.matchGroups = port.writeStringReadMatchingGroups(string=self.text,
+            if self.replyPattern is not None:
+                self.reply, self.matchGroups = port.writeStringReadMatchingGroups(string=self.text,
                                                    replyPattern=self.replyPattern,
                                                    alternatePattern=self.alternatePattern)
             else:
                 nBytes = port.writeString(string=self.text)
         except Exception as err:
             self.exceptions.append(err)
+            print(err)
+            return True
+
+        return False
 
 
 class DataCommand(Command):
@@ -141,9 +145,9 @@ class CommunicationPort:
 
     def writeStringReadFirstMatchingGroup(self, string, replyPattern, alternatePattern = None, endPoints=(0,0)):
         with self.transactionLock:
-            groups = self.writeStringReadMatchingGroups(string, replyPattern, alternatePattern, endPoints)
+            reply, groups = self.writeStringReadMatchingGroups(string, replyPattern, alternatePattern, endPoints)
             if len(groups) >= 1:
-                return groups[0]
+                return reply, groups[0]
             else:
                 raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}' in {1}".format(replyPattern, groups))
 
@@ -155,7 +159,7 @@ class CommunicationPort:
             match = re.search(replyPattern, reply)
 
             if match is not None:
-                return match.groups()
+                return reply, match.groups()
             else:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 

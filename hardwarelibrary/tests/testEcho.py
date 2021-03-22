@@ -125,17 +125,17 @@ class BaseTestCases:
             self.assertEqual(reply, "abcd1234\n")
 
         def testWriteStringReadMatchingPatternFirstCaptureGroup(self):
-            firstGroup = self.port.writeStringReadFirstMatchingGroup(
+            reply, firstGroup = self.port.writeStringReadFirstMatchingGroup(
                         "abcd1234\n",
                         replyPattern="abc.(\\d{4})")
             self.assertEqual(firstGroup, "1234")
 
         def testWriteStringReadMatchingPatternAllCaptureGroups(self):
-            (firstGroup, secondGroup) = self.port.writeStringReadMatchingGroups(
+            reply, groups = self.port.writeStringReadMatchingGroups(
                         "abcd1234\n",
                         replyPattern="(abc.)(\\d{4})")
-            self.assertEqual(firstGroup, "abcd")
-            self.assertEqual(secondGroup, "1234")
+            self.assertEqual(groups[0], "abcd")
+            self.assertEqual(groups[1], "1234")
 
         def testFailedWriteStringReadMatchingPattern(self):
             with self.assertRaises(CommunicationReadNoMatch) as context:
@@ -185,6 +185,14 @@ class BaseTestCases:
             with globalLock:
                 if threadFailed != -1:
                     self.fail("Thread {0}?".format(threadFailed))
+
+        def testCommand(self):
+            command = TextCommand("Test", text="1234\n", replyPattern="1234")
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            print(command.reply)
+            self.assertTrue(command.reply == "1234\n")
+            self.assertTrue(len(command.exceptions) == 0)
 
 def threadReadWrite(port, index):
     global threadFailed, globalLock
