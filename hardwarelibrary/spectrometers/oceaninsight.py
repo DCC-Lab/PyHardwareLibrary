@@ -760,7 +760,8 @@ class SpectraViewer:
         fig, axes = plt.subplots()
         fig.set_size_inches(9, 6, forward=True)
         serialNumber = self.spectrometer.getSerialNumber()
-        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model {1}]'.format(serialNumber, self.model))
+        model = self.spectrometer.model
+        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model {1}]'.format(serialNumber, model))
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
