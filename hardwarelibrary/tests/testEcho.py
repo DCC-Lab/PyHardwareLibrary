@@ -5,6 +5,7 @@ from threading import Thread, Lock
 
 from serial import *
 from hardwarelibrary import *
+from communicationport import *
 
 payloadData = b'1234'
 payloadString = '1234\n'
@@ -14,7 +15,7 @@ threadFailed = -1
 class BaseTestCases:
 
     class TestEchoPort(unittest.TestCase):
-        port = None
+        port = DebugEchoCommunicationPort()
 
         def testCreate(self):
             self.assertIsNotNone(self.port)

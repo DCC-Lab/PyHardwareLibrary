@@ -39,7 +39,7 @@ dev.mustAssertFalse = ['isVisibleAsPOSIXPort','isValidPOSIXPath',
 'canReadWritePOSIXCommands', 'posixPortCanBeOpened', 'hasUniquePOSIXPortMatch']
 
 dev.deviceCommands.append(DeviceCommand(data=b'\x01',replyData=None))
-dev.deviceCommands.append(DeviceCommand(data=b'\x05',replyData=b"1234567"))
+dev.deviceCommands.append(DeviceCommand(data=b'\x05\x00',replyData=b"\x00\x8c\x8b\x8a\x8f\x94\x95\x94\x94\x98\x96\x95\x98\x93\x92\x98\x95", replyDataLength=17))
 # dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
 #    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd', replyData='\x00'))
 # print(dev.isVisibleOnUSBHub)

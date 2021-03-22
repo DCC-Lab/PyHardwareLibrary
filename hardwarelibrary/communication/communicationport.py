@@ -13,6 +13,63 @@ class CommunicationReadNoMatch(Exception):
 class CommunicationReadAlternateMatch(Exception):
     pass
 
+class Command:
+    def __init__(self, name:str):
+        self.name = name
+        self.reply = None
+
+        self.matchGroups = None
+        self.isSent = False
+        self.isSentSuccessfully = False
+        self.exceptions = []
+        self.sendPortError = None
+        self.replyPortError = None
+
+        self.isReplyReceived = False
+        self.isReplyReceivedSuccessfully = False
+
+    def writeCommand(self, port):
+        raise NotImplementedError()
+
+    def readCommand(self, port):
+        raise NotImplementedError()
+
+class TextCommand(Command):
+    def __init__(self, name, text, replyPattern = None, alternatePattern = None):
+        Command.__init__(self, name)
+        self.text : str = text
+        self.replyPattern: str = replyPattern
+        self.alternatePattern: str = alternatePattern
+
+    def send(self, port):
+        try:
+            if self.replyRegex is not None:
+                self.matchGroups = port.writeStringReadMatchingGroups(string=self.text,
+                                                   replyPattern=self.replyPattern,
+                                                   alternatePattern=self.alternatePattern)
+            else:
+                nBytes = port.writeString(string=self.text)
+        except Exception as err:
+            self.exceptions.append(err)
+
+
+class DataCommand(Command):
+    def __init__(self, name, data, replyHexRegex = None, replyLength = None, unpackingMask = None):
+        Command.__init__(self, name)
+        self.data : bytearray = None
+        self.replyHexRegex: str = replyHexRegex
+        self.replyDataLength: int = 0
+        self.unpackingMask:str = unpackingMask
+
+    def writeCommand(self, port):
+        if self.replyDataLength != 0:
+            nBytes = port.writeData(self.data)
+
+            self.reply = self.port.readData(self.replyDataLength)
+
+    def readCommand(self, port):
+        raise NotImplementedError()
+
 class CommunicationPort:
     """CommunicationPort class with basic application-level protocol 
     functions to write strings and read strings, and abstract away
@@ -131,7 +188,7 @@ class DebugEchoCommunicationPort(CommunicationPort):
     def flush(self):
         self.buffer = bytearray()
 
-    def readData(self, length):
+    def readData(self, length, endpoint=0):
         with self.portLock:
             time.sleep(self.delay*random.random())
             data = bytearray()
@@ -144,7 +201,7 @@ class DebugEchoCommunicationPort(CommunicationPort):
 
         return data
 
-    def writeData(self, data):
+    def writeData(self, data, endpoint=0):
         with self.portLock:
             self.buffer.extend(data)
 

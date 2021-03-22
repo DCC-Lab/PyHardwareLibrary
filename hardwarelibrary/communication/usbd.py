@@ -19,7 +19,9 @@ class DeviceCommand(NamedTuple):
     data : bytearray = None
     reply: str = None
     replyData: bytearray = None
-    
+    replyDataLength: int = 0
+    actualReply = None
+  
 class USBDeviceDescription:
     @classmethod
     def connectedUSBDevices(cls, idVendor=None, idProduct=None, serialNumber=None):
@@ -302,13 +304,17 @@ class USBDeviceDescription:
                         if reply != command.reply:
                             success = False
                     elif command.replyData is not None:
-                        replyData = port.readData(length=len(command.replyData))
+                        print("Now")
+                        if command.replyDataLength != 0:
+                            replyData = port.readData(length=command.replyDataLength)
+                        print(replyData, command.replyData)
                         if replyData != command.replyData:
                             success = False
 
                     results.append(success)
                 except Exception as err:
-                    pass
+                    print("NOt make it {0}".format(err))
+                    results.append(False)
 
         except Exception as err:
             success = False
