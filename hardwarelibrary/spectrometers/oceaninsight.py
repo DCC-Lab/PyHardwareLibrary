@@ -4,6 +4,7 @@ try:
     from struct import *
     import csv
     from typing import NamedTuple
+    import array
 
     import usb.core
     import usb.util
@@ -81,6 +82,39 @@ class Status(NamedTuple):
     timerSwap: bool = None
     isSpectralDataReady : bool = None
 
+class StatusUSB4000(NamedTuple):
+    """
+    Status of the USB4000 Ocean Insight spectrometer. NamedTuple are compatible
+    with regular tuples but allow access with names instead of indexes,
+    simplifying usage.
+    
+    Attributes
+    ----------
+    pixels : int
+        number of pixels on the sensors
+    integrationTime: long
+        integration time in milliseconds
+    isLampEnabled : bool
+        lamp strobe (connected on specific pin) is enabled
+    triggerMode : int
+        trigger mode: normal (freerunning, software or external)
+    isSpectrumRequested: bool
+        A spectrum is currently being acquired and prepared for transfer.
+    nPackets: int
+        Number of packets per spectra
+    powerDown: bool
+        Circuit is powered down
+    usbSpeed : int
+        Speed of USB communication: 0 : full 0x80 : high
+    """
+    pixels : int = None
+    integrationTime: int = None
+    isLampEnabled : bool = None
+    triggerMode : int = None    
+    isSpectrumRequested: bool = None
+    nPackets: int = None
+    powerDown : bool = None
+    usbSpeed : int = None
 class OISpectrometer:
     """
     An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
@@ -215,27 +249,27 @@ class OISpectrometer:
         second input is the data endpoint. If that is not the case, the subclass can
         simply reassign the endpoints properly in its __init__ function. 
         """
-        inputEndpoints = []
-        outputEndpoints = []
+        self.inputEndpoints = []
+        self.outputEndpoints = []
         for endpoint in self.interface:
             """ The endpoint address has the 8th bit set to 1 when it is an input.
             We can check with the bitwise operator & (and) 0x80. It will be zero
             if an output and non-zero if an input. """
             if endpoint.bEndpointAddress & 0x80 != 0:
-                inputEndpoints.append(endpoint)
+                self.inputEndpoints.append(endpoint)
             else:
-                outputEndpoints.append(endpoint)
+                self.outputEndpoints.append(endpoint)
 
         self.epCommandOut = None
         self.epMainIn = None
         self.epSecondaryIn = None
-        if len(inputEndpoints) >= 2 or len(outputEndpoints) > 0:
+        if len(self.inputEndpoints) >= 2 or len(self.outputEndpoints) > 0:
             """ We have at least 2 input endpoints and 1 output. We assign the
             endpoints according to the documentation, otherwise
             the subclass will need to assign them."""
-            self.epCommandOut = outputEndpoints[0]
-            self.epMainIn = inputEndpoints[0]
-            self.epSecondaryIn = inputEndpoints[1]
+            self.epCommandOut = self.outputEndpoints[0]
+            self.epMainIn = self.inputEndpoints[0]
+            self.epSecondaryIn = self.inputEndpoints[1]
         self.wavelength = None
 
     def initializeDevice(self):
@@ -244,9 +278,12 @@ class OISpectrometer:
         This commands needs to be sent only once per session as soon as 
         the communication is started.
         """
-
+        print("Initializing")
         self.epCommandOut.write(b'0x01')
+        print("Initialized")
+        print("Requesting calibration")
         self.getCalibration()
+        print("Calibrated")
 
     def shutdownDevice(self):
         """
@@ -323,8 +360,11 @@ class OISpectrometer:
         parameter : str 
             The value of the parameter as an ASCII string
         """
-        self.epCommandOut.write([0x05, index])        
-        parameters = self.epSecondaryIn.read(size_or_buffer=17, timeout=5000)
+        self.epCommandOut.write([0x05, index])
+        maxPacket = 64 # FIXME
+        parameters = array.array('B',[0]*maxPacket)
+        self.epSecondaryIn.read(size_or_buffer=parameters, timeout=2000)
+        print(parameters)
         return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
@@ -685,6 +725,93 @@ class USB2000(OISpectrometer):
         status = self.getStatus()
         return status.integrationTime
 
+class USB4000(OISpectrometer):
+    """
+    A USB4000 spectrometer.  The main differences:
+    1. The idProduct is 0x1022
+    2. The integration time is 16-bit
+    3. The format of the retrieved data is different for each spectrometer.
+
+    """
+    idProduct = 0x1022
+    def __init__(self):
+        OISpectrometer.__init__(self, idProduct=USB4000.idProduct, model="USB4000")
+        self.epCommandOut = self.outputEndpoints[0]
+        self.epMainIn = self.inputEndpoints[2]
+        self.epSecondaryIn = self.inputEndpoints[1]
+        self.epSecondaryIn = self.inputEndpoints[1]
+
+        self.initializeDevice()
+
+    def getSpectrumData(self):
+        """ Retrieve the spectral data.  You must call requestSpectrum first.
+        If the spectrum is not ready yet, it will simply wait. The timeout 
+        is set short so it may timeout.  You would normally check with
+        isSpectrumReady before calling this function.
+
+        The format for the USB2000 is all the least significant bytes in a packet
+        then the most significant bytes. We combine them to get the values.
+
+        Returns
+        -------
+        spectrum : np.array(float)
+            The spectrum, in 16-bit integers corresponding to each wavelength
+            available in self.wavelength.
+        """
+        spectrum = []
+        for packet in range(32):
+            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=200)
+            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=200)
+            
+            spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
+
+        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
+        spectrum[0] = spectrum[1]
+
+        assert(confirmation[0] == 0x69)
+        return np.array(spectrum)
+
+    def getStatus(self):
+        """ The status of the spectrometer returned as a Status named tuple.
+
+        Returns
+        -------
+        status : Status 
+            You can access the fields of the status by index (i.e. status[0]) or
+            via their names. See the `Status` class.
+
+            pixels : int = None
+            integrationTime: int = None
+            isLampEnabled : bool = None
+            triggerMode : int = None    
+            isSpectrumRequested: bool = None
+            timerSwap: bool = None
+            isSpectralDataReady : bool = None
+       
+        """
+        print("Requesting status")
+        self.epCommandOut.write(b'\xfe')
+        print("Requested")
+        print("Reading")
+        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=1000)
+        print("Read")
+        statusList = unpack('>hLbBBBbBxxBx',status)
+        return StatusUSB4000(*statusList)
+
+    def setIntegrationTime(self, timeInMs):
+        """ Set the integration time in an integer value of milliseconds 
+        for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
+        """
+        hi = timeInMs // 256
+        lo = timeInMs % 256        
+        self.epCommandOut.write([0x02, lo, hi])
+
+    def getIntegrationTime(self):
+        """ Get the integration time in as an integer value in milliseconds
+        """
+        status = self.getStatus()
+        return status.integrationTime
+
 
 class SpectraViewer:
     def __init__(self, spectrometer):
@@ -869,8 +996,9 @@ the text "{0}" converts to 0.  Use a valid value (≥3).')
 
 if __name__ == "__main__":
     try:
-        spectrometer = OISpectrometer.any()
-        spectrometer.display()
+        spectrometer = USB4000()
+        print(spectrometer.getStatus())
+        #spectrometer.display()
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
         We show some help.
