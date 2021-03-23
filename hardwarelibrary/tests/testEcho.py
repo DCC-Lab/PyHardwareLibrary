@@ -186,13 +186,44 @@ class BaseTestCases:
                 if threadFailed != -1:
                     self.fail("Thread {0}?".format(threadFailed))
 
-        def testCommand(self):
+        def testTextCommandNoReply(self):
+            command = TextCommand("Test", text="1234\n")
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertIsNone(command.reply)
+            self.assertFalse(command.hasError)
+
+        def testTextCommand(self):
             command = TextCommand("Test", text="1234\n", replyPattern="1234")
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port))
-            print(command.reply)
+            self.assertTrue(command.isSentSuccessfully)
             self.assertTrue(command.reply == "1234\n")
-            self.assertTrue(len(command.exceptions) == 0)
+            self.assertFalse(command.hasError)
+
+        def testDataCommandNoReply(self):
+            command = DataCommand(b"Test", data=b"1234\n")
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertIsNone(command.reply)
+            self.assertFalse(command.hasError)
+
+        def testDataCommand(self):
+            command = DataCommand(b"Test", data=b"1234\n", replyDataLength=5)
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertTrue(command.reply == b"1234\n")
+            self.assertFalse(command.hasError)
+
+        def testDataCommandError(self):
+            command = DataCommand(b"Test", data=b"1234\n", replyDataLength=6)
+            self.assertIsNotNone(command)
+            self.assertTrue(command.send(self.port))
+            self.assertFalse(command.isSentSuccessfully)
+            self.assertTrue(command.hasError)
 
 def threadReadWrite(port, index):
     global threadFailed, globalLock
@@ -218,6 +249,21 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
     def tearDown(self):
         self.port.close()
         self.assertFalse(self.port.isOpen)
+
+    def testTextCommandNonDefaultEndPoint(self):
+        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(1,1))
+        self.assertIsNotNone(command)
+        self.assertFalse(command.send(self.port))
+        self.assertTrue(command.isSentSuccessfully)
+        self.assertTrue(command.reply == "1234\n")
+        self.assertFalse(command.hasError)
+
+    def testTextCommandDifferentEndPointsTimeout(self):
+        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(0,1))
+        self.assertIsNotNone(command)
+        self.assertTrue(command.send(self.port))
+        self.assertFalse(command.isSentSuccessfully)
+        self.assertTrue(command.hasError)
 
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 

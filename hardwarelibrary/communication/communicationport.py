@@ -14,65 +14,79 @@ class CommunicationReadAlternateMatch(Exception):
     pass
 
 class Command:
-    def __init__(self, name:str):
+    def __init__(self, name:str, endPoints = None):
         self.name = name
         self.reply = None
-
         self.matchGroups = None
+        if endPoints is None:
+            self.endPoints = (0, 0)
+        else:
+            self.endPoints = endPoints
+
         self.isSent = False
         self.isSentSuccessfully = False
         self.exceptions = []
-        self.sendPortError = None
-        self.replyPortError = None
 
         self.isReplyReceived = False
         self.isReplyReceivedSuccessfully = False
 
-    def writeCommand(self, port):
-        raise NotImplementedError()
+    @property
+    def hasError(self):
+        return len(self.exceptions) != 0
 
-    def readCommand(self, port):
+    def send(self, port) -> bool:
         raise NotImplementedError()
 
 class TextCommand(Command):
-    def __init__(self, name, text, replyPattern = None, alternatePattern = None):
-        Command.__init__(self, name)
+    def __init__(self, name, text, replyPattern = None, alternatePattern = None, endPoints = None):
+        Command.__init__(self, name, endPoints=endPoints)
         self.text : str = text
         self.replyPattern: str = replyPattern
         self.alternatePattern: str = alternatePattern
 
     def send(self, port) -> bool:
         try:
+            self.isSent = True
             if self.replyPattern is not None:
                 self.reply, self.matchGroups = port.writeStringReadMatchingGroups(string=self.text,
                                                    replyPattern=self.replyPattern,
-                                                   alternatePattern=self.alternatePattern)
+                                                   alternatePattern=self.alternatePattern,
+                                                   endPoints=self.endPoints)
             else:
-                nBytes = port.writeString(string=self.text)
+                nBytes = port.writeString(string=self.text, endPoint=self.endPoints[0])
+            self.isSentSuccessfully = True
         except Exception as err:
             self.exceptions.append(err)
-            print(err)
+            self.isSentSuccessfully = False
             return True
 
         return False
 
 
 class DataCommand(Command):
-    def __init__(self, name, data, replyHexRegex = None, replyLength = None, unpackingMask = None):
-        Command.__init__(self, name)
-        self.data : bytearray = None
+    def __init__(self, name, data, replyHexRegex = None, replyDataLength = 0, unpackingMask = None, endPoints = None):
+        Command.__init__(self, name, endPoints=endPoints)
+        self.data : bytearray = data
         self.replyHexRegex: str = replyHexRegex
-        self.replyDataLength: int = 0
+        self.replyDataLength: int = replyDataLength
         self.unpackingMask:str = unpackingMask
 
-    def writeCommand(self, port):
-        if self.replyDataLength != 0:
-            nBytes = port.writeData(self.data)
+    def send(self, port) -> bool:
+        try:
+            self.isSent = True
+            nBytes = port.writeData(data=self.data, endPoint=self.endPoints[0])
+            if self.replyDataLength > 0:
+                self.reply = port.readData(length=self.replyDataLength)
+            elif self.replyHexRegex is not None:
+                raise NotImplementedError()
+                # self.reply = port.readData(length=self.replyDataLength)
+            self.isSentSuccessfully = True
+        except Exception as err:
+            self.exceptions.append(err)
+            self.isSentSuccessfully = False
+            return True
 
-            self.reply = self.port.readData(self.replyDataLength)
-
-    def readCommand(self, port):
-        raise NotImplementedError()
+        return False
 
 class CommunicationPort:
     """CommunicationPort class with basic application-level protocol 
@@ -101,18 +115,18 @@ class CommunicationPort:
     def flush(self):
         raise NotImplementedError()
 
-    def readData(self, length, endpoint=0) -> bytearray:
+    def readData(self, length, endPoint=0) -> bytearray:
         raise NotImplementedError()
 
-    def writeData(self, data, endpoint=0) -> int:
+    def writeData(self, data, endPoint=0) -> int:
         raise NotImplementedError()
 
-    def readString(self, endpoint=0) -> str:      
+    def readString(self, endPoint=0) -> str:      
         with self.portLock:
             byte = None
             data = bytearray(0)
             while (byte != b''):
-                byte = self.readData(1, endpoint)
+                byte = self.readData(1, endPoint)
                 data += byte
                 if byte == b'\n':
                     break
@@ -121,11 +135,11 @@ class CommunicationPort:
 
         return string
 
-    def writeString(self, string, endpoint=0) -> int:
+    def writeString(self, string, endPoint=0) -> int:
         nBytes = 0
         with self.portLock:
             data = bytearray(string, "utf-8")
-            nBytes = self.writeData(data, endpoint)
+            nBytes = self.writeData(data, endPoint)
 
         return nBytes
 
@@ -166,7 +180,7 @@ class CommunicationPort:
 
 class DebugEchoCommunicationPort(CommunicationPort):
     def __init__(self, delay=0):
-        self.buffer = bytearray()
+        self.buffers = [bytearray(),bytearray()]
         self.delay = delay
         self._isOpen = False
         super(DebugEchoCommunicationPort, self).__init__()
@@ -186,27 +200,27 @@ class DebugEchoCommunicationPort(CommunicationPort):
         self._isOpen = False
         return
 
-    def bytesAvailable(self):
-        return len(self.buffer)
+    def bytesAvailable(self, endPoint=0):
+        return len(self.buffers[endPoint])
 
     def flush(self):
-        self.buffer = bytearray()
+        self.buffers = [bytearray(),bytearray()]
 
-    def readData(self, length, endpoint=0):
+    def readData(self, length, endPoint=0):
         with self.portLock:
             time.sleep(self.delay*random.random())
             data = bytearray()
             for i in range(0, length):
-                if len(self.buffer) > 0:
-                    byte = self.buffer.pop(0)
+                if len(self.buffers[endPoint]) > 0:
+                    byte = self.buffers[endPoint].pop(0)
                     data.append(byte)
                 else:
                     raise CommunicationReadTimeout("Unable to read data")
 
         return data
 
-    def writeData(self, data, endpoint=0):
+    def writeData(self, data, endPoint=0):
         with self.portLock:
-            self.buffer.extend(data)
+            self.buffers[endPoint].extend(data)
 
         return len(data)

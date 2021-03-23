@@ -15,5 +15,3 @@ sys.path.insert(0, "{0}/hardwarelibrary/spectrometers".format(root))
 sys.path.insert(0, "{0}/hardwarelibrary/lasersources".format(root))
 sys.path.insert(0, "{0}/hardwarelibrary".format(root))
 sys.path.insert(0, root)
-
-print(sys.path)
