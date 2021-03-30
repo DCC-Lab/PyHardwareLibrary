@@ -405,10 +405,11 @@ class OISpectrometer:
        
         """
 
-        self.epCommandOut.write(b'\xfe')
-        status = self.epStatus.read(size_or_buffer=16, timeout=1000)
-        statusList = unpack(self.statusPackingFormat, status)
-        status = Status(*statusList)
+        self.sendCommand(cmdBytes = b'\xfe')
+        statusList = self.readReply(inputEndpoint=self.epStatus,
+                                    unpackingFormat=self.statusPackingFormat,
+                                    timeout=1000)
+        status = self.Status(*statusList)
         self.lastStatus = status
         return status
 
@@ -720,6 +721,9 @@ class USB2000(OISpectrometer):
 
     def __init__(self):
         OISpectrometer.__init__(self, idProduct=USB2000.idProduct, model="USB2000")
+        self.epParameters = self.epSecondaryIn
+        self.epStatus = self.epMainIn 
+
         self.initializeDevice()
 
     def getSpectrumData(self):
@@ -757,12 +761,6 @@ class USB2000(OISpectrometer):
         hi = timeInMs // 256
         lo = timeInMs % 256        
         self.epCommandOut.write([0x02, lo, hi])
-
-    def getIntegrationTime(self):
-        """ Get the integration time in as an integer value in milliseconds
-        """
-        status = self.getStatus()
-        return status.integrationTime
 
 
 class USB4000(OISpectrometer):
@@ -865,32 +863,6 @@ class USB4000(OISpectrometer):
 
         return np.array(spectrum)
 
-    def getStatus(self):
-        """ The status of the spectrometer returned as a Status named tuple.
-
-        Returns
-        -------
-        status : Status 
-            You can access the fields of the status by index (i.e. status[0]) or
-            via their names. See the `Status` class.
-
-            pixels : int = None
-            integrationTime: int = None
-            isLampEnabled : bool = None
-            triggerMode : int = None
-            isSpectrumRequested: bool = None
-            timerSwap: bool = None
-            isSpectralDataReady : bool = None
-
-        """
-        self.sendCommand(cmdBytes = b'\xfe')
-        statusList = self.readReply(inputEndpoint=self.epStatus,
-                                    unpackingFormat=self.statusPackingFormat,
-                                    timeout=1000)
-        status = self.Status(*statusList)
-        self.lastStatus = status
-        return status
-
     def setIntegrationTime(self, timeInMs):
         """ Set the integration time in an integer value of milliseconds 
         for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
@@ -931,7 +903,6 @@ class USB4000(OISpectrometer):
         isSpectrumReady : bool
             Whether or not the spectrum ready to be retrieved
         """
-        # return True
 
         while True:
             try:
