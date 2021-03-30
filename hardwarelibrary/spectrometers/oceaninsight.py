@@ -272,7 +272,11 @@ class OISpectrometer:
             self.epCommandOut = self.outputEndpoints[0]
             self.epMainIn = self.inputEndpoints[0]
             self.epSecondaryIn = self.inputEndpoints[1]
+
         self.wavelength = None
+        self.discardLeadingSamples = 0 # In some models, the leading data is meaningless
+        self.discardTrailingSamples = 0 # In some models, the trailing data is meaningless
+        self.lastStatus = None
 
     def initializeDevice(self):
         """
@@ -283,6 +287,7 @@ class OISpectrometer:
         try:
             self.flushEndpoints()
             self.epCommandOut.write(b'0x01')
+            time.sleep(0.1)
             self.getCalibration()
         except Exception as err:
             raise RuntimeError("Error when initializing device: {0}".format(err))
@@ -294,17 +299,15 @@ class OISpectrometer:
         return
 
     def flushEndpoints(self):
-        maxPacket = 512 # FIXME: don't hardcode
-        buffer = array.array('B',[0]*maxPacket)
         for endpoint in self.inputEndpoints:
             try:
                 while True:
+                    buffer = array.array('B',[0]*endpoint.wMaxPacketSize)
                     endpoint.read(size_or_buffer=buffer, timeout=100)
-                    print("Endpoint 0x{0:X} had buffer with {1} bytes".format(endpoint.bEndpointAddress, len(buffer)))
-            except TimeoutError as err:
+            except usb.core.USBTimeoutError as err:
                 pass # This is an expected error if the buffers are empty.
             except Exception as err:
-                print(err)
+                print("Unable to flush buffers: {0}".format(err))
 
     def setIntegrationTime(self, timeInMs):
         """ Set the integration time in an integer value of milliseconds 
@@ -338,6 +341,10 @@ class OISpectrometer:
         status = self.getStatus()
         self.wavelength = [ self.a0 + self.a1*x + self.a2*x*x + self.a3*x*x*x 
                             for x in range(status.pixels)]
+        if self.discardTrailingSamples > 0:
+            self.wavelength = self.wavelength[:-self.discardTrailingSamples]
+        if self.discardLeadingSamples > 0:
+            self.wavelength = self.wavelength[self.discardLeadingSamples:]
 
     def getParameter(self, index):
         """ Get any of the 20 parameters hardcoded into the spectrometer.
@@ -376,10 +383,8 @@ class OISpectrometer:
         parameter : str 
             The value of the parameter as an ASCII string
         """
-        print("Entering parent class getParam")
         self.epCommandOut.write([0x05, index])
-        maxPacket = 64 # FIXME
-        parameters = array.array('B',[0]*maxPacket)
+        parameters = array.array('B',[0]*self.epSecondaryIn.wMaxPacketSize)
         self.epSecondaryIn.read(size_or_buffer=parameters, timeout=5000)
         return bytes(parameters[2:]).decode().rstrip('\x00')
 
@@ -441,38 +446,24 @@ class OISpectrometer:
         self.epCommandOut.write(b'\xfe')
         status = self.epSecondaryIn.read(size_or_buffer=16, timeout=1000)
         statusList = unpack('>hh?B???xxxxxxx',status)
-        return Status(*statusList)
+        status = Status(*statusList)
+        self.lastStatus = status
+        return status
 
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
         If the spectrum is not ready yet, it will simply wait. The timeout 
         is set short so it may timeout.  You would normally check with
         isSpectrumReady before calling this function.
+        This is highly device specific and must be implemented by the subclass.
 
         Returns
         -------
         spectrum : np.array(float)
-            The spectrum, in 16-bit integers corresponding to each wavelength
+            The spectrum, in integers corresponding to each wavelength
             available in self.wavelength.
         """
-        spectrum = []
-        for packet in range(32):
-            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=200)
-            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=200)
-            
-            spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
-
-        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
-        spectrum[0] = spectrum[1] # For some reason, the first value is always 0
-
-        if confirmation[0] != 0x69:
-            """ What do we do? The data is probably garbage because the
-            confirmation byte is wrong. We will print a message to the user
-            (who may not see it) and hope for the best.
-            """
-            print("Warning: data may be corrupted.  You may have to disconnect and reconnect the device.")
-
-        return np.array(spectrum)
+        raise NotImplementedError('You must implemented getSpectrumData for your subclass.')
 
     def getSpectrum(self, integrationTime=None):
         """ Obtain a spectrum from the spectrometer. This implies:
@@ -533,8 +524,8 @@ class OISpectrometer:
                 fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
                 for x,y in list(zip(self.wavelength, spectrum)):
                     fileWrite.writerow(["{0:.2f}".format(x),y])
-        except:
-            print("Unable to save data.")
+        except Exception as err:
+            print("Unable to save data: {0}".format(err))
 
     def display(self):
         """ Display the spectrum with the SpectraViewer class."""
@@ -757,40 +748,9 @@ class USB4000(OISpectrometer):
         self.epMainIn = self.inputEndpoints[2]
         self.epSecondaryIn = self.inputEndpoints[1]
         self.epSecondaryIn = self.inputEndpoints[1]
-
+        self.discardLeadingSamples = 5
+        self.discardTrailingSamples = 173
         self.initializeDevice()
-
-    def getSpectrum(self, integrationTime=None):
-        """ Obtain a spectrum from the spectrometer. This implies:
-        1- changing the integration time if needed.
-        2- requesting a spectrum,
-        3- waiting until ready, then
-        4- actually retrieving and returning the data.
-
-        Parameters
-        ----------
-        integrationTime: int, default None
-            integration time in milliseconds if not the currently configured
-            time.
-
-        Returns
-        -------
-
-        spectrum : np.array(float)
-            The spectrum, in 16-bit integers corresponding to each wavelength
-            available in self.wavelength.
-        """
-        if integrationTime is not None:
-            self.setIntegrationTime(integrationTime)
-
-        self.requestSpectrum()
-        timeOut = time.time() + 1
-        while not self.isSpectrumReady():
-            time.sleep(0.001)
-            if time.time() > timeOut:
-                raise TimeoutError("Data never ready")
-
-        return self.getSpectrumData()
 
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
@@ -807,14 +767,20 @@ class USB4000(OISpectrometer):
             available in self.wavelength.
         """
         spectrum = []
-
         buffer = array.array('B',[0]*512)
-        for packet in range(15):
+
+        if not self.lastStatus.isHighSpeed:
+            raise NotImplementedError('Full speed mode not implemented for USB4000.')
+
+        packetCount = self.lastStatus.packetCount
+        exposureTime = self.lastStatus.integrationTime
+
+        for packet in range(packetCount):
             inputEndpoint = self.inputEndpoints[0]
             if packet <= 3:
                 inputEndpoint = self.inputEndpoints[1]
 
-            buffer = inputEndpoint.read(size_or_buffer=512, timeout=2000)
+            buffer = inputEndpoint.read(size_or_buffer=512, timeout=exposureTime*2)
             values = unpack('<'+'H'*256, buffer)
             spectrum.extend(np.array(values))
 
@@ -823,8 +789,10 @@ class USB4000(OISpectrometer):
             self.flushEndpoints()
             raise RuntimeError('Spectrometer is desynchronized. Should disconnect')
 
-        spectrum[0] = spectrum[2] # Values always off?
-        spectrum[1] = spectrum[2] # Values always off?
+        if self.discardTrailingSamples > 0:
+            spectrum = spectrum[:-self.discardTrailingSamples]
+        if self.discardLeadingSamples > 0:
+            spectrum = spectrum[self.discardLeadingSamples:]
 
         return np.array(spectrum)
 
@@ -847,12 +815,13 @@ class USB4000(OISpectrometer):
 
         """
         self.epCommandOut.write(b'\xfe')
-        maxPacket = 64 # FIXME
-        parameters = array.array('B',[0]*maxPacket)
+        parameters = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
         nReadBytes = self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=1000)
 
         statusList = unpack('<hL?BBB?Bxx?x',parameters[:16])
-        return StatusUSB4000(*statusList)
+        status = StatusUSB4000(*statusList)
+        self.lastStatus = status
+        return status
 
     def setIntegrationTime(self, timeInMs):
         """ Set the integration time in an integer value of milliseconds 
@@ -909,9 +878,8 @@ class USB4000(OISpectrometer):
         """
         try:
             self.epCommandOut.write([0x05, index])
-            maxPacket = 64  # FIXME: don't hardcode
-            parameters = array.array('B', [0] * maxPacket)
 
+            parameters = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
             self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=200)
             for i, c in enumerate(parameters):
                 if c == 0:
@@ -920,7 +888,6 @@ class USB4000(OISpectrometer):
             return bytes(parameters[2:]).decode()
 
         except:
-            print('Unable to read. Flushing')
             self.flushEndpoints()
             raise RuntimeError('Reset attempted')
 
@@ -937,7 +904,7 @@ class USB4000(OISpectrometer):
         """
         while True:
             status = self.getStatus()
-            if status.acquisitionStatus & 1 != 0:
+            if status.acquisitionStatus & 2 != 0:
                 break
 
         return True
@@ -953,12 +920,13 @@ class USB4000(OISpectrometer):
         # return True
 
         while True:
-            status = self.getStatus()
-            # print("{0} {1} {2} {3}".format(status.acquisitionStatus & 1, status.acquisitionStatus & 2, status.acquisitionStatus & 4, status.packetsTransferred))
-            if status.packetsTransferred < 6:
-                pass
-            else:
-                break
+            try:
+                status = self.getStatus()
+                if status.acquisitionStatus & 4 != 0:
+                    break
+            except:
+                return False
+
         return True
 
 class SpectraViewer:
@@ -1033,7 +1001,7 @@ class SpectraViewer:
         plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
         fig, axes = plt.subplots()
-        fig.set_size_inches(9, 6, forward=True)
+        fig.set_size_inches(10, 6, forward=True)
         serialNumber = self.spectrometer.getSerialNumber()
         model = self.spectrometer.model
         fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model {1}]'.format(serialNumber, model))
@@ -1146,9 +1114,7 @@ the text "{0}" converts to 0.  Use a valid value (≥3).')
 if __name__ == "__main__":
     try:
         spectrometer = OISpectrometer.any()
-        print(spectrometer.getStatus())
         spectrometer.getSpectrum()
-        print(spectrometer.getStatus())
         spectrometer.display()
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
