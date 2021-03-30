@@ -111,7 +111,7 @@ class StatusUSB4000(NamedTuple):
     integrationTime: int = None
     isLampEnabled : bool = None
     triggerMode : int = None    
-    isSpectrumRequested: bool = None
+    acquisitionStatus: int = None
     packetCount: int = None
     powerDown : bool = None
     packetsTransferred: int = None
@@ -281,6 +281,7 @@ class OISpectrometer:
         the communication is started.
         """
         try:
+            self.flushEndpoints()
             self.epCommandOut.write(b'0x01')
             self.getCalibration()
         except Exception as err:
@@ -291,6 +292,19 @@ class OISpectrometer:
         Shutdown the Spectrometer. Currently does not perform anything.
         """
         return
+
+    def flushEndpoints(self):
+        maxPacket = 512 # FIXME: don't hardcode
+        buffer = array.array('B',[0]*maxPacket)
+        for endpoint in self.inputEndpoints:
+            try:
+                while True:
+                    endpoint.read(size_or_buffer=buffer, timeout=100)
+                    print("Endpoint 0x{0:X} had buffer with {1} bytes".format(endpoint.bEndpointAddress, len(buffer)))
+            except TimeoutError as err:
+                pass # This is an expected error if the buffers are empty.
+            except Exception as err:
+                print(err)
 
     def setIntegrationTime(self, timeInMs):
         """ Set the integration time in an integer value of milliseconds 
@@ -793,23 +807,22 @@ class USB4000(OISpectrometer):
             available in self.wavelength.
         """
         spectrum = []
-        buffer = array.array('B',[0]*512)
-        for packet in range(4):
-            bytesRead = self.inputEndpoints[1].read(size_or_buffer=buffer, timeout=200)
-            if bytesRead != 512:
-                print("Warning: not enough bytes read: {0}".format(bytesRead))
-            values = unpack('<'+'H'*256, buffer)
-            spectrum.extend(np.array(values))
 
-        for packet in range(4,15):
-            bytesRead = self.inputEndpoints[0].read(size_or_buffer=buffer, timeout=200)
-            if bytesRead != 512:
-                print("Warning: not enough bytes read: {0}".format(bytesRead))
+        buffer = array.array('B',[0]*512)
+        for packet in range(15):
+            inputEndpoint = self.inputEndpoints[0]
+            if packet <= 3:
+                inputEndpoint = self.inputEndpoints[1]
+
+            buffer = inputEndpoint.read(size_or_buffer=512, timeout=2000)
             values = unpack('<'+'H'*256, buffer)
             spectrum.extend(np.array(values))
 
         confirmation = self.inputEndpoints[0].read(size_or_buffer=1, timeout=200)
-        assert(confirmation[0] == 0x69)
+        if confirmation[0] != 0x69:
+            self.flushEndpoints()
+            raise RuntimeError('Spectrometer is desynchronized. Should disconnect')
+
         spectrum[0] = spectrum[2] # Values always off?
         spectrum[1] = spectrum[2] # Values always off?
 
@@ -827,11 +840,11 @@ class USB4000(OISpectrometer):
             pixels : int = None
             integrationTime: int = None
             isLampEnabled : bool = None
-            triggerMode : int = None    
+            triggerMode : int = None
             isSpectrumRequested: bool = None
             timerSwap: bool = None
             isSpectralDataReady : bool = None
-       
+
         """
         self.epCommandOut.write(b'\xfe')
         maxPacket = 64 # FIXME
@@ -894,16 +907,23 @@ class USB4000(OISpectrometer):
         parameter : str
             The value of the parameter as an ASCII string
         """
-        self.epCommandOut.write([0x05, index])
-        maxPacket = 64 # FIXME: don't hardcode
-        parameters = array.array('B',[0]*maxPacket)
-        self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=2000)
+        try:
+            self.epCommandOut.write([0x05, index])
+            maxPacket = 64  # FIXME: don't hardcode
+            parameters = array.array('B', [0] * maxPacket)
 
-        for i, c in enumerate(parameters):
-            if c == 0:
-                parameters = parameters[:i]
-                break
-        return bytes(parameters[2:]).decode()
+            self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=200)
+            for i, c in enumerate(parameters):
+                if c == 0:
+                    parameters = parameters[:i]
+                    break
+            return bytes(parameters[2:]).decode()
+
+        except:
+            print('Unable to read. Flushing')
+            self.flushEndpoints()
+            raise RuntimeError('Reset attempted')
+
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to
@@ -915,6 +935,11 @@ class USB4000(OISpectrometer):
         isSpectrumRequested : bool
             Whether or not the spectrometer is waiting for an acquisition
         """
+        while True:
+            status = self.getStatus()
+            if status.acquisitionStatus & 1 != 0:
+                break
+
         return True
 
     def isSpectrumReady(self):
@@ -925,9 +950,16 @@ class USB4000(OISpectrometer):
         isSpectrumReady : bool
             Whether or not the spectrum ready to be retrieved
         """
+        # return True
+
+        while True:
+            status = self.getStatus()
+            # print("{0} {1} {2} {3}".format(status.acquisitionStatus & 1, status.acquisitionStatus & 2, status.acquisitionStatus & 4, status.packetsTransferred))
+            if status.packetsTransferred < 6:
+                pass
+            else:
+                break
         return True
-        # status = self.getStatus()
-        # return status.packetsTransferred == status.packetCount
 
 class SpectraViewer:
     def __init__(self, spectrometer):
