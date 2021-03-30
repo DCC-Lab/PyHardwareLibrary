@@ -815,10 +815,10 @@ class USB4000(OISpectrometer):
 
         """
         self.epCommandOut.write(b'\xfe')
-        parameters = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
-        nReadBytes = self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=1000)
+        buffer = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
+        nReadBytes = self.inputEndpoints[2].read(size_or_buffer=buffer, timeout=1000)
 
-        statusList = unpack('<hL?BBB?Bxx?x',parameters[:16])
+        statusList = unpack('<hL?BBB?Bxx?x',buffer[:16])
         status = StatusUSB4000(*statusList)
         self.lastStatus = status
         return status
@@ -897,6 +897,10 @@ class USB4000(OISpectrometer):
         complete and will raise the ready flag when the spectrum is ready
         to be retrieved.
 
+        The documentation for the USB4000 is not clear: the acquisition status
+        is either 0,2,3,4 and it appears that 2 is when data is requested, but
+        this is empirically determined.
+
         Returns
         -------
         isSpectrumRequested : bool
@@ -911,6 +915,10 @@ class USB4000(OISpectrometer):
 
     def isSpectrumReady(self):
         """ The requested spectrum is ready to be retrieved with getSpectrumData.
+        
+        The documentation for the USB4000 is not clear: the acquisition status
+        is either 0,2,3,4 and it appears that 4 is when data is ready, but
+        this is empirically determined.
 
         Returns
         -------
