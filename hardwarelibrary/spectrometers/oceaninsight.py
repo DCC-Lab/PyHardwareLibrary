@@ -51,71 +51,6 @@ It is in a single python file to simplify usage by others.
 
 """
 
-class Status(NamedTuple):
-    """
-    Status of the Ocean Insight spectrometer. NamedTuple are compatible
-    with regular tuples but allow access with names instead of indexes,
-    simplifying usage.
-    
-    Attributes
-    ----------
-    pixels : int
-        number of pixels on the sensors
-    integrationTime: int
-        integration time in milliseconds
-    isLampEnabled : bool
-        lamp strobe (connected on specific pin) is enabled
-    triggerMode : int
-        trigger mode: normal (freerunning, software or external)
-    isSpectrumRequested: bool
-        A spectrum is currently being acquired and prepared for transfer.
-    timerSwap: bool
-        Use an 8-bit timer or 16-bit timer for integration. Default 16-bit
-    isSpectralDataReady : bool
-        The spectrum requested is ready to be transferred.
-    """
-    pixels : int = None
-    integrationTime: int = None
-    isLampEnabled : bool = None
-    triggerMode : int = None    
-    isSpectrumRequested: bool = None
-    timerSwap: bool = None
-    isSpectralDataReady : bool = None
-
-class StatusUSB4000(NamedTuple):
-    """
-    Status of the USB4000 Ocean Insight spectrometer. NamedTuple are compatible
-    with regular tuples but allow access with names instead of indexes,
-    simplifying usage.
-    
-    Attributes
-    ----------
-    pixels : int
-        number of pixels on the sensors
-    integrationTime: long
-        integration time in milliseconds
-    isLampEnabled : bool
-        lamp strobe (connected on specific pin) is enabled
-    triggerMode : int
-        trigger mode: normal (freerunning, software or external)
-    isSpectrumRequested: bool
-        A spectrum is currently being acquired and prepared for transfer.
-    nPackets: int
-        Number of packets per spectra
-    powerDown: bool
-        Circuit is powered down
-    usbSpeed : int
-        Speed of USB communication: 0 : full 0x80 : high
-    """
-    pixels : int = None
-    integrationTime: int = None
-    isLampEnabled : bool = None
-    triggerMode : int = None    
-    acquisitionStatus: int = None
-    packetCount: int = None
-    powerDown : bool = None
-    packetsTransferred: int = None
-    isHighSpeed : bool = None
 
 class OISpectrometer:
     """
@@ -172,6 +107,11 @@ class OISpectrometer:
 
     """
     idVendor = 0x2457 # Ocean Insight USB idVendor
+
+    # The subclasses must define a NamedTuple Status and a packingFormat
+
+    class Status(NamedTuple):
+        pass
 
     def __init__(self, idProduct, model, serialNumber=None):
         """
@@ -445,7 +385,7 @@ class OISpectrometer:
         """
         self.epCommandOut.write(b'\xfe')
         status = self.epSecondaryIn.read(size_or_buffer=16, timeout=1000)
-        statusList = unpack('>hh?B???xxxxxxx',status)
+        statusList = unpack(self.statusPackingFormat, status)
         status = Status(*statusList)
         self.lastStatus = status
         return status
@@ -686,6 +626,38 @@ class USB2000(OISpectrometer):
 
     """
     idProduct = 0x1002
+    statusPackingFormat = '>hh?B???xxxxxxx'
+    class Status(NamedTuple):
+        """
+        Status of the Ocean Insight spectrometer. NamedTuple are compatible
+        with regular tuples but allow access with names instead of indexes,
+        simplifying usage.
+        
+        Attributes
+        ----------
+        pixels : int
+            number of pixels on the sensors
+        integrationTime: int
+            integration time in milliseconds
+        isLampEnabled : bool
+            lamp strobe (connected on specific pin) is enabled
+        triggerMode : int
+            trigger mode: normal (freerunning, software or external)
+        isSpectrumRequested: bool
+            A spectrum is currently being acquired and prepared for transfer.
+        timerSwap: bool
+            Use an 8-bit timer or 16-bit timer for integration. Default 16-bit
+        isSpectralDataReady : bool
+            The spectrum requested is ready to be transferred.
+        """
+        pixels : int = None
+        integrationTime: int = None
+        isLampEnabled : bool = None
+        triggerMode : int = None    
+        isSpectrumRequested: bool = None
+        timerSwap: bool = None
+        isSpectralDataReady : bool = None
+
     def __init__(self):
         OISpectrometer.__init__(self, idProduct=USB2000.idProduct, model="USB2000")
         self.initializeDevice()
@@ -742,6 +714,43 @@ class USB4000(OISpectrometer):
 
     """
     idProduct = 0x1022
+    statusPackingFormat = '<hL?BBB?Bxx?x'
+
+    class Status(NamedTuple):
+        """
+        Status of the USB4000 Ocean Insight spectrometer. NamedTuple are compatible
+        with regular tuples but allow access with names instead of indexes,
+        simplifying usage.
+        
+        Attributes
+        ----------
+        pixels : int
+            number of pixels on the sensors
+        integrationTime: long
+            integration time in milliseconds
+        isLampEnabled : bool
+            lamp strobe (connected on specific pin) is enabled
+        triggerMode : int
+            trigger mode: normal (freerunning, software or external)
+        isSpectrumRequested: bool
+            A spectrum is currently being acquired and prepared for transfer.
+        nPackets: int
+            Number of packets per spectra
+        powerDown: bool
+            Circuit is powered down
+        usbSpeed : int
+            Speed of USB communication: 0 : full 0x80 : high
+        """
+        pixels : int = None
+        integrationTime: int = None
+        isLampEnabled : bool = None
+        triggerMode : int = None    
+        acquisitionStatus: int = None
+        packetCount: int = None
+        powerDown : bool = None
+        packetsTransferred: int = None
+        isHighSpeed : bool = None
+
     def __init__(self):
         OISpectrometer.__init__(self, idProduct=USB4000.idProduct, model="USB4000")
         self.epCommandOut = self.outputEndpoints[0]
@@ -818,8 +827,8 @@ class USB4000(OISpectrometer):
         buffer = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
         nReadBytes = self.inputEndpoints[2].read(size_or_buffer=buffer, timeout=1000)
 
-        statusList = unpack('<hL?BBB?Bxx?x',buffer[:16])
-        status = StatusUSB4000(*statusList)
+        statusList = unpack(self.statusPackingFormat, buffer[:16])
+        status = self.Status(*statusList)
         self.lastStatus = status
         return status
 
