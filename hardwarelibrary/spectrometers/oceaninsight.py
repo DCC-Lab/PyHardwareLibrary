@@ -546,7 +546,9 @@ class OISpectrometer:
         This can be done with `pip install pyusb`.  On some platforms, you
         also need to install libusb, a free package to access USB devices.  
         On Windows, you can leave the libusb.dll file directly in the same
-        directory as this script.
+        directory as this script.  If no spectrometers are detected, it is
+        possible the problem is due to libusb.dll not being in the directory
+        where `{0}` was called.
     2. matplotlib module installed
         If you want to use the display function, you need matplotlib.
         This can be installed with `pip install matplotlib`
@@ -589,18 +591,17 @@ class OISpectrometer:
     @classmethod
     def connectedUSBDevices(cls, idProduct=None, serialNumber=None):
         """ Return a list of USB devices from Ocean Insight that are currently
-        connected. If idProduct is provided, match only these products.
-        If a serial number is provided, return the matching device otherwise return 
-        an empty list.
-        If no serial number is provided, return all devices.
+        connected (idVendor = 0x2457). If idProduct is provided, match only these
+        products. If a serial number is provided, return the matching device otherwise
+        return  an empty list. If no serial number is provided, return all devices.
 
         Parameters
         ----------
         idProduct: int Default: None
             The USB idProduct to match
         serialNumber: str Default: None
-            The serial number to match, when there are still more than one after
-            filtering out the idProduct.  if there is a single match, the serial number
+            The serial number to match, when there are still more than one device after
+            filtering out the idProduct.  If there is a single match, the serial number
             is disregarded.
 
         Returns
