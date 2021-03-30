@@ -758,9 +758,8 @@ class USB2000(OISpectrometer):
         """ Set the integration time in an integer value of milliseconds 
         for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
         """
-        hi = timeInMs // 256
-        lo = timeInMs % 256        
-        self.epCommandOut.write([0x02, lo, hi])
+        self.sendCommand(cmdBytes = b'\x02',
+                         payloadBytes = pack('<H',int(timeInMs)))
 
 
 class USB4000(OISpectrometer):
@@ -868,7 +867,7 @@ class USB4000(OISpectrometer):
         for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
         """
         self.sendCommand(cmdBytes = b'\x02',
-                         payloadBytes = pack('<L',int(timeInMs*1000)))
+                         payloadBytes = pack('<L',int(timeInMs*self.timeScale)))
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to
@@ -1050,7 +1049,7 @@ class SpectraViewer:
             time = float(self.integrationTimeBox.text)
             if time == 0:
                 raise ValueError('Requested integration time is invalid: \
-the text "{0}" converts to 0.  Use a valid value (≥3).')
+the text "{0}" converts to 0.')
             self.spectrometer.setIntegrationTime(time)
             plt.pause(0.3)
             self.axes.autoscale_view()
