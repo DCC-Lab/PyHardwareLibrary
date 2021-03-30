@@ -5,6 +5,7 @@ from threading import Thread, Lock
 
 from serial import *
 from hardwarelibrary import *
+from communicationport import *
 
 payloadData = b'1234'
 payloadString = '1234\n'
@@ -14,7 +15,7 @@ threadFailed = -1
 class BaseTestCases:
 
     class TestEchoPort(unittest.TestCase):
-        port = None
+        port = DebugEchoCommunicationPort()
 
         def testCreate(self):
             self.assertIsNotNone(self.port)
@@ -124,17 +125,17 @@ class BaseTestCases:
             self.assertEqual(reply, "abcd1234\n")
 
         def testWriteStringReadMatchingPatternFirstCaptureGroup(self):
-            firstGroup = self.port.writeStringReadFirstMatchingGroup(
+            reply, firstGroup = self.port.writeStringReadFirstMatchingGroup(
                         "abcd1234\n",
                         replyPattern="abc.(\\d{4})")
             self.assertEqual(firstGroup, "1234")
 
         def testWriteStringReadMatchingPatternAllCaptureGroups(self):
-            (firstGroup, secondGroup) = self.port.writeStringReadMatchingGroups(
+            reply, groups = self.port.writeStringReadMatchingGroups(
                         "abcd1234\n",
                         replyPattern="(abc.)(\\d{4})")
-            self.assertEqual(firstGroup, "abcd")
-            self.assertEqual(secondGroup, "1234")
+            self.assertEqual(groups[0], "abcd")
+            self.assertEqual(groups[1], "1234")
 
         def testFailedWriteStringReadMatchingPattern(self):
             with self.assertRaises(CommunicationReadNoMatch) as context:
@@ -185,6 +186,45 @@ class BaseTestCases:
                 if threadFailed != -1:
                     self.fail("Thread {0}?".format(threadFailed))
 
+        def testTextCommandNoReply(self):
+            command = TextCommand("Test", text="1234\n")
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertIsNone(command.reply)
+            self.assertFalse(command.hasError)
+
+        def testTextCommand(self):
+            command = TextCommand("Test", text="1234\n", replyPattern="1234")
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertTrue(command.reply == "1234\n")
+            self.assertFalse(command.hasError)
+
+        def testDataCommandNoReply(self):
+            command = DataCommand(b"Test", data=b"1234\n")
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertIsNone(command.reply)
+            self.assertFalse(command.hasError)
+
+        def testDataCommand(self):
+            command = DataCommand(b"Test", data=b"1234\n", replyDataLength=5)
+            self.assertIsNotNone(command)
+            self.assertFalse(command.send(self.port))
+            self.assertTrue(command.isSentSuccessfully)
+            self.assertTrue(command.reply == b"1234\n")
+            self.assertFalse(command.hasError)
+
+        def testDataCommandError(self):
+            command = DataCommand(b"Test", data=b"1234\n", replyDataLength=6)
+            self.assertIsNotNone(command)
+            self.assertTrue(command.send(self.port))
+            self.assertFalse(command.isSentSuccessfully)
+            self.assertTrue(command.hasError)
+
 def threadReadWrite(port, index):
     global threadFailed, globalLock
     payload = "abcd{0}\n".format(index)
@@ -209,6 +249,21 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
     def tearDown(self):
         self.port.close()
         self.assertFalse(self.port.isOpen)
+
+    def testTextCommandNonDefaultEndPoint(self):
+        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(1,1))
+        self.assertIsNotNone(command)
+        self.assertFalse(command.send(self.port))
+        self.assertTrue(command.isSentSuccessfully)
+        self.assertTrue(command.reply == "1234\n")
+        self.assertFalse(command.hasError)
+
+    def testTextCommandDifferentEndPointsTimeout(self):
+        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(0,1))
+        self.assertIsNotNone(command)
+        self.assertTrue(command.send(self.port))
+        self.assertFalse(command.isSentSuccessfully)
+        self.assertTrue(command.hasError)
 
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 

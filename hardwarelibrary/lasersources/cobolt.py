@@ -1,11 +1,11 @@
-from .PhysicalDevice import *
-from .LaserSourceDevice import *
-
-from .CommunicationPort import *
+from ..physicaldevice import *
+from ..communication import *
+from .lasersourcedevice import LaserSourceDevice
 
 import numpy as np
 import re
 import time
+from threading import Thread, RLock
 
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
@@ -54,7 +54,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             if self.portPath == "debug":
                 self.port = CommunicationPort(port=CoboltDebugSerial())
             else:
-                self.port = CommunicationPort(portPath=self.portPath)
+                self.port = SerialPort(portPath=self.portPath)
             
             if self.port is None:
                 raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
