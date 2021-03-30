@@ -112,9 +112,11 @@ class StatusUSB4000(NamedTuple):
     isLampEnabled : bool = None
     triggerMode : int = None    
     isSpectrumRequested: bool = None
-    nPackets: int = None
+    packetCount: int = None
     powerDown : bool = None
-    usbSpeed : int = None
+    packetsTransferred: int = None
+    isHighSpeed : bool = None
+
 class OISpectrometer:
     """
     An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
@@ -278,12 +280,11 @@ class OISpectrometer:
         This commands needs to be sent only once per session as soon as 
         the communication is started.
         """
-        print("Initializing")
-        self.epCommandOut.write(b'0x01')
-        print("Initialized")
-        print("Requesting calibration")
-        self.getCalibration()
-        print("Calibrated")
+        try:
+            self.epCommandOut.write(b'0x01')
+            self.getCalibration()
+        except Exception as err:
+            raise RuntimeError("Error when initializing device: {0}".format(err))
 
     def shutdownDevice(self):
         """
@@ -295,6 +296,7 @@ class OISpectrometer:
         """ Set the integration time in an integer value of milliseconds 
         for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
         """
+        timeInMs = int(timeInMs)
         hi = timeInMs // 256
         lo = timeInMs % 256        
         self.epCommandOut.write([0x02, lo, hi])
@@ -346,7 +348,7 @@ class OISpectrometer:
             13 – 7th order non-linearity correction coefficient
             14 – Polynomial order of non-linearity calibration
             15 – Optical bench configuration: gg fff sss gg – Grating #, fff – filter wavelength, sss – slit size 
-            16 - USB2000 configuration: AWL V
+            16 - Spectrometer configuration: AWL V
                 A – Array coating Mfg, 
                 W – Array wavelength (VIS, UV, OFLV), 
                 L – L2 lens installed, 
@@ -360,11 +362,11 @@ class OISpectrometer:
         parameter : str 
             The value of the parameter as an ASCII string
         """
+        print("Entering parent class getParam")
         self.epCommandOut.write([0x05, index])
         maxPacket = 64 # FIXME
         parameters = array.array('B',[0]*maxPacket)
-        self.epSecondaryIn.read(size_or_buffer=parameters, timeout=2000)
-        print(parameters)
+        self.epSecondaryIn.read(size_or_buffer=parameters, timeout=5000)
         return bytes(parameters[2:]).decode().rstrip('\x00')
 
     def requestSpectrum(self):
@@ -725,6 +727,7 @@ class USB2000(OISpectrometer):
         status = self.getStatus()
         return status.integrationTime
 
+
 class USB4000(OISpectrometer):
     """
     A USB4000 spectrometer.  The main differences:
@@ -743,14 +746,45 @@ class USB4000(OISpectrometer):
 
         self.initializeDevice()
 
+    def getSpectrum(self, integrationTime=None):
+        """ Obtain a spectrum from the spectrometer. This implies:
+        1- changing the integration time if needed.
+        2- requesting a spectrum,
+        3- waiting until ready, then
+        4- actually retrieving and returning the data.
+
+        Parameters
+        ----------
+        integrationTime: int, default None
+            integration time in milliseconds if not the currently configured
+            time.
+
+        Returns
+        -------
+
+        spectrum : np.array(float)
+            The spectrum, in 16-bit integers corresponding to each wavelength
+            available in self.wavelength.
+        """
+        if integrationTime is not None:
+            self.setIntegrationTime(integrationTime)
+
+        self.requestSpectrum()
+        timeOut = time.time() + 1
+        while not self.isSpectrumReady():
+            time.sleep(0.001)
+            if time.time() > timeOut:
+                raise TimeoutError("Data never ready")
+
+        return self.getSpectrumData()
+
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
         If the spectrum is not ready yet, it will simply wait. The timeout 
         is set short so it may timeout.  You would normally check with
         isSpectrumReady before calling this function.
 
-        The format for the USB2000 is all the least significant bytes in a packet
-        then the most significant bytes. We combine them to get the values.
+        The format for the USB4000 is 512 bytes of integers in each packet
 
         Returns
         -------
@@ -759,16 +793,26 @@ class USB4000(OISpectrometer):
             available in self.wavelength.
         """
         spectrum = []
-        for packet in range(32):
-            bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=200)
-            bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=200)
-            
-            spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
+        buffer = array.array('B',[0]*512)
+        for packet in range(4):
+            bytesRead = self.inputEndpoints[1].read(size_or_buffer=buffer, timeout=200)
+            if bytesRead != 512:
+                print("Warning: not enough bytes read: {0}".format(bytesRead))
+            values = unpack('<'+'H'*256, buffer)
+            spectrum.extend(np.array(values))
 
-        confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
-        spectrum[0] = spectrum[1]
+        for packet in range(4,15):
+            bytesRead = self.inputEndpoints[0].read(size_or_buffer=buffer, timeout=200)
+            if bytesRead != 512:
+                print("Warning: not enough bytes read: {0}".format(bytesRead))
+            values = unpack('<'+'H'*256, buffer)
+            spectrum.extend(np.array(values))
 
+        confirmation = self.inputEndpoints[0].read(size_or_buffer=1, timeout=200)
         assert(confirmation[0] == 0x69)
+        spectrum[0] = spectrum[2] # Values always off?
+        spectrum[1] = spectrum[2] # Values always off?
+
         return np.array(spectrum)
 
     def getStatus(self):
@@ -789,29 +833,101 @@ class USB4000(OISpectrometer):
             isSpectralDataReady : bool = None
        
         """
-        print("Requesting status")
         self.epCommandOut.write(b'\xfe')
-        print("Requested")
-        print("Reading")
-        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=1000)
-        print("Read")
-        statusList = unpack('>hLbBBBbBxxBx',status)
+        maxPacket = 64 # FIXME
+        parameters = array.array('B',[0]*maxPacket)
+        nReadBytes = self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=1000)
+
+        statusList = unpack('<hL?BBB?Bxx?x',parameters[:16])
         return StatusUSB4000(*statusList)
 
     def setIntegrationTime(self, timeInMs):
         """ Set the integration time in an integer value of milliseconds 
         for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
         """
-        hi = timeInMs // 256
-        lo = timeInMs % 256        
-        self.epCommandOut.write([0x02, lo, hi])
+        command = bytearray()
+        command += b'\x02'
+        command += pack('<L',int(timeInMs*1000))
+        self.epCommandOut.write(command)
 
     def getIntegrationTime(self):
-        """ Get the integration time in as an integer value in milliseconds
+        """ Get the integration time in as an integer value in microseconds,
+        then convert to lfoat in milliseconds
         """
         status = self.getStatus()
-        return status.integrationTime
+        return float(status.integrationTime)/1000
 
+    def getParameter(self, index):
+        """ Get any of the 20 parameters hardcoded into the spectrometer.
+
+        Parameters
+        ----------
+
+        index: int
+            0 – Serial Number
+            1 – 0th order Wavelength Calibration Coefficient
+            2 – 1st order Wavelength Calibration Coefficient
+            3 – 2nd order Wavelength Calibration Coefficient
+            4 – 3rd order Wavelength Calibration Coefficient
+            5 – Stray light constant
+            6 – 0th order non-linearity correction coefficient
+            7 – 1st order non-linearity correction coefficient
+            8 – 2nd order non-linearity correction coefficient
+            9 – 3rd order non-linearity correction coefficient
+            10 – 4th order non-linearity correction coefficient
+            11 – 5th order non-linearity correction coefficient
+            12 – 6th order non-linearity correction coefficient
+            13 – 7th order non-linearity correction coefficient
+            14 – Polynomial order of non-linearity calibration
+            15 – Optical bench configuration: gg fff sss gg – Grating #, fff – filter wavelength, sss – slit size
+            16 - USB2000 configuration: AWL V
+                A – Array coating Mfg,
+                W – Array wavelength (VIS, UV, OFLV),
+                L – L2 lens installed,
+                V – CPLD Version
+            17 – Reserved
+            18 – Reserved
+            19 – Reserved
+
+        Returns
+        -------
+        parameter : str
+            The value of the parameter as an ASCII string
+        """
+        self.epCommandOut.write([0x05, index])
+        maxPacket = 64 # FIXME: don't hardcode
+        parameters = array.array('B',[0]*maxPacket)
+        self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=2000)
+
+        for i, c in enumerate(parameters):
+            if c == 0:
+                parameters = parameters[:i]
+                break
+        return bytes(parameters[2:]).decode()
+
+    def isSpectrumRequested(self) -> bool:
+        """ The spectrometer is currently waiting for an acquisition to
+        complete and will raise the ready flag when the spectrum is ready
+        to be retrieved.
+
+        Returns
+        -------
+        isSpectrumRequested : bool
+            Whether or not the spectrometer is waiting for an acquisition
+        """
+        return True
+
+    def isSpectrumReady(self):
+        """ The requested spectrum is ready to be retrieved with getSpectrumData.
+
+        Returns
+        -------
+        isSpectrumReady : bool
+            Whether or not the spectrum ready to be retrieved
+        """
+        return True
+        # status = self.getStatus()
+        # return status.packetsTransferred == status.packetCount
 
 class SpectraViewer:
     def __init__(self, spectrometer):
@@ -946,14 +1062,15 @@ class SpectraViewer:
         Anything incorrect will bring the integration time to 3 milliseconds.
         """
         try:
-            time = int(self.integrationTimeBox.text)
+            time = float(self.integrationTimeBox.text)
             if time == 0:
                 raise ValueError('Requested integration time is invalid: \
 the text "{0}" converts to 0.  Use a valid value (≥3).')
             self.spectrometer.setIntegrationTime(time)
             plt.pause(0.3)
             self.axes.autoscale_view()
-        except:
+        except Exception as err:
+            print("Error when setting integration time: ",err)
             self.integrationTimeBox.set_val("3")
 
     def clickAutoscale(self, event):
@@ -996,9 +1113,11 @@ the text "{0}" converts to 0.  Use a valid value (≥3).')
 
 if __name__ == "__main__":
     try:
-        spectrometer = USB4000()
+        spectrometer = OISpectrometer.any()
         print(spectrometer.getStatus())
-        #spectrometer.display()
+        spectrometer.getSpectrum()
+        print(spectrometer.getStatus())
+        spectrometer.display()
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
         We show some help.
