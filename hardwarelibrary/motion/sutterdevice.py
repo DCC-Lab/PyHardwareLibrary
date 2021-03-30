@@ -1,6 +1,6 @@
-from .PhysicalDevice import *
-from .LinearMotionDevice import *
-from .CommunicationPort import *
+from .physicaldevice import *
+from .linearmotiondevice import *
+from .communicationport import *
 
 import numpy as np
 import re
