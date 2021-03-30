@@ -76,7 +76,7 @@ class OISpectrometer:
         USB idVendor for OceanInsight (0x2457)
 
     idProduct: int
-        USB idProduct for spetrometer (e.g., USB2000 is 0x1002)
+        USB idProduct for spectrometer (e.g., USB2000 is 0x1002)
 
     wavelength: np.array(float)
         The wavelength corresponding to each pixel, as obtained from 
@@ -109,9 +109,12 @@ class OISpectrometer:
     idVendor = 0x2457 # Ocean Insight USB idVendor
 
     # The subclasses must define a NamedTuple Status and a packingFormat
-
+    # to retrieve and make sense of the status. See USB2000 for example.
+    statusPackingFormat = None
     class Status(NamedTuple):
         pass
+
+    timeScale = 1 # miliseconds=1, microseconds=1000
 
     def __init__(self, idProduct, model, serialNumber=None):
         """
@@ -205,6 +208,9 @@ class OISpectrometer:
         self.epCommandOut = None
         self.epMainIn = None
         self.epSecondaryIn = None
+        self.epParameters = None
+        self.epStatus = None
+
         if len(self.inputEndpoints) >= 2 or len(self.outputEndpoints) > 0:
             """ We have at least 2 input endpoints and 1 output. We assign the
             endpoints according to the documentation, otherwise
@@ -226,7 +232,7 @@ class OISpectrometer:
         """
         try:
             self.flushEndpoints()
-            self.epCommandOut.write(b'0x01')
+            self.sendCommand(b'0x01')
             time.sleep(0.1)
             self.getCalibration()
         except Exception as err:
@@ -245,7 +251,9 @@ class OISpectrometer:
                     buffer = array.array('B',[0]*endpoint.wMaxPacketSize)
                     endpoint.read(size_or_buffer=buffer, timeout=100)
             except usb.core.USBTimeoutError as err:
-                pass # This is an expected error if the buffers are empty.
+                # This is expected and is not an error if the buffers
+                # are empty.
+                pass
             except Exception as err:
                 print("Unable to flush buffers: {0}".format(err))
 
@@ -259,10 +267,11 @@ class OISpectrometer:
         self.epCommandOut.write([0x02, lo, hi])
 
     def getIntegrationTime(self):
-        """ Get the integration time in as an integer value in milliseconds
+        """ Get the integration time in as a float value in milliseconds
+        cls.timeScale is 1 for ms and 1000 if it is stored in µs
         """
         status = self.getStatus()
-        return status.integrationTime
+        return float(status.integrationTime)/self.timeScale
 
     def getSerialNumber(self):
         """ Get the serial nunmber of the spectrometer.  This can be used to
@@ -323,10 +332,22 @@ class OISpectrometer:
         parameter : str 
             The value of the parameter as an ASCII string
         """
-        self.epCommandOut.write([0x05, index])
-        parameters = array.array('B',[0]*self.epSecondaryIn.wMaxPacketSize)
-        self.epSecondaryIn.read(size_or_buffer=parameters, timeout=5000)
-        return bytes(parameters[2:]).decode().rstrip('\x00')
+
+        try:
+            self.sendCommand(cmdBytes=b'\x05',
+                             payloadBytes=bytearray([index]))
+            parameters = self.readReply(inputEndpoint=self.epParameters,
+                                        timeout=200)
+            for i, c in enumerate(parameters):
+                if c == 0:
+                    parameters = parameters[:i]
+                    break
+
+            return bytes(parameters[2:]).decode()
+
+        except Exception as err:
+            self.flushEndpoints()
+            raise RuntimeError('Reset attempted {0}'.format(err))
 
     def requestSpectrum(self):
         """ Requests a spectrum.  The command will not return until the 
@@ -383,8 +404,9 @@ class OISpectrometer:
             isSpectralDataReady : bool = None
        
         """
+
         self.epCommandOut.write(b'\xfe')
-        status = self.epSecondaryIn.read(size_or_buffer=16, timeout=1000)
+        status = self.epStatus.read(size_or_buffer=16, timeout=1000)
         statusList = unpack(self.statusPackingFormat, status)
         status = Status(*statusList)
         self.lastStatus = status
@@ -436,6 +458,44 @@ class OISpectrometer:
                 raise TimeoutError("Data never ready")
 
         return self.getSpectrumData()
+
+    def sendCommand(self, cmdBytes, payloadBytes=None):
+        """ Main entry point to write to the device in order to have
+        consistent method to manage errors. """
+
+        buffer = bytearray()
+        buffer += cmdBytes
+        if payloadBytes is not None:
+            buffer += payloadBytes
+
+        try:
+            self.epCommandOut.write(buffer)
+        except Exception as err:
+            print("Error writing to device: {0}".format(err))
+
+    def readReply(self, inputEndpoint, size = None, unpackingFormat=None, timeout=None):
+        """ Main entry point to read from device in order to have
+        consistent method to manage errors. """
+        if inputEndpoint is not None:
+            buffer = array.array('B',[0]*inputEndpoint.wMaxPacketSize)
+            try:
+                if unpackingFormat is not None:
+                    size = calcsize(unpackingFormat)
+
+                if size is None:
+                    inputEndpoint.read(size_or_buffer=buffer, timeout=timeout)
+                else:
+                    print
+                    buffer = inputEndpoint.read(size_or_buffer=size, timeout=timeout)
+
+                if unpackingFormat is not None:
+                    return unpack(unpackingFormat, buffer)
+                else:
+                    return buffer
+            except Exception as err:
+                print("Error reading from device: {0}".format(err))
+
+        return None
 
     def saveSpectrum(self, filepath, spectrum=None):
         """ Save a spectrum to disk as a comma-separated variable file.
@@ -715,7 +775,7 @@ class USB4000(OISpectrometer):
     """
     idProduct = 0x1022
     statusPackingFormat = '<hL?BBB?Bxx?x'
-
+    timeScale = 1000 # microseconds
     class Status(NamedTuple):
         """
         Status of the USB4000 Ocean Insight spectrometer. NamedTuple are compatible
@@ -756,7 +816,8 @@ class USB4000(OISpectrometer):
         self.epCommandOut = self.outputEndpoints[0]
         self.epMainIn = self.inputEndpoints[2]
         self.epSecondaryIn = self.inputEndpoints[1]
-        self.epSecondaryIn = self.inputEndpoints[1]
+        self.epParameters = self.inputEndpoints[2] 
+        self.epStatus = self.inputEndpoints[2] 
         self.discardLeadingSamples = 5
         self.discardTrailingSamples = 173
         self.initializeDevice()
@@ -768,6 +829,7 @@ class USB4000(OISpectrometer):
         isSpectrumReady before calling this function.
 
         The format for the USB4000 is 512 bytes of integers in each packet
+        followed by a single byte 0x69.
 
         Returns
         -------
@@ -776,7 +838,6 @@ class USB4000(OISpectrometer):
             available in self.wavelength.
         """
         spectrum = []
-        buffer = array.array('B',[0]*512)
 
         if not self.lastStatus.isHighSpeed:
             raise NotImplementedError('Full speed mode not implemented for USB4000.')
@@ -789,11 +850,10 @@ class USB4000(OISpectrometer):
             if packet <= 3:
                 inputEndpoint = self.inputEndpoints[1]
 
-            buffer = inputEndpoint.read(size_or_buffer=512, timeout=exposureTime*2)
-            values = unpack('<'+'H'*256, buffer)
+            values = self.readReply(inputEndpoint, unpackingFormat='<'+'H'*256, timeout=exposureTime*2)
             spectrum.extend(np.array(values))
 
-        confirmation = self.inputEndpoints[0].read(size_or_buffer=1, timeout=200)
+        confirmation = self.readReply(inputEndpoint, size=1)
         if confirmation[0] != 0x69:
             self.flushEndpoints()
             raise RuntimeError('Spectrometer is desynchronized. Should disconnect')
@@ -823,11 +883,10 @@ class USB4000(OISpectrometer):
             isSpectralDataReady : bool = None
 
         """
-        self.epCommandOut.write(b'\xfe')
-        buffer = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
-        nReadBytes = self.inputEndpoints[2].read(size_or_buffer=buffer, timeout=1000)
-
-        statusList = unpack(self.statusPackingFormat, buffer[:16])
+        self.sendCommand(cmdBytes = b'\xfe')
+        statusList = self.readReply(inputEndpoint=self.epStatus,
+                                    unpackingFormat=self.statusPackingFormat,
+                                    timeout=1000)
         status = self.Status(*statusList)
         self.lastStatus = status
         return status
@@ -836,70 +895,8 @@ class USB4000(OISpectrometer):
         """ Set the integration time in an integer value of milliseconds 
         for a spectrum. If the value is smaller than 3 ms, it will be unchanged.
         """
-        command = bytearray()
-        command += b'\x02'
-        command += pack('<L',int(timeInMs*1000))
-        self.epCommandOut.write(command)
-
-    def getIntegrationTime(self):
-        """ Get the integration time in as an integer value in microseconds,
-        then convert to lfoat in milliseconds
-        """
-        status = self.getStatus()
-        return float(status.integrationTime)/1000
-
-    def getParameter(self, index):
-        """ Get any of the 20 parameters hardcoded into the spectrometer.
-
-        Parameters
-        ----------
-
-        index: int
-            0 – Serial Number
-            1 – 0th order Wavelength Calibration Coefficient
-            2 – 1st order Wavelength Calibration Coefficient
-            3 – 2nd order Wavelength Calibration Coefficient
-            4 – 3rd order Wavelength Calibration Coefficient
-            5 – Stray light constant
-            6 – 0th order non-linearity correction coefficient
-            7 – 1st order non-linearity correction coefficient
-            8 – 2nd order non-linearity correction coefficient
-            9 – 3rd order non-linearity correction coefficient
-            10 – 4th order non-linearity correction coefficient
-            11 – 5th order non-linearity correction coefficient
-            12 – 6th order non-linearity correction coefficient
-            13 – 7th order non-linearity correction coefficient
-            14 – Polynomial order of non-linearity calibration
-            15 – Optical bench configuration: gg fff sss gg – Grating #, fff – filter wavelength, sss – slit size
-            16 - USB2000 configuration: AWL V
-                A – Array coating Mfg,
-                W – Array wavelength (VIS, UV, OFLV),
-                L – L2 lens installed,
-                V – CPLD Version
-            17 – Reserved
-            18 – Reserved
-            19 – Reserved
-
-        Returns
-        -------
-        parameter : str
-            The value of the parameter as an ASCII string
-        """
-        try:
-            self.epCommandOut.write([0x05, index])
-
-            parameters = array.array('B',[0]*self.inputEndpoints[2].wMaxPacketSize)
-            self.inputEndpoints[2].read(size_or_buffer=parameters, timeout=200)
-            for i, c in enumerate(parameters):
-                if c == 0:
-                    parameters = parameters[:i]
-                    break
-            return bytes(parameters[2:]).decode()
-
-        except:
-            self.flushEndpoints()
-            raise RuntimeError('Reset attempted')
-
+        self.sendCommand(cmdBytes = b'\x02',
+                         payloadBytes = pack('<L',int(timeInMs*1000)))
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to
