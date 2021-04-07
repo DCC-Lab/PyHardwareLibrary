@@ -940,6 +940,9 @@ class SpectraViewer:
         self.axes = None
         self.quitFlag = False
         self.saveBtn = None
+        self.quitBtn = None
+        self.lightBtn = None
+        self.darkBtn = None
         self.integrationTimeBox = None
         self.animation = None
 
@@ -951,49 +954,9 @@ class SpectraViewer:
         """
         self.figure, self.axes = self.createFigure()
 
-        axScale = plt.axes([0.125, 0.90, 0.13, 0.075])
-        axSave = plt.axes([0.73, 0.90, 0.08, 0.075])
-        axQuit = plt.axes([0.82, 0.90, 0.08, 0.075])
-        axTime = plt.axes([0.59, 0.90, 0.08, 0.075])
-        axLight = plt.axes([0.25, 0.90, 0.08, 0.075])
-        axDark = plt.axes([0.30, 0.90, 0.08, 0.075])
-        self.saveBtn = Button(axSave, 'Save')
-        self.saveBtn.on_clicked(self.clickSave)
-        quitBtn = Button(axQuit, 'Quit')
-        quitBtn.on_clicked(self.clickQuit)
-        autoscaleBtn = Button(axScale, 'Autoscale')
-        autoscaleBtn.on_clicked(self.clickAutoscale)
-
-        lightBtn = None
-        try:
-            axLight.imshow(plt.imread("lightbulb.png"))
-            axLight.set_xticks([])
-            axLight.set_yticks([])
-            lightBtn = Button(axLight,'')
-        except:
-            lightBtn = Button(axLight,'W')
-        lightBtn.on_clicked(self.clickWhiteReference)
-
-        darkBtn = None
-        try:
-            axDark.imshow(plt.imread("darkbulb.png"))
-            axDark.set_xticks([])
-            axDark.set_yticks([])
-            darkBtn = Button(axDark,'') 
-        except:
-            darkBtn = Button(axDark,'D') 
-        darkBtn.on_clicked(self.clickDarkReference)
-
-
-        currentIntegrationTime = self.spectrometer.getIntegrationTime()
-        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
-                                          initial="{0}".format(currentIntegrationTime),
-                                          label_pad=0.1)
-        self.integrationTimeBox.on_submit(self.submitTime)
-        self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
-
+        self.setupLayout()
         self.quitFlag = False
-        self.animation = animation.FuncAnimation(self.figure, self.animate, interval=25)
+        self.animation = animation.FuncAnimation(self.figure, self.animate, interval=100)
         plt.show()
 
     def createFigure(self):
@@ -1019,6 +982,47 @@ class SpectraViewer:
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
+
+    def setupLayout(self):
+        axScale = plt.axes([0.125, 0.90, 0.13, 0.075])
+        axLight = plt.axes([0.25, 0.90, 0.08, 0.075])
+        axDark = plt.axes([0.30, 0.90, 0.08, 0.075])
+        axTime = plt.axes([0.59, 0.90, 0.08, 0.075])
+        axSave = plt.axes([0.73, 0.90, 0.08, 0.075])
+        axQuit = plt.axes([0.82, 0.90, 0.08, 0.075])
+        self.saveBtn = Button(axSave, 'Save')
+        self.saveBtn.on_clicked(self.clickSave)
+        self.quitBtn = Button(axQuit, 'Quit')
+        self.quitBtn.on_clicked(self.clickQuit)
+        self.autoscaleBtn = Button(axScale, 'Autoscale')
+        self.autoscaleBtn.on_clicked(self.clickAutoscale)
+
+        try:
+            axLight.imshow(plt.imread("lightbulb.png"))
+            axLight.set_xticks([])
+            axLight.set_yticks([])
+            self.lightBtn = Button(axLight,'')
+        except:
+            self.lightBtn = Button(axLight,'W')
+        self.lightBtn.on_clicked(self.clickWhiteReference)
+
+        try:
+            axDark.imshow(plt.imread("darkbulb.png"))
+            axDark.set_xticks([])
+            axDark.set_yticks([])
+            self.darkBtn = Button(axDark,'') 
+        except:
+            self.darkBtn = Button(axDark,'D') 
+        self.darkBtn.on_clicked(self.clickDarkReference)
+
+
+        currentIntegrationTime = self.spectrometer.getIntegrationTime()
+        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
+                                          initial="{0}".format(currentIntegrationTime),
+                                          label_pad=0.1)
+        self.integrationTimeBox.on_submit(self.submitTime)
+        self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
+
 
     def plotSpectrum(self, spectrum=None):
         """ Plot a spectrum into the figure or request a new spectrum. This
@@ -1047,7 +1051,11 @@ class SpectraViewer:
             if self.darkReference is not None:
                 self.lastSpectrum -= self.darkReference
             if self.whiteReference is not None:
-                self.lastSpectrum = self.lastSpectrum / self.whiteReference
+                np.seterr(divide='ignore',invalid='ignore')
+                self.lastSpectrum = self.lastSpectrum / (self.whiteReference-self.darkReference)
+                for i,v in enumerate(self.lastSpectrum):
+                    if np.isnan(v):
+                        self.lastSpectrum[i] = 0
 
             self.plotSpectrum(spectrum=self.lastSpectrum)
         except usb.core.USBError as err:
@@ -1133,7 +1141,6 @@ the text "{0}" converts to 0.')
 
     def clickQuit(self, event):
         """ Event-handling function to quit nicely."""
-
         self.quitFlag = True
 
 if __name__ == "__main__":
