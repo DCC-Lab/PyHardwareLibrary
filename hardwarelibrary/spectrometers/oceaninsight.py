@@ -997,19 +997,16 @@ class SpectraViewer:
     def plotSpectrum(self, spectrum=None):
         """ Plot a spectrum into the figure or request a new spectrum. This
         is called repeatedly when the display function is called."""
-        try:
-            if spectrum is None:
-                spectrum = self.spectrometer.getSpectrum()
+        if spectrum is None:
+            spectrum = self.spectrometer.getSpectrum()
 
-            if len(self.axes.lines) == 0:
-                self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
-                self.axes.set_xlabel("Wavelength [nm]")
-                self.axes.set_ylabel("Intensity [arb.u]")
-            else: 
-                self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
-                self.axes.relim()
-        except:
-            pass
+        if len(self.axes.lines) == 0:
+            self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
+            self.axes.set_xlabel("Wavelength [nm]")
+            self.axes.set_ylabel("Intensity [arb.u]")
+        else: 
+            self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
+            self.axes.relim()
 
     def animate(self, i):
         """ Internal function that is called repeatedly to manage the
@@ -1019,13 +1016,17 @@ class SpectraViewer:
 
         This function is also responsible for determing if the user asked to quit. 
         """
+        try:
+            self.lastSpectrum = self.spectrometer.getSpectrum()
+            self.plotSpectrum(spectrum=self.lastSpectrum)
+        except usb.core.USBError as err:
+            print("The spectrometer was disconnected. Quitting.")
+            self.quitFlag = True
+
         if self.quitFlag:
             self.animation.event_source.stop()
             self.animation = None
             plt.close()
-
-        self.lastSpectrum = self.spectrometer.getSpectrum()
-        self.plotSpectrum(spectrum=self.lastSpectrum)
 
     def keyPress(self, event):
         """ Event-handling function for keypress: if the user clicks command-Q
