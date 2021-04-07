@@ -456,7 +456,8 @@ class OISpectrometer:
         while not self.isSpectrumReady():
             time.sleep(0.001)
             if time.time() > timeOut:
-                raise TimeoutError("Data never ready")
+                self.requestSpectrum() # makes no sense, let's request another one
+                timeOut = time.time() + 1
 
         return self.getSpectrumData()
 
@@ -933,6 +934,8 @@ class SpectraViewer:
 
         self.spectrometer = spectrometer
         self.lastSpectrum = []
+        self.whiteReference = None
+        self.darkReference = None
         self.figure = None
         self.axes = None
         self.quitFlag = False
@@ -948,16 +951,39 @@ class SpectraViewer:
         """
         self.figure, self.axes = self.createFigure()
 
-        axScale = plt.axes([0.12, 0.90, 0.15, 0.075])
-        axSave = plt.axes([0.7, 0.90, 0.1, 0.075])
-        axQuit = plt.axes([0.81, 0.90, 0.1, 0.075])
-        axTime = plt.axes([0.59, 0.90, 0.1, 0.075])
+        axScale = plt.axes([0.125, 0.90, 0.13, 0.075])
+        axSave = plt.axes([0.73, 0.90, 0.08, 0.075])
+        axQuit = plt.axes([0.82, 0.90, 0.08, 0.075])
+        axTime = plt.axes([0.59, 0.90, 0.08, 0.075])
+        axLight = plt.axes([0.25, 0.90, 0.08, 0.075])
+        axDark = plt.axes([0.30, 0.90, 0.08, 0.075])
         self.saveBtn = Button(axSave, 'Save')
         self.saveBtn.on_clicked(self.clickSave)
         quitBtn = Button(axQuit, 'Quit')
         quitBtn.on_clicked(self.clickQuit)
         autoscaleBtn = Button(axScale, 'Autoscale')
         autoscaleBtn.on_clicked(self.clickAutoscale)
+
+        lightBtn = None
+        try:
+            axLight.imshow(plt.imread("lightbulb.png"))
+            axLight.set_xticks([])
+            axLight.set_yticks([])
+            lightBtn = Button(axLight,'')
+        except:
+            lightBtn = Button(axLight,'W')
+        lightBtn.on_clicked(self.clickWhiteReference)
+
+        darkBtn = None
+        try:
+            axDark.imshow(plt.imread("darkbulb.png"))
+            axDark.set_xticks([])
+            axDark.set_yticks([])
+            darkBtn = Button(axDark,'') 
+        except:
+            darkBtn = Button(axDark,'D') 
+        darkBtn.on_clicked(self.clickDarkReference)
+
 
         currentIntegrationTime = self.spectrometer.getIntegrationTime()
         self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
@@ -1004,7 +1030,7 @@ class SpectraViewer:
             self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
             self.axes.set_xlabel("Wavelength [nm]")
             self.axes.set_ylabel("Intensity [arb.u]")
-        else: 
+        else:
             self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
             self.axes.relim()
 
@@ -1014,10 +1040,15 @@ class SpectraViewer:
         strategy instead of a loop with  plt.pause() because plt.pause() will
         always bring the window to the  foreground. 
 
-        This function is also responsible for determing if the user asked to quit. 
+        This function is also responsible for determining if the user asked to quit. 
         """
         try:
             self.lastSpectrum = self.spectrometer.getSpectrum()
+            if self.darkReference is not None:
+                self.lastSpectrum -= self.darkReference
+            if self.whiteReference is not None:
+                self.lastSpectrum = self.lastSpectrum / self.whiteReference
+
             self.plotSpectrum(spectrum=self.lastSpectrum)
         except usb.core.USBError as err:
             print("The spectrometer was disconnected. Quitting.")
@@ -1063,6 +1094,14 @@ the text "{0}" converts to 0.')
         """ Event-handling function to autoscale the plot """
         self.axes.autoscale_view()
 
+    def clickWhiteReference(self, event):
+        """ Event-handling function to acquire a white reference """
+        self.whiteReference = self.spectrometer.getSpectrum()
+
+    def clickDarkReference(self, event):
+        """ Event-handling function to acquire a dark reference """
+        self.darkReference = self.spectrometer.getSpectrum()
+
     def clickSave(self, event):
         """ Event-handling function to save the file.  We stop the animation
         to avoid acquiring more spectra. The last spectrum acquired (i.e.
@@ -1087,7 +1126,7 @@ the text "{0}" converts to 0.')
             root.withdraw()
             filepath = filedialog.asksaveasfilename()
 
-        if filepath is not None: 
+        if filepath is not None:
             self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum)
 
         self.animation.event_source.start()
