@@ -13,19 +13,19 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
     def handle(self):
         try:
             # self.request is the TCP socket connected to the client
-            self.data = self.request.recv(2)
-            packetCounts = unpack('<h',self.data)[0]
+            self.data = self.request.recv(4)
+            messageLength = unpack('<I',self.data)[0]
             self.data = bytearray()
-            for i in range(packetCounts):
+            while len(self.data) != messageLength:
                 self.data += self.request.recv(4096)
-            print("{0} sent {1} bytes in {2} packets".format(self.client_address[0], len(self.data), packetCounts))
+            print("{0} received {1} bytes".format(self.client_address[0], len(self.data)))
             
             self.request.sendall(self.data)
         except Exception as err:
             print("Server exception: {0}. Had received {1} bytes.".format(err, len(self.data)))
 
 if __name__ == "__main__":
-    HOST, PORT = "127.0.0.1", 9999
+    HOST, PORT = "10.211.55.4", 9999
 
     try:
         socketserver.TCPServer.allow_reuse_address = True
