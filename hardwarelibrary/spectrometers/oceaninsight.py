@@ -1053,9 +1053,6 @@ class SpectraViewer:
             if self.whiteReference is not None:
                 np.seterr(divide='ignore',invalid='ignore')
                 self.lastSpectrum = self.lastSpectrum / (self.whiteReference-self.darkReference)
-                for i,v in enumerate(self.lastSpectrum):
-                    if np.isnan(v):
-                        self.lastSpectrum[i] = 0
 
             self.plotSpectrum(spectrum=self.lastSpectrum)
         except usb.core.USBError as err:
