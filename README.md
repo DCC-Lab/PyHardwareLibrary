@@ -1,7 +1,7 @@
 # PyHardwareLibrary
-A simple device-oriented library with CommunicationPort for controlling devices
+A simple device-oriented library with communication port for controlling devices
 
-## Quick start: an example with Cobolt laser
+## Quick start
 You will find a simple, trivial script named `cobolt.py` to change the power of the Cobolt laser. There are four versions, you should read the examples :
 
 1. `1-simple`: a very trivial implementation with simple commands in sequence
@@ -17,7 +17,7 @@ How does one go about supporting a new device? What is the best strategy?
 
    1. If necessary, a driver may need to be installed to serialize the device (to make it appear as a serial port).
    2. If not available, direct USB access may be needed with libusb and PyUSB
-   3. Figure out (ideally through testing, see next point) how to connect with `Serial` `CommunicationPort`
+   3. Figure out (ideally through testing, see next point) how to connect with `SerialPort` or `USBPort`, both derived classes from `CommunicationPort`
 
 2. Identify commands and write very simple tests with `CommunicationPort`  to confirm connectivity and validate command syntax (see the other [section](#Testing-serial-ports) below for more details):
 
@@ -29,7 +29,7 @@ How does one go about supporting a new device? What is the best strategy?
    
    ```
 
-3. Create a `DebugSerialPort`, based on `CommunicationPort` or replicating the behaviour of `Serial()` to mimic a real serial port.  See `CoboltDebugSerial` for an example.
+3. Create a `DebugSerialPort`, based on `CommunicationPort` or replicating the behaviour of `SerialPort()` to mimic a real serial port.  See `CoboltDebugSerial` for an example.
 
 4. Complete *serial* tests that will test both the real port and the debug port. Both must behave identicially.
 
