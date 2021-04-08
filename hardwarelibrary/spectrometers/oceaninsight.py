@@ -487,7 +487,6 @@ class OISpectrometer:
                 if size is None:
                     inputEndpoint.read(size_or_buffer=buffer, timeout=timeout)
                 else:
-                    print
                     buffer = inputEndpoint.read(size_or_buffer=size, timeout=timeout)
 
                 if unpackingFormat is not None:
@@ -692,7 +691,7 @@ class USB2000(OISpectrometer):
     statusPackingFormat = '>hh?B???xxxxxxx'
     class Status(NamedTuple):
         """
-        Status of the Ocean Insight spectrometer. NamedTuple are compatible
+        Status of the Ocean Insight USB2000 spectrometer. NamedTuple are compatible
         with regular tuples but allow access with names instead of indexes,
         simplifying usage.
         
@@ -791,14 +790,17 @@ class USB4000(OISpectrometer):
             lamp strobe (connected on specific pin) is enabled
         triggerMode : int
             trigger mode: normal (freerunning, software or external)
-        isSpectrumRequested: bool
-            A spectrum is currently being acquired and prepared for transfer.
-        nPackets: int
+        acquisitionStatus: int
+            Documentation not clear on details of this int.
+        packetCount: int
             Number of packets per spectra
         powerDown: bool
             Circuit is powered down
-        usbSpeed : int
-            Speed of USB communication: 0 : full 0x80 : high
+        packetsTransferred: int
+            Number of packets transferred so far
+        isHighSpeed : bool
+            Speed of USB communication: True is high speed. The returned format
+            of the spectrum data depends on this.
         """
         pixels : int = None
         integrationTime: int = None
@@ -897,7 +899,7 @@ class USB4000(OISpectrometer):
         
         The documentation for the USB4000 is not clear: the acquisition status
         is either 0,2,3,4 and it appears that 4 is when data is ready, but
-        this is empirically determined.
+        this is empirically determined. By me.
 
         Returns
         -------
@@ -929,7 +931,7 @@ class SpectraViewer:
         ----------
 
         spectrometer: OISpectrometer
-            A spectrometer from Ocean Insight (for now, only USB2000)
+            A spectrometer from Ocean Insight
         """
 
         self.spectrometer = spectrometer
