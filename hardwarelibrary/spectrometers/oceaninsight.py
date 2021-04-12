@@ -5,6 +5,7 @@ try:
     import csv
     from typing import NamedTuple
     import array
+    import re
 
     import usb.core
     import usb.util
@@ -534,6 +535,15 @@ class OISpectrometer:
         viewer.display()
 
     @classmethod
+    def supportedClassNames(cls):
+        supportedClasses = []
+        for c in cls.__subclasses__():
+            classSearch = re.search(r'\.(USB.*?)\W', "{0}".format(c), re.IGNORECASE)
+            if classSearch:
+                supportedClasses.append(classSearch.group(1))
+        return supportedClasses
+
+    @classmethod
     def showHelp(cls, err=None):
         print("""
     There may be missing modules, missing spectrometer or anything else.
@@ -562,12 +572,12 @@ class OISpectrometer:
        If you click "Save" in the window, you may need the Tkinter module.
        This comes standard with most python distributions.
     5. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
-       a supported spectrometer (only USB2000 for now).  The details of all 
+       a supported spectrometer ({1}).  The details of all 
        the spectrometers are different (number of pixels, bits, wavelengths,
        speed, etc...). More spectrometers will be supported in the future.
        Look at the class USB2000 to see what you have to provide to support
        a new spectrometer (it is not that much work, but you need one to test).
-""".format(__file__))
+""".format(__file__, ', '.join(cls.supportedClassNames())))
         print("""    There was an error when starting: '{0}'.
     See above for help.""".format(err))
 
