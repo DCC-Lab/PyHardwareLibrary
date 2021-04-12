@@ -543,24 +543,33 @@ class OISpectrometer:
     To use this `{0}` python script, you *must* have:
 
     1. PyUSB module installed. 
-        This can be done with `pip install pyusb`.  On some platforms, you
-        also need to install libusb, a free package to access USB devices.  
-        On Windows, you can leave the libusb.dll file directly in the same
-        directory as this script.  If no spectrometers are detected, it is
-        possible the problem is due to libusb.dll not being in the directory
-        where `{0}` was called.
-    2. matplotlib module installed
-        If you want to use the display function, you need matplotlib.
-        This can be installed with `pip install matplotlib`
-    3. Tkinter module installed.
-        If you click "Save" in the window, you may need the Tkinter module.
-        This comes standard with most python distributions.
-    4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
-        a supported spectrometer (only USB2000 for now).  The details of all 
-        the spectrometers are different (number of pixels, bits, wavelengths,
-        speed, etc...). More spectrometers will be supported in the future.
-        Look at the class USB2000 to see what you have to provide to support
-        a new spectrometer (it is not that much work, but you need one to test).
+       This can be done with `pip install pyusb`.  On some platforms, you
+       also need to install libusb, a free package to access USB devices.  
+       On Windows, you can leave the libusb.dll file directly in the same
+       directory as this script.  If no spectrometers are detected, it is
+       possible the problem is due to libusb.dll not being in the directory
+       where `{0}` was called.
+    2. A backend for PyUSB.
+       PyUSB does not communicate by itself with the USB ports of your
+       computer. A 'backend' (or library) is needed.  Typically, libusb is
+       used. You must  install libusb (or another compatible library). On
+       macOS: type `brew install libusb` (if you have brew). If not,  get
+       `brew`. On Windows/Linux: go read:
+       https://github.com/pyusb/pyusb/blob/master/docs/tutorial.rst
+       but if you have libusb.dll on Windows, keep it in the same 
+       directory as {0}.
+    3. matplotlib module installed
+       If you want to use the display function, you need matplotlib.
+       This can be installed with `pip install matplotlib`
+    4. Tkinter module installed.
+       If you click "Save" in the window, you may need the Tkinter module.
+       This comes standard with most python distributions.
+    5. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
+       a supported spectrometer (only USB2000 for now).  The details of all 
+       the spectrometers are different (number of pixels, bits, wavelengths,
+       speed, etc...). More spectrometers will be supported in the future.
+       Look at the class USB2000 to see what you have to provide to support
+       a new spectrometer (it is not that much work, but you need one to test).
                 """.format(__file__)
                 )
 
@@ -1147,6 +1156,8 @@ if __name__ == "__main__":
         spectrometer = OISpectrometer.any()
         spectrometer.getSpectrum()
         spectrometer.display()
+    except usb.core.NoBackendError as err:
+        OISpectrometer.showHelp("PyUSB does not find any 'backend' to communicate with the USB ports (e.g., libusb is not found anywhere).")
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
         We show some help.
