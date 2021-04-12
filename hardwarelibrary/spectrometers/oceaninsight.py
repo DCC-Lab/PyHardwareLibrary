@@ -456,7 +456,8 @@ class OISpectrometer:
         while not self.isSpectrumReady():
             time.sleep(0.001)
             if time.time() > timeOut:
-                raise TimeoutError("Data never ready")
+                self.requestSpectrum() # makes no sense, let's request another one
+                timeOut = time.time() + 1
 
         return self.getSpectrumData()
 
@@ -486,7 +487,6 @@ class OISpectrometer:
                 if size is None:
                     inputEndpoint.read(size_or_buffer=buffer, timeout=timeout)
                 else:
-                    print
                     buffer = inputEndpoint.read(size_or_buffer=size, timeout=timeout)
 
                 if unpackingFormat is not None:
@@ -543,24 +543,33 @@ class OISpectrometer:
     To use this `{0}` python script, you *must* have:
 
     1. PyUSB module installed. 
-        This can be done with `pip install pyusb`.  On some platforms, you
-        also need to install libusb, a free package to access USB devices.  
-        On Windows, you can leave the libusb.dll file directly in the same
-        directory as this script.  If no spectrometers are detected, it is
-        possible the problem is due to libusb.dll not being in the directory
-        where `{0}` was called.
-    2. matplotlib module installed
-        If you want to use the display function, you need matplotlib.
-        This can be installed with `pip install matplotlib`
-    3. Tkinter module installed.
-        If you click "Save" in the window, you may need the Tkinter module.
-        This comes standard with most python distributions.
-    4. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
-        a supported spectrometer (only USB2000 for now).  The details of all 
-        the spectrometers are different (number of pixels, bits, wavelengths,
-        speed, etc...). More spectrometers will be supported in the future.
-        Look at the class USB2000 to see what you have to provide to support
-        a new spectrometer (it is not that much work, but you need one to test).
+       This can be done with `pip install pyusb`.  On some platforms, you
+       also need to install libusb, a free package to access USB devices.  
+       On Windows, you can leave the libusb.dll file directly in the same
+       directory as this script.  If no spectrometers are detected, it is
+       possible the problem is due to libusb.dll not being in the directory
+       where `{0}` was called.
+    2. A backend for PyUSB.
+       PyUSB does not communicate by itself with the USB ports of your
+       computer. A 'backend' (or library) is needed.  Typically, libusb is
+       used. You must  install libusb (or another compatible library). On
+       macOS: type `brew install libusb` (if you have brew). If not,  get
+       `brew`. On Windows/Linux: go read:
+       https://github.com/pyusb/pyusb/blob/master/docs/tutorial.rst
+       but if you have libusb.dll on Windows, keep it in the same 
+       directory as {0}.
+    3. matplotlib module installed
+       If you want to use the display function, you need matplotlib.
+       This can be installed with `pip install matplotlib`
+    4. Tkinter module installed.
+       If you click "Save" in the window, you may need the Tkinter module.
+       This comes standard with most python distributions.
+    5. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
+       a supported spectrometer (only USB2000 for now).  The details of all 
+       the spectrometers are different (number of pixels, bits, wavelengths,
+       speed, etc...). More spectrometers will be supported in the future.
+       Look at the class USB2000 to see what you have to provide to support
+       a new spectrometer (it is not that much work, but you need one to test).
                 """.format(__file__)
                 )
 
@@ -691,7 +700,7 @@ class USB2000(OISpectrometer):
     statusPackingFormat = '>hh?B???xxxxxxx'
     class Status(NamedTuple):
         """
-        Status of the Ocean Insight spectrometer. NamedTuple are compatible
+        Status of the Ocean Insight USB2000 spectrometer. NamedTuple are compatible
         with regular tuples but allow access with names instead of indexes,
         simplifying usage.
         
@@ -790,14 +799,17 @@ class USB4000(OISpectrometer):
             lamp strobe (connected on specific pin) is enabled
         triggerMode : int
             trigger mode: normal (freerunning, software or external)
-        isSpectrumRequested: bool
-            A spectrum is currently being acquired and prepared for transfer.
-        nPackets: int
+        acquisitionStatus: int
+            Documentation not clear on details of this int.
+        packetCount: int
             Number of packets per spectra
         powerDown: bool
             Circuit is powered down
-        usbSpeed : int
-            Speed of USB communication: 0 : full 0x80 : high
+        packetsTransferred: int
+            Number of packets transferred so far
+        isHighSpeed : bool
+            Speed of USB communication: True is high speed. The returned format
+            of the spectrum data depends on this.
         """
         pixels : int = None
         integrationTime: int = None
@@ -896,7 +908,7 @@ class USB4000(OISpectrometer):
         
         The documentation for the USB4000 is not clear: the acquisition status
         is either 0,2,3,4 and it appears that 4 is when data is ready, but
-        this is empirically determined.
+        this is empirically determined. By me.
 
         Returns
         -------
@@ -928,15 +940,20 @@ class SpectraViewer:
         ----------
 
         spectrometer: OISpectrometer
-            A spectrometer from Ocean Insight (for now, only USB2000)
+            A spectrometer from Ocean Insight
         """
 
         self.spectrometer = spectrometer
         self.lastSpectrum = []
+        self.whiteReference = None
+        self.darkReference = None
         self.figure = None
         self.axes = None
         self.quitFlag = False
         self.saveBtn = None
+        self.quitBtn = None
+        self.lightBtn = None
+        self.darkBtn = None
         self.integrationTimeBox = None
         self.animation = None
 
@@ -948,26 +965,9 @@ class SpectraViewer:
         """
         self.figure, self.axes = self.createFigure()
 
-        axScale = plt.axes([0.12, 0.90, 0.15, 0.075])
-        axSave = plt.axes([0.7, 0.90, 0.1, 0.075])
-        axQuit = plt.axes([0.81, 0.90, 0.1, 0.075])
-        axTime = plt.axes([0.59, 0.90, 0.1, 0.075])
-        self.saveBtn = Button(axSave, 'Save')
-        self.saveBtn.on_clicked(self.clickSave)
-        quitBtn = Button(axQuit, 'Quit')
-        quitBtn.on_clicked(self.clickQuit)
-        autoscaleBtn = Button(axScale, 'Autoscale')
-        autoscaleBtn.on_clicked(self.clickAutoscale)
-
-        currentIntegrationTime = self.spectrometer.getIntegrationTime()
-        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
-                                          initial="{0}".format(currentIntegrationTime),
-                                          label_pad=0.1)
-        self.integrationTimeBox.on_submit(self.submitTime)
-        self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
-
+        self.setupLayout()
         self.quitFlag = False
-        self.animation = animation.FuncAnimation(self.figure, self.animate, interval=25)
+        self.animation = animation.FuncAnimation(self.figure, self.animate, interval=100)
         plt.show()
 
     def createFigure(self):
@@ -994,22 +994,60 @@ class SpectraViewer:
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
 
+    def setupLayout(self):
+        axScale = plt.axes([0.125, 0.90, 0.13, 0.075])
+        axLight = plt.axes([0.25, 0.90, 0.08, 0.075])
+        axDark = plt.axes([0.30, 0.90, 0.08, 0.075])
+        axTime = plt.axes([0.59, 0.90, 0.08, 0.075])
+        axSave = plt.axes([0.73, 0.90, 0.08, 0.075])
+        axQuit = plt.axes([0.82, 0.90, 0.08, 0.075])
+        self.saveBtn = Button(axSave, 'Save')
+        self.saveBtn.on_clicked(self.clickSave)
+        self.quitBtn = Button(axQuit, 'Quit')
+        self.quitBtn.on_clicked(self.clickQuit)
+        self.autoscaleBtn = Button(axScale, 'Autoscale')
+        self.autoscaleBtn.on_clicked(self.clickAutoscale)
+
+        try:
+            axLight.imshow(plt.imread("lightbulb.png"))
+            axLight.set_xticks([])
+            axLight.set_yticks([])
+            self.lightBtn = Button(axLight,'')
+        except:
+            self.lightBtn = Button(axLight,'W')
+        self.lightBtn.on_clicked(self.clickWhiteReference)
+
+        try:
+            axDark.imshow(plt.imread("darkbulb.png"))
+            axDark.set_xticks([])
+            axDark.set_yticks([])
+            self.darkBtn = Button(axDark,'') 
+        except:
+            self.darkBtn = Button(axDark,'D') 
+        self.darkBtn.on_clicked(self.clickDarkReference)
+
+
+        currentIntegrationTime = self.spectrometer.getIntegrationTime()
+        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
+                                          initial="{0}".format(currentIntegrationTime),
+                                          label_pad=0.1)
+        self.integrationTimeBox.on_submit(self.submitTime)
+        self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
+
+
     def plotSpectrum(self, spectrum=None):
         """ Plot a spectrum into the figure or request a new spectrum. This
         is called repeatedly when the display function is called."""
-        try:
-            if spectrum is None:
-                spectrum = self.spectrometer.getSpectrum()
+        if spectrum is None:
+            spectrum = self.spectrometer.getSpectrum()
 
-            if len(self.axes.lines) == 0:
-                self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
-                self.axes.set_xlabel("Wavelength [nm]")
-                self.axes.set_ylabel("Intensity [arb.u]")
-            else: 
-                self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
-                self.axes.relim()
-        except:
-            pass
+        if len(self.axes.lines) == 0:
+            self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
+            self.axes.set_xlabel("Wavelength [nm]")
+            self.axes.set_ylabel("Intensity [arb.u]")
+        else:
+            self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
+            self.axes.relim()
 
     def animate(self, i):
         """ Internal function that is called repeatedly to manage the
@@ -1017,15 +1055,25 @@ class SpectraViewer:
         strategy instead of a loop with  plt.pause() because plt.pause() will
         always bring the window to the  foreground. 
 
-        This function is also responsible for determing if the user asked to quit. 
+        This function is also responsible for determining if the user asked to quit. 
         """
+        try:
+            self.lastSpectrum = self.spectrometer.getSpectrum()
+            if self.darkReference is not None:
+                self.lastSpectrum -= self.darkReference
+            if self.whiteReference is not None:
+                np.seterr(divide='ignore',invalid='ignore')
+                self.lastSpectrum = self.lastSpectrum / (self.whiteReference-self.darkReference)
+
+            self.plotSpectrum(spectrum=self.lastSpectrum)
+        except usb.core.USBError as err:
+            print("The spectrometer was disconnected. Quitting.")
+            self.quitFlag = True
+
         if self.quitFlag:
             self.animation.event_source.stop()
             self.animation = None
             plt.close()
-
-        self.lastSpectrum = self.spectrometer.getSpectrum()
-        self.plotSpectrum(spectrum=self.lastSpectrum)
 
     def keyPress(self, event):
         """ Event-handling function for keypress: if the user clicks command-Q
@@ -1062,6 +1110,14 @@ the text "{0}" converts to 0.')
         """ Event-handling function to autoscale the plot """
         self.axes.autoscale_view()
 
+    def clickWhiteReference(self, event):
+        """ Event-handling function to acquire a white reference """
+        self.whiteReference = self.spectrometer.getSpectrum()
+
+    def clickDarkReference(self, event):
+        """ Event-handling function to acquire a dark reference """
+        self.darkReference = self.spectrometer.getSpectrum()
+
     def clickSave(self, event):
         """ Event-handling function to save the file.  We stop the animation
         to avoid acquiring more spectra. The last spectrum acquired (i.e.
@@ -1086,14 +1142,13 @@ the text "{0}" converts to 0.')
             root.withdraw()
             filepath = filedialog.asksaveasfilename()
 
-        if filepath is not None: 
+        if filepath is not None:
             self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum)
 
         self.animation.event_source.start()
 
     def clickQuit(self, event):
         """ Event-handling function to quit nicely."""
-
         self.quitFlag = True
 
 if __name__ == "__main__":
@@ -1101,6 +1156,8 @@ if __name__ == "__main__":
         spectrometer = OISpectrometer.any()
         spectrometer.getSpectrum()
         spectrometer.display()
+    except usb.core.NoBackendError as err:
+        OISpectrometer.showHelp("PyUSB does not find any 'backend' to communicate with the USB ports (e.g., libusb is not found anywhere).")
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
         We show some help.
