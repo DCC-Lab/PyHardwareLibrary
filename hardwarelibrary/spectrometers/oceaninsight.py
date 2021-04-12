@@ -535,9 +535,6 @@ class OISpectrometer:
 
     @classmethod
     def showHelp(cls, err=None):
-        if err is not None:
-            print("There was an error when starting: '{0}'".format(err))
-
         print("""
     There may be missing modules, missing spectrometer or anything else.
     To use this `{0}` python script, you *must* have:
@@ -570,8 +567,9 @@ class OISpectrometer:
        speed, etc...). More spectrometers will be supported in the future.
        Look at the class USB2000 to see what you have to provide to support
        a new spectrometer (it is not that much work, but you need one to test).
-                """.format(__file__)
-                )
+""".format(__file__))
+        print("""    There was an error when starting: '{0}'.
+    See above for help.""".format(err))
 
     @classmethod
     def any(cls) -> 'OISpectrometer':
