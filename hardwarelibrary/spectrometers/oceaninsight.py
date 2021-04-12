@@ -551,10 +551,10 @@ class OISpectrometer:
        computer. A 'backend' (or library) is needed.  Typically, libusb is
        used. You must  install libusb (or another compatible library). On
        macOS: type `brew install libusb` (if you have brew). If not,  get
-       `brew`. On Windows/Linux: go read:
+       `brew`. On Windows/Linux, go read the PyUSB tutorial:
        https://github.com/pyusb/pyusb/blob/master/docs/tutorial.rst
-       but if you have libusb.dll on Windows, keep it in the same 
-       directory as {0}.
+       If you have libusb.dll on Windows, keep it in the same 
+       directory as {0} and it should work.
     3. matplotlib module installed
        If you want to use the display function, you need matplotlib.
        This can be installed with `pip install matplotlib`
