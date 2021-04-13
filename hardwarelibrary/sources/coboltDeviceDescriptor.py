@@ -1,4 +1,4 @@
-"""
+r"""
     Obtained from Windows with software like USBView - Daniel Cote
     
         =========================== USB Port8 ===========================
