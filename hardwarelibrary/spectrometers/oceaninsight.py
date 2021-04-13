@@ -580,6 +580,12 @@ class OISpectrometer:
        Look at the class USB2000 to see what you have to provide to support
        a new spectrometer (it is not that much work, but you need one to test).
 """.format(__file__, ', '.join(cls.supportedClassNames())))
+
+        # Well, how about that? This does not work in Windows
+        # https://stackoverflow.com/questions/2330245/python-change-text-color-in-shell
+        # if sys.stdout.isatty:
+        #     err = '\x1b[{0}m{1}\x1b[0m'.format(';'.join(['33','1']), err)
+
         print("""    There was an error when starting: '{0}'.
     See above for help.""".format(err))
 
