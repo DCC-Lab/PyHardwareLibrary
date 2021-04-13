@@ -57,7 +57,9 @@ class OISpectrometer:
     """
     An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
     to the hardware with simple functions to get the spectrum, or modify the
-    integration time.
+    integration time. It is the base class for all Ocean Insight Spectrometers,
+    but you will not instantiate this directly: use USB2000() or USB4000(),
+    or simply: OISpectrometer.any() to get any spectrometer.
     
     Access to the device is done with pyusb and does not require any
     additional information. The USB-specific attributes of the spectrometers are
@@ -115,11 +117,11 @@ class OISpectrometer:
     class Status(NamedTuple):
         pass
 
-    timeScale = 1 # miliseconds=1, microseconds=1000
+    timeScale = 1 # milliseconds=1, microseconds=1000
 
     def __init__(self, idProduct, model, serialNumber=None):
         """
-        Finds and initialize the communication with the Ocean Insight spectrometer
+        Finds and initializes the communication with the Ocean Insight spectrometer
         if there is one connected. All subclasses must provide the USB product id
         that corresponds to this model (0x1002 for USB2000 for instance) and 
         a string that describes the model, for the user.
@@ -578,6 +580,12 @@ class OISpectrometer:
        Look at the class USB2000 to see what you have to provide to support
        a new spectrometer (it is not that much work, but you need one to test).
 """.format(__file__, ', '.join(cls.supportedClassNames())))
+
+        # Well, how about that? This does not work in Windows
+        # https://stackoverflow.com/questions/2330245/python-change-text-color-in-shell
+        # if sys.stdout.isatty:
+        #     err = '\x1b[{0}m{1}\x1b[0m'.format(';'.join(['33','1']), err)
+
         print("""    There was an error when starting: '{0}'.
     See above for help.""".format(err))
 
