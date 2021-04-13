@@ -1,2 +1,1 @@
-from ..physicaldevice import PhysicalDevice
-from .oceaninsight import OISpectrometer, USB2000, USB4000
+__all__ = ["OISpectrometer", "USB2000", "USB4000"]
