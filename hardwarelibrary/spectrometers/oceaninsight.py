@@ -1181,7 +1181,7 @@ def validateUSBBackend():
             pass
  
     libusbPath = None
-
+    candidates = []
     if platform.system() == 'Windows':
         rootHardwareLibrary = PureWindowsPath(os.path.abspath(__file__)).parents[1]
         candidates = [rootHardwareLibrary.joinpath('communication/libusb/MS64/libusb-1.0.dll'),
@@ -1206,7 +1206,7 @@ def validateUSBBackend():
 
 if __name__ == "__main__":
     try:
-        validateUSBBackend()
+        validateUSBBackend() # Why not? dll's on Windows are a mess.
         spectrometer = OISpectrometer.any()
         spectrometer.getSpectrum()
         spectrometer.display()
