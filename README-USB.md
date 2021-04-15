@@ -4,13 +4,11 @@
 
 by Prof. Daniel Côté, Ph.D., P. Eng., dccote@cervo.ulaval.ca, http://www.dcclab.ca
 
-You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons: it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or even necessary.  In addition, because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. Therefore, when you are just trying to understand serial communications for your problem ("I just want to send a command to my XYZ stage!"), all this complexity becomes paralyzing. I hope to help you understand better from the perspective of a non-expert.
-
-
+You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons: it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or may not even appear necessary.  In addition, because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. Therefore, when you are just trying to understand serial communications for your problem ("*I just want to send a command to my XYZ stage!*"), all this complexity becomes paralyzing. I hope to help you understand better from the perspective of a non-expert.
 
 ## Inspecting USB devices
 
-Let's start by exploring with Python and PyUSB to see what these devices are telling us. We will not communicate with them yet, we will simply inspect them.
+Let's start by exploring with Python and PyUSB to see what these devices are telling us. We will not communicate with them directly yet, we will simply inspect them.
 
 ### Installing PyUSB and libusb
 
@@ -22,14 +20,14 @@ This should be simple: `pip install pyusb`. But then, you need to install `libus
 pip install pyusb
 ```
 
-On macOS and Linux:
+On macOS and Linux, install libusb with these two lines in the terminal:
 
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install libusb
 ```
 
-On Windows, get [Zadig](https://zadig.akeo.ie) and keep for fingers crossed. Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to work (for now). Don't get me started on DLLs on Windows.
+On Windows, get [Zadig](https://zadig.akeo.ie) and keep for fingers crossed. Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to work (for now). Don't get me started on [DLLs on Windows](https://github.com/DCC-Lab/PyHardwareLibrary/commit/ddfaf442d61348d7ed8611f2436e43f20b450c45).
 
 ### First steps
 
@@ -160,7 +158,7 @@ The important take home points are:
 
 2. You can have Endpoint #1 IN and Endpoint #1 OUT, they are different endpoints.
 
-3. The endpoints can communicate information in various ways, and most of the time we do not care so much how it does so. Here we have an **INTERRUPT** endpoint that will spit out information to the computer whenever needed. That is because it is a keyboard/mouse, so we want to be responsive: it will typically refresh the position or the keys at 100 Hz.
+3. The endpoints can communicate information in various ways, and most of the time we do not care so much how it does so. Here we have an **INTERRUPT** endpoint that will provide information to the computer whenever needed. Because it is a keyboard/mouse, so we want to be responsive: it will typically refresh the position or the keys at 100 Hz.
 
 4. My Logitech mouse has a very similar USB Descriptor with very similar parameters, aside from the fact that it delivers only 4 bytes of information:
 
@@ -337,11 +335,11 @@ usb.core.USBError: [Errno 13] Access denied (insufficient permissions)
 
 This of course is completely expected: two programs cannot send commands at the same time to a device through the same channels, the device would have no way of knowing what to do.  Therefore, we will only be able to communicate with devices that the operating system has not **matched**. Many problems on Windows originate from this: an incorrect driver is installed and claims the device (erroneously).  You then have to remove the driver from the registry to avoid having a match that prevents the right driver from controlling the device.
 
-However, with scientific equipment that is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, the system will rarely match and we will be able to have access to the USB interface and communicate through the various endpoints.
+However, with scientific equipment that is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, the system will rarely match and we will be able to have access to the USB interface and communicate with the device through the various endpoints.
 
 ### Programming a new USB device
 
-Coming soon.
+This section will provide an example on how to go about programming a device. I am thinking of programming the Mightex line CCD, but this remains to be determined.
 
 # References
 
@@ -349,5 +347,5 @@ I have found various web sites over the years that may help you understand bette
 
 1. "Beyond Logic", https://www.beyondlogic.org/usbnutshell/usb1.shtml.  Really complete, but may be too difficult.
 2. "Pourquoi j'aime controler les appareils", http://www.dcclab.ca/francais-tutoriel-introduction-au-controle/?lang=fr
-3. A small demo (in french) for serial communications: http://www.dcclab.ca/francais-daq-entrees-sorties-numeriques-avec-le-um232r/?lang=en
+3. A small demo (in french) for serial communications with the FTDI chip: http://www.dcclab.ca/francais-daq-entrees-sorties-numeriques-avec-le-um232r/?lang=en
 
