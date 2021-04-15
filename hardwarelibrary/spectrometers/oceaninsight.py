@@ -516,7 +516,7 @@ class OISpectrometer:
 
         return None
 
-    def saveSpectrum(self, filepath, spectrum=None):
+    def saveSpectrum(self, filepath, spectrum=None, whiteReference=None, darkReference=None):
         """ Save a spectrum to disk as a comma-separated variable file.
         If no spectrum is provided, request one from the spectrometer withoout
         changing the integration time.
@@ -532,17 +532,27 @@ class OISpectrometer:
         spectrum: array_like
             A spectrum previously acquired or None to request a new spectrum
 
+        whiteReference: array_like
+            A white reference to normalize the measurements
+
+        darkReference: array_like
+            A dark reference for baseline
+
         """
 
         try:
             if spectrum is None:
                 spectrum = self.getSpectrum()
+            if darkReference is None:
+                darkReference = [0]*len(spectrum)
+            if whiteReference is None:
+                whiteReference = [1]*len(spectrum)
 
             with open(filepath, 'w', newline='\n') as csvfile:
                 fileWrite = csv.writer(csvfile, delimiter=',')
-                fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]'])
-                for x,y in list(zip(self.wavelength, spectrum)):
-                    fileWrite.writerow(["{0:.2f}".format(x),y])
+                fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]','White reference','Dark reference'])
+                for x,y,w,d in list(zip(self.wavelength, spectrum, whiteReference, darkReference)):
+                    fileWrite.writerow(["{0:.2f}".format(x),y,w,d])
         except Exception as err:
             print("Unable to save data: {0}".format(err))
 
@@ -1007,6 +1017,46 @@ class DebugSpectro:
     def setIntegrationTime(self, value):
         self.integrationTime = value
 
+    def saveSpectrum(self, filepath, spectrum=None, whiteReference=None, darkReference=None):
+        """ Save a spectrum to disk as a comma-separated variable file.
+        If no spectrum is provided, request one from the spectrometer withoout
+        changing the integration time.
+
+        Parameters
+        ----------
+
+        filepath: str
+            The path and the filename where to save the data.  If no path
+            is included, the file is saved in the current directory 
+            with the python script was invoked.
+
+        spectrum: array_like
+            A spectrum previously acquired or None to request a new spectrum
+
+        whiteReference: array_like
+            A white reference to normalize the measurements
+
+        darkReference: array_like
+            A dark reference for baseline
+
+        """
+
+        try:
+            if spectrum is None:
+                spectrum = self.getSpectrum()
+            if darkReference is None:
+                darkReference = [0]*len(spectrum)
+            if whiteReference is None:
+                whiteReference = [1]*len(spectrum)
+
+            with open(filepath, 'w', newline='\n') as csvfile:
+                fileWrite = csv.writer(csvfile, delimiter=',')
+                fileWrite.writerow(['Wavelength [nm]','Intensity [arb.u]','White reference','Dark reference'])
+                for x,y,w,d in list(zip(self.wavelength, spectrum, whiteReference, darkReference)):
+                    fileWrite.writerow(["{0:.2f}".format(x),y,w,d])
+        except Exception as err:
+            print("Unable to save data: {0}".format(err))
+
 class SpectraViewer:
     def __init__(self, spectrometer):
         """ A matplotlib-based window to display and manage a spectrometer
@@ -1144,7 +1194,10 @@ class SpectraViewer:
                 self.lastSpectrum -= self.darkReference
             if self.whiteReference is not None:
                 np.seterr(divide='ignore',invalid='ignore')
-                self.lastSpectrum = self.lastSpectrum / (self.whiteReference-self.darkReference)
+                if self.darkReference is not None:
+                    self.lastSpectrum = self.lastSpectrum / (self.whiteReference-self.darkReference)
+                else:
+                    self.lastSpectrum = self.lastSpectrum / self.whiteReference 
 
             self.plotSpectrum(spectrum=self.lastSpectrum)
         except usb.core.USBError as err:
@@ -1162,6 +1215,8 @@ class SpectraViewer:
 
         if event.key == 'cmd+q':
             self.clickQuit(event)
+        if event.key == 'backspace':
+            self.clickClearReferences(event)
 
     def submitTime(self, event):
         """ Event-handling function for when the user hits return/enter 
@@ -1191,13 +1246,24 @@ the text "{0}" converts to 0.')
         """ Event-handling function to autoscale the plot """
         self.axes.autoscale_view()
 
+    def clickClearReferences(self, event):
+        """ Event-handling function to acquire a white reference """
+        self.whiteReference = None
+        self.darkReference = None
+        plt.pause(0.3)
+        self.axes.autoscale_view()
+
     def clickWhiteReference(self, event):
         """ Event-handling function to acquire a white reference """
         self.whiteReference = self.spectrometer.getSpectrum()
+        plt.pause(0.3)
+        self.axes.autoscale_view()
 
     def clickDarkReference(self, event):
         """ Event-handling function to acquire a dark reference """
         self.darkReference = self.spectrometer.getSpectrum()
+        plt.pause(0.3)
+        self.axes.autoscale_view()
 
     def clickSave(self, event):
         """ Event-handling function to save the file.  We stop the animation
@@ -1224,7 +1290,9 @@ the text "{0}" converts to 0.')
             filepath = filedialog.asksaveasfilename()
 
         if filepath is not None:
-            self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum)
+            self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum, 
+                                           whiteReference=self.whiteReference,
+                                           darkReference=self.darkReference)
 
         self.animation.event_source.start()
 
