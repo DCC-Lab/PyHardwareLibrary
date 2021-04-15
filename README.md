@@ -11,9 +11,9 @@ If this applies to you, then keep reading.
 
 ## What is the purpose of this hardware library?
 
-We often need to control devices in the laboratory (linear stages, spectrometers, cameras, shutters, etc...).  The drivers provided by many companies are a good start, but integrating the devices in custom software sometimes gets difficult. This Python module was created to **facilitate the development of drivers** and **facilitate the creation of applications** for hardware that is often used in the lab. It originates from a (private) project that I personnally maintained for nearly 10 years where drivers were written in Objective-C for more than 30 different devices used in my laboratory.  However, Python is more commonly taught in school and supports essentially all platforms, therefore I started this project so that I can 1) teach how to go about developing simple drivers, 2) teach good programming practices to students, 3) get the hardware working for my own lab regardless of the platforms used (we use macOS and Windows), 4) get help to shorten the development cycles to support more devices.
+We often need to control devices in the laboratory (linear stages, spectrometers, cameras, shutters, etc...).  The drivers provided by many companies are a good start, but integrating the devices in custom software sometimes gets difficult. This Python module was created to **facilitate the development of drivers**,  **facilitate the creation of applications**, and **provide minimal but useful applications** for hardware that is often used in the lab. It originates from a (private) project that I personnally maintained for nearly 10 years where drivers were written in Objective-C for more than 30 different devices used in my laboratory.  However, Python is more commonly taught in school and supports essentially all platforms, therefore I started this project so that I can 1) teach how to go about developing simple drivers, 2) teach good programming practices to students, 3) get the hardware working for my own lab regardless of the platforms used (we use macOS and Windows), 4) get help to shorten the development cycles to support more devices.
 
-Why Python? Python is object-oriented (essential) and offers reasonable performance. Python also has the quality of being a very nice team player: it is fairly easy to integrate Python with anything, on any platform and the community is extremely active.  It is obvious by the numerous Python SDKs from companies, the thousands of modules on PyPi.org, and the support from all vendors (Microsoft, Apple and Linux). 
+Why Python? Python is object-oriented (essential) and offers reasonable performance. Python also has the quality of being a very nice team player: it is fairly easy to integrate Python with anything, on any platform and the community is extremely active.  It is obvious by the numerous Python SDKs from companies, the thousands of modules on PyPi.org, and the support from all vendors (Microsoft, Apple and Linux). Python is also not a dead language: I am very pleased to see the language evolve over the years with new language features and new standard modules. 
 
 ## Getting started with using devices
 
@@ -33,26 +33,26 @@ The first supported spectrometer connected will be chosen and a window will appe
 
 But maybe your interest is not just using the devices, but also learning how to code to control them. You should find extensive documentation here on how to proceed.
 
-You will find a simple, trivial script named `cobolt.py` to change the power of the Cobolt laser. There are four versions, you should read all the examples :
+You will find a simple, trivial script named `cobolt.py` to change the power of a Cobolt laser. There are three versions, you should read all three examples :
 
 1. `1-simple`: a very trivial implementation with simple commands in sequence
 2. `2-class`: a class implementation of `CoboltLaser` that partially encapsulates the details and exposes a few functions: `setPower()` and `power()`
 3. `3-class+debugPort`: a class implementation with a debug port that mimicks the real device
 4. The main part of the code has a `CoboltDevice` that supports `turnOn()` `turnOff()`, `setPower()` and `power()`
 
-This is just a very simple example with a laser that probably few people have access to.
+This is just a very simple example with a laser that probably few people have access to, but should give a general idea.
 
 ### Strategy
 
 How does one go about supporting a new device? What is the best strategy?
 
-1. Obtain the manual.  Look for connectivity information (typically, I search for `ASCII` in the text). You will find information such as "baud rate, stop bits, hardware handshake and ASCII commands"
+1. Obtain the manual.  Look for connectivity information (typically, I search for `ASCII` in the text). You will find information such as "baud rate, stop bits, hardware handshake" and most importatnly "ASCII commands"
 
    1. If you can't get the manual from the web site, contact the company.  As mentionned above, many will gladly help you: they usually want to sell devices or satisfy customers who did buy them.
    
-2. Connect to the device, one way or another
+2. Connect to the device, one way or another.
 
-   1. If necessary, a driver may need to be installed to serialize the device (to make it appear as a serial port).
+   1. If necessary, a driver may need to be installed to serialize the device (to make it appear as a serial port). In this case, you would use the `SerialPort` class.
    2. If not available, direct USB access may be needed with `libusb` and `PyUSB`.  This is the most elegant solution, but requires some knowledge of USB.  `PyHardwareLibrary` makes use of `PyUSB` extensively.
    3. Figure out (ideally through testing, see next point) how to connect with `SerialPort` or `USBPort`, both derived classes from `CommunicationPort`
 
