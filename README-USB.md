@@ -136,7 +136,7 @@ In this particular situation (a Kensington laser pointer), there is a single int
 
 1. The **bInterfaceClass** (0x03) says that if you choose interface #0, then you will be speaking to a Human Interface Device, which typically means keyboard, mouse, etc...  The **bInterfaceSubClass** and protocol are sufficient for the computer to determine whether or not it can manage it.  In this case, the **bInterfaceProtocol** says it acts like a keyboard.  
 2. We don't need to dig deeper in Human Interface Devices at this point, but the computer will communicate with the device with accepted protocols on endpoint 0.
-3. Some devices (in fact, most scientific equipment) will be "*serializable*".  When this information is included in the USB Interface Descriptor, the system will have sufficient information to create a virtual serial port.  At that point, the device will "appear" as a regular serial device (COM on Windows, `/dev/cu.*` on macOS and Linux). You can then connect to it like an old-style serial port.
+3. Some devices (in fact, most scientific equipment) will be "*serializable*".  When this information is included in the USB Interface Descriptor, the system will have sufficient information to create a virtual serial port.  At that point, the device will "appear" as a regular serial device (COM on Windows, `/dev/cu.*` on macOS and Linux). You can then connect to it like an old-style serial port just like the good ol'days with bauds, stop bits and parity, possible handshakes and all (this is a separate discussion).
 
 ### Input and output endpoints
 
