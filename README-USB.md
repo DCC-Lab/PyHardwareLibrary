@@ -347,5 +347,7 @@ Coming soon.
 
 I have found various web sites over the years that may help you understand better, even though everything I wrote above is from experience accumulated over the years. Many web sites are either too detailed or too superficial. It is hard to find reasonable information, but I like the following:
 
-1. https://www.beyondlogic.org/usbnutshell/usb1.shtml
+1. "Beyond Logic", https://www.beyondlogic.org/usbnutshell/usb1.shtml.  Really complete, but may be too difficult.
+2. "Pourquoi j'aime controler les appareils", http://www.dcclab.ca/francais-tutoriel-introduction-au-controle/?lang=fr
+3. A small demo (in french) for serial communications: http://www.dcclab.ca/francais-daq-entrees-sorties-numeriques-avec-le-um232r/?lang=en
 
