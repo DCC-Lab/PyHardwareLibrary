@@ -1,10 +1,18 @@
+[TOC]
+
 # Understanding the Universal Serial Bus (USB)
+
+by Prof. Daniel Côté, Ph.D., P. Eng., dccote@cervo.ulaval.ca, http://www.dcclab.ca
 
 You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons: it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or even necessary.  In addition, because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. Therefore, when you are just trying to understand serial communications for your problem ("I just want to send a command to my XYZ stage!"), all this complexity becomes paralyzing. I hope to help you understand better from the perspective of a non-expert.
 
-Let's start by exploring with Python and PyUSB.
 
-## Installing PyUSB and libusb
+
+## Inspecting USB devices
+
+Let's start by exploring with Python and PyUSB to see what these devices are telling us. We will not communicate with them yet, we will simply inspect them.
+
+### Installing PyUSB and libusb
 
 I wish we could dive right in.  I really do. If you just want to see what I do, skip and go to the exploration part (First Steps).  But if you want to explore on your computer too, then you need to install PyUSB and libusb.
 
@@ -23,7 +31,7 @@ brew install libusb
 
 On Windows, get [Zadig](https://zadig.akeo.ie) and keep for fingers crossed. Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to work (for now). Don't get me started on DLLs on Windows.
 
-## First steps
+### First steps
 
 Your computer has a USB bus, that is, a main entry point through which all USB devices that you connect will communicate. When you plug in a device, it will automatically provide basic information to identify itself. That information is hardcoded into the device and informs the computer what it is and what it can do. So the first thing we want is to list all devices currently connected to your computer through your USB bus (or busses, some computers have more than one):
 
@@ -70,7 +78,7 @@ Let's highlight what is important:
 
 Right after connecting, the device is in an "unconfigured mode". Someone, somewhere needs to take responsibility for this device and do something.  Again, we need to separate general user devices (mouse, printers etc...) from scientific hardware.  With user devices, the device class, subclass, vendor id, product id, and protocol are sufficient for the computer to determine whether or not it can manage it. If the computer has the driver for this device, it will "own" it and manage it.  For instance, the printer is recognized and then the operating system can do what it needs to do with it.  However, scientific equipement will often appear as "General Device", and the computer will likely not know what to do.  This is when we come in.
 
-## Configuring the USB device
+### Configuring the USB device
 
 We need to set the device into one of its configurations.  As described before, this is most likely just setting the device in its only possible configuration. So we get the USB device using the `usb.core.find` function of PyUSB, which will just relay the request to libusb and return any device that matches the parameters we want. In our case, we specify the idVendor and the idProduct, so the only device that can match is the one we want.
 
@@ -108,7 +116,7 @@ Again, the important aspects.
 2. It says it has one **USB Interface.**  This is discussed below.
 3. The configuration has some technical details, such as the fact it does not need extra power and will require 100 mA or less when connected.
 
-## Choosing a USB interface
+### Choosing a USB interface
 
 The best way to understand **USB interfaces** is to use an example everyone knows: all-in-one printers.  These printers-scanners can act like a printer or a scanner, yet they have a single USB cable. Sometimes they will act like a printer, sometimes they will act like a scanner, and nothing says they can't do both at the same time. The **USB Interface** is the front face or appearance of the device to the computer: the device offers a "printer interface" and a "scanner interface" and depending on what you want to do, you will choose the one you need. So this device has a single interface, let's look at it.  The above code also prints information about the interfaces of the configuration, but I had removed them for simplicity. Here it is:
 
@@ -117,7 +125,7 @@ The best way to understand **USB interfaces** is to use an example everyone know
      bLength            :    0x9 (9 bytes)
      bDescriptorType    :    0x4 Interface              # This is a USB Interface Descriptor
      bInterfaceNumber   :    0x0                        # It has interface number 0. It starts at 0 not 1
-     bAlternateSetting  :    0x0
+     bAlternateSetting  :    0x0                        
      bNumEndpoints      :    0x1                        # It has a single user-endpoint (will be number 1)
      bInterfaceClass    :    0x3 Human Interface Device # It is a type of Human Device (i.e. manipulatable)
      bInterfaceSubClass :    0x1                        # Can be available on boot
@@ -131,7 +139,7 @@ In this particular situation (a Kensington laser pointer), there is a single int
 1. The **bInterfaceClass** (0x03) says that if you choose interface #0, then you will be speaking to a Human Interface Device, which typically means keyboard, mouse, etc...  The **bInterfaceSubClass** and protocol are sufficient for the computer to determine whether or not it can manage it.  In this case, the **bInterfaceProtocol** says it acts like a keyboard.  
 2. We don't need to dig deeper in Human Interface Devices at this point, but the computer will communicate with the device with accepted protocols on endpoint 0.
 
-## Input and output endpoints
+### Input and output endpoints
 
 Finally, each USB interface has communication channels, or **endpoints**, that it decides to define for its purpose. An end point is a one-way communication either to the device (OUT) or into the computer (IN).  This Kensington Pointer has a single input enpoint, which means we cannot "talk" to it, we can only "read" from it.  Its description is the following:
 
@@ -150,9 +158,11 @@ The important take home points are:
 
 1. The interface will define user-endpoints (that is, endpoints that the programmer can use to talk to the device).  There are also two implicit (hidden) endpoints called endpoint #0, or the Control Endpoints. These are used to communicate "control" and USB information to the device and for our purpose (we are not making the USB chips that communicates with the device, we only want to talk to the device), then we won't need to worry about it.  We just need to know it's there.  For this reason, endpoints are numbered starting at #1.
 
-2. The endpoints can communicate information in various ways, and most of the time we do not care so much. Here we have an **INTERRUPT** endpoint that will spit out information to the computer whenever needed. That is because it is a keyboard/mouse, so we want to be responsive: it will typically refresh the position or the keys at 100 Hz.
+2. You can have Endpoint #1 IN and Endpoint #1 OUT, they are different endpoints.
 
-3. My Logitech mouse has a very similar USB Descriptor with very similar parameters, aside from the fact that it delivers only 4 bytes of information:
+3. The endpoints can communicate information in various ways, and most of the time we do not care so much how it does so. Here we have an **INTERRUPT** endpoint that will spit out information to the computer whenever needed. That is because it is a keyboard/mouse, so we want to be responsive: it will typically refresh the position or the keys at 100 Hz.
+
+4. My Logitech mouse has a very similar USB Descriptor with very similar parameters, aside from the fact that it delivers only 4 bytes of information:
 
    ```python
    DEVICE ID 046d:c077 on Bus 020 Address 002 =================
@@ -189,7 +199,7 @@ The important take home points are:
 
    
 
-Finally, here is the complete **USBDescriptor** for my HP Envy all-in-one printer.
+Finally, here is the complete **USBDescriptor** for my HP Envy all-in-one printer:
 
 ```python
 DEVICE ID 03f0:c511 on Bus 020 Address 001 =================
@@ -303,13 +313,37 @@ DEVICE ID 03f0:c511 on Bus 020 Address 001 =================
 Important highlights:
 
 1. As you can see, some USB devices can provide several interfaces and options with many endpoints.  I picked this example to highlight that the USB standard offers a really general solution for device communication, and this is why it was designed and was widely accepted. 
-2. There are different types of endpoints: INTERRUPT, BULK, ISOCHRONOUS. Bulk is what we could call a "standard" communication channel for us, experimentalists trying to make things work.  For the most part, we don't really need to worry about it.
+2. There are different types of endpoints: INTERRUPT, BULK, ISOCHRONOUS. **Bulk** is what we could call a "standard" communication channel for us, experimentalists, trying to make things work.  For the most part, we don't really need to worry about it.
+3. Here, having all this information about my printer is not really helping me communicate with it, because I don't know what commands it will accept. This information may or may not be proprietary, and without it, there is very little hope to "program" the printer directly (why you would want to do that is your business).
 
+### Final words
 
+So for a hardware programmer who wants to use a device, the procedure will typically be like this:
 
+1. Find the information specific about the device you want to use, so you can find it on the bus (idProduct, idVendor, etc...).
+2. Get the **USB device**, configure it, typically with its only **USB configuration**.
+3. Pick a **USB interface** (in scientific equipment, there is often only one).
+4. With the USB interface and PyUSB, you can then use endpoints to send or read commands.
+   1. To do so, you will need to know the details from the manufacturer.  Typically, they will tell you : "Send your commands to Endpoint 1" and "Read your replies from endpoint 2". For instance, Ocean Insight makes spectrometers and the [manual](https://github.com/DCC-Lab/PyHardwareLibrary/blob/master/hardwarelibrary/manuals/USB2000-OEM-Data-Sheet.pdf) is very clear: on page 11, it says that there are two endpoint groups (IN and OUT) number 2 and 7. Each command described in the following pages tells you where to send your command and where to read the replies from. That is a good manual from a good company that likes its users.
+   2. Some companies will not provide you with the endpoints information and will just provide a list of commands for their device (assuming you will talk through the regular serial interface).  You can experiment with endpoints relatively easily to figure out which is which for simple devices. For instance, a powermeter will typically have only one IN and one OUT endpoint, so it is easy to figure out what to do.
 
+## Communicating with USB devices
 
-## References
+I have not said a single word about communicating with devices.  On your computer, drivers provided by Microsoft, Apple and others will go through a process to determine who controls a device.  For instance, your first project may be to try to read the keystrokes from your keyboard or the mouse position from your optical mouse.  That will not work:  when you connect your device, the operating system has a list of "generic drivers" that will take ownership of simple devices, like mouse, keyboards, printers, etc: that is the whole point of Plug-And-Play devices. The system reads the USBDescriptors, and other details and may be able to **match** a driver to your device.  If it does so, it will **claim** the interface.  Hence, if you try to communicate with a device through an interface that was already claimed by the operating system, then you will get an error:
+
+```
+usb.core.USBError: [Errno 13] Access denied (insufficient permissions)
+```
+
+This of course is completely expected: two programs cannot send commands at the same time to a device through the same channels, the device would have no way of knowing what to do.  Therefore, we will only be able to communicate with devices that the operating system has not **matched**. Many problems on Windows originate from this: an incorrect driver is installed and claims the device (erroneously).  You then have to remove the driver from the registry to avoid having a match that prevents the right driver from controlling the device.
+
+However, with scientific equipment that is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, the system will rarely match and we will be able to have access to the USB interface and communicate through the various endpoints.
+
+### Programming a new USB device
+
+Coming soon.
+
+# References
 
 I have found various web sites over the years that may help you understand better, even though everything I wrote above is from experience accumulated over the years. Many web sites are either too detailed or too superficial. It is hard to find reasonable information, but I like the following:
 
