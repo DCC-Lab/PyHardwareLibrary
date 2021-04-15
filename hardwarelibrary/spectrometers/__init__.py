@@ -1,6 +1,7 @@
 __all__ = ["oceaninsight"]
 
 from .oceaninsight import OISpectrometer, USB2000, USB4000, SpectraViewer
+import platform
 
 def any() -> OISpectrometer:
     return OISpectrometer.any()
