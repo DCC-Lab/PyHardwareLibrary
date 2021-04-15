@@ -7,7 +7,9 @@ try:
     import array
     import re
     import os
+    import sys
     import platform
+    import random
     from pathlib import *
 
     import usb.core
@@ -55,6 +57,15 @@ implementation was not difficult to code.
 It is in a single python file to simplify usage by others.
 
 """
+
+class NoSpectrometerConnected(RuntimeError):
+    pass
+class UnableToInitialize(RuntimeError):
+    pass
+class UnableToCommunicate(RuntimeError):
+    pass
+class SpectrumRequestTimeoutError(RuntimeError):
+    pass
 
 
 class OISpectrometer:
@@ -243,7 +254,7 @@ class OISpectrometer:
             time.sleep(0.1)
             self.getCalibration()
         except Exception as err:
-            raise RuntimeError("Error when initializing device: {0}".format(err))
+            raise UnableToInitialize("Error when initializing device: {0}".format(err))
 
     def shutdownDevice(self):
         """
@@ -354,7 +365,7 @@ class OISpectrometer:
 
         except Exception as err:
             self.flushEndpoints()
-            raise RuntimeError('Reset attempted {0}'.format(err))
+            raise UnableToCommunicate('Unable to communicate. Reset attempted {0}'.format(err))
 
     def requestSpectrum(self):
         """ Requests a spectrum.  The command will not return until the 
@@ -367,7 +378,7 @@ class OISpectrometer:
         while not self.isSpectrumRequested():
             time.sleep(0.001)
             if time.time() > timeOut:
-                raise TimeoutError('The spectrometer never acknowledged the reception of the spectrum request')
+                raise SpectrumRequestTimeoutError('The spectrometer never acknowledged the reception of the spectrum request')
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to 
@@ -613,9 +624,9 @@ class OISpectrometer:
                     return aClass()
 
         if len(devices) == 0:
-            raise RuntimeError('No Ocean Optics spectrometer connected.')
+            raise NoSpectrometerConnected('No Ocean Optics spectrometer connected.')
         else:
-            raise RuntimeError('No supported Ocean Optics spectrometer connected. The devices {0} are not supported.'.format(devices))
+            raise NoSpectrometerConnected('No supported Ocean Optics spectrometer connected. The devices {0} are not supported.'.format(devices))
 
     @classmethod
     def connectedUSBDevices(cls, idProduct=None, serialNumber=None):
@@ -693,7 +704,7 @@ class OISpectrometer:
             device = devices[0]
         elif len(devices) > 1:
             if serialNumber is not None:
-                raise RuntimeError('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
+                raise NoSpectrometerConnected('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
             else:
                 # No serial number provided, just take the first one
                 device = devices[0]
@@ -701,9 +712,9 @@ class OISpectrometer:
             # No devices with criteria provided
             anyOIDevices = OISpectrometer.connectedUSBDevices()
             if len(anyOIDevices) == 0:
-                raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
+                raise NoSpectrometerConnected('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
             else:
-                raise RuntimeError('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
+                raise NoSpectrometerConnected('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
 
         return device
 
@@ -945,6 +956,53 @@ class USB4000(OISpectrometer):
                 return False
 
         return True
+
+class Emitter(NamedTuple):
+    center:float = None
+    width:float = None
+    intensity:float = None
+
+class DebugSpectro:
+    def __init__(self):
+        self.model = "Debug - Nothing is connected"
+        self.wavelength = np.linspace(400,1000,1024)
+        self.integrationTime = 10
+        self.emitters = []
+        self.background = (100,200)
+        for i in range(5):
+            center = random.uniform(400,1000)
+            width = random.uniform(2,10)
+            intensity = random.uniform(10,100) # per ms
+            self.emitters.append(Emitter(center, width, intensity))
+
+    def getSerialNumber(self):
+        return "000-000-000"
+
+    def getSpectrum(self):
+        spectrum = []
+        time = self.getIntegrationTime()
+        for wavelength in self.wavelength:
+            intensity = 0
+            for emitter in self.emitters:
+                intensity += emitter.intensity*np.exp(-((wavelength-emitter.center)/emitter.width)**2)
+            intensity *= time
+            noise = random.gauss(0, np.sqrt(intensity))
+            intensity += noise
+            intensity += random.uniform(*self.background)
+            spectrum.append(intensity)
+
+        return np.array(spectrum)
+
+    def display(self):
+        """ Display the spectrum with the SpectraViewer class."""
+        viewer = SpectraViewer(spectrometer=self)
+        viewer.display()
+
+    def getIntegrationTime(self):
+        return self.integrationTime
+
+    def setIntegrationTime(self, value):
+        self.integrationTime = value
 
 class SpectraViewer:
     def __init__(self, spectrometer):
@@ -1206,14 +1264,21 @@ def validateUSBBackend():
 
 if __name__ == "__main__":
     try:
-        validateUSBBackend() # Why not? dll's on Windows are a mess.
-        spectrometer = OISpectrometer.any()
-        spectrometer.getSpectrum()
+        if len(sys.argv) == 1:
+            validateUSBBackend() # Why not? dll's on Windows are a mess.
+            spectrometer = OISpectrometer.any()
+            spectrometer.getSpectrum()
+        else: # any argument will do. Shh!
+            spectrometer = DebugSpectro()
+
         spectrometer.display()
+
     except usb.core.NoBackendError as err:
         OISpectrometer.showHelp("PyUSB does not find any 'backend' to communicate with the USB ports (e.g., libusb is not found anywhere).")
+    except NoSpectrometerConnected as err:
+        OISpectrometer.showHelp("No spectrometers detected: you can use `python oceaninsight.py debug` for testing")
     except Exception as err:
         """ Something unexpected occurred, which is probably a module not available.
-        We show some help.
+        We show some help and the error.
         """
         OISpectrometer.showHelp(err)
