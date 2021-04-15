@@ -1,16 +1,23 @@
 # PyHardwareLibrary
 
-A simple device-oriented library for controlling hardware devices in the laboratory. Currently very limited but in active development.
+A simple device-oriented library for controlling hardware devices in the laboratory.
+
+You may be here for one of two things:
+
+1. You want to use a device (e.g., Ocean Insight spectrometer), get data, and save it.
+2. You want to program a driver to get a new device to work on your computer.
+
+If this applies to you, then keep reading.
 
 ## What is the purpose of this hardware library?
 
-We often need to control devices in the laboratory (linear stages, spectrometers, cameras, shutters, etc...).  The drivers provided by many companies are a good start, but integrating the devices in custom software sometimes gets difficult. This Python module was created to faciliate the development of drivers and applications for hardware that is often used in the lab. It originates from a (private) project that I personnally maintained for nearly 10 years where drivers were written in Objective-C for more than 30 different devices used in my laboratory.  However, Python is more commonly taught in school and supports all platforms, therefore I started this project so that I can 1) teach how to go about developing simple drivers, 2) teach good programming practices to students, 3) get the hardware working for my own lab regardless of the platforms used (we use macOS and Windows).
+We often need to control devices in the laboratory (linear stages, spectrometers, cameras, shutters, etc...).  The drivers provided by many companies are a good start, but integrating the devices in custom software sometimes gets difficult. This Python module was created to **facilitate the development of drivers** and **facilitate the creation of applications** for hardware that is often used in the lab. It originates from a (private) project that I personnally maintained for nearly 10 years where drivers were written in Objective-C for more than 30 different devices used in my laboratory.  However, Python is more commonly taught in school and supports essentially all platforms, therefore I started this project so that I can 1) teach how to go about developing simple drivers, 2) teach good programming practices to students, 3) get the hardware working for my own lab regardless of the platforms used (we use macOS and Windows), 4) get help to shorten the development cycles to support more devices.
 
-Python also has the quality of being a very nice team player: it is fairly easy to integrate Python with anything, on any platform and the community is extremely active.  It is obvious by the numerous Python SDKs from companies, the thousands of modules on PyPi.org, and the support from all vendors (Microsoft, Apple and Linux). 
+Why Python? Python is object-oriented (essential) and offers reasonable performance. Python also has the quality of being a very nice team player: it is fairly easy to integrate Python with anything, on any platform and the community is extremely active.  It is obvious by the numerous Python SDKs from companies, the thousands of modules on PyPi.org, and the support from all vendors (Microsoft, Apple and Linux). 
 
-## Getting started
+## Getting started with using devices
 
-To use this module, you need to install it by downloading it then typing: `python setup.py install`.
+To use this module, you need to install it by [downloading it](https://github.com/DCC-Lab/PyHardwareLibrary/archive/refs/heads/master.zip) from GitHub then typing: `python setup.py install`.
 
 Right now, the only useful devices supported are the Ocean Insight spectrometers, `USB2000` and `USB4000`. If you only want to use it, then the following two-line script will do:
 
@@ -22,7 +29,7 @@ OISpectrometer.displayAny()
 
 The first supported spectrometer connected will be chosen and a window will appear displaying the spectrum.
 
-## Getting started with coding
+## Getting started with coding for new devices
 
 But maybe your interest is not just using the devices, but also learning how to code to control them. You should find extensive documentation here on how to proceed.
 
@@ -167,3 +174,9 @@ The strategy used by the present library is the following:
 ## Motivation
 
 I must also vent my frustration that end-user software from the manufacturers is often abysmaIly-designed, buggy and/or simply frustrating to use. I have even seen example code from companies that simply does not even compile. Others will only support Windows 7, and even say it with a straight face in 2021 like it's totally normal. On top of that, many companies will claim (erroneously) that their hardware cannot run on macOS, my platform of choice.  This is usually because of shear laziness or straight out incompetence: as long as it can connect to the computer, it can be supported.  For USB devices, it is often **trivial** to write a "driver" to support a device with appropriate documentation, and I have done it on numerous occasions. Shout out to Sutter Instruments, ActiveSilicon, Hamamatsu, Ocean Insight, and Thorlabs for being friendly to developers: they provide all the necessary information upon request and are of great help to scientists. On the other hand, here is a finger🖕 to many other companies I will not name here, but many camera providers come to mind and a prominent National company that makes Instruments in the US wins the grand prize.
+
+## Contact
+
+Prof. Daniel Côté, Ph.D. and P.Eng, dccote@cervo.ulaval.ca
+
+Group web site: http://www.dcclab.ca
