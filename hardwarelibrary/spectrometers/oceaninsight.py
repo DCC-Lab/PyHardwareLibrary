@@ -1249,19 +1249,31 @@ the text "{0}" converts to 0.')
     def clickClearReferences(self, event):
         """ Event-handling function to acquire a white reference """
         self.whiteReference = None
+        self.lightBtn.color = '0.85'
         self.darkReference = None
+        self.darkBtn.color = '0.85'
         plt.pause(0.3)
         self.axes.autoscale_view()
 
     def clickWhiteReference(self, event):
         """ Event-handling function to acquire a white reference """
-        self.whiteReference = self.spectrometer.getSpectrum()
+        if self.whiteReference is None:
+            self.whiteReference = self.spectrometer.getSpectrum()
+            self.lightBtn.color = '0.99'
+        else:
+            self.whiteReference = None
+            self.lightBtn.color = '0.85'
         plt.pause(0.3)
         self.axes.autoscale_view()
 
     def clickDarkReference(self, event):
         """ Event-handling function to acquire a dark reference """
-        self.darkReference = self.spectrometer.getSpectrum()
+        if self.darkReference is None:
+            self.darkReference = self.spectrometer.getSpectrum()
+            self.darkBtn.color = '0.99'
+        else:
+            self.darkReference = None
+            self.darkBtn.color = '0.85'
         plt.pause(0.3)
         self.axes.autoscale_view()
 
