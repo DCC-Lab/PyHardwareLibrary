@@ -957,12 +957,13 @@ class USB4000(OISpectrometer):
 
         return True
 
-class Emitter(NamedTuple):
-    center:float = None
-    width:float = None
-    intensity:float = None
 
 class DebugSpectro:
+    class Emitter(NamedTuple):
+        center:float = None
+        width:float = None
+        intensity:float = None
+
     def __init__(self):
         self.model = "Debug - Nothing is connected"
         self.wavelength = np.linspace(400,1000,1024)
@@ -973,7 +974,7 @@ class DebugSpectro:
             center = random.uniform(400,1000)
             width = random.uniform(2,10)
             intensity = random.uniform(10,100) # per ms
-            self.emitters.append(Emitter(center, width, intensity))
+            self.emitters.append(self.Emitter(center, width, intensity))
 
     def getSerialNumber(self):
         return "000-000-000"
@@ -989,6 +990,8 @@ class DebugSpectro:
             noise = random.gauss(0, np.sqrt(intensity))
             intensity += noise
             intensity += random.uniform(*self.background)
+            if intensity > 32767:
+                intensity = 32767
             spectrum.append(intensity)
 
         return np.array(spectrum)
