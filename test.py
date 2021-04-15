@@ -1,8 +1,4 @@
-import hardwarelibrary as hl
-import hardwarelibrary.spectrometers as sp
-import libusb
+from hardwarelibrary.spectrometers import OISpectrometer
 
-spectro = sp.OISpectrometer.any()
-
-print(dir(hl))
+OISpectrometer.displayAny()
 

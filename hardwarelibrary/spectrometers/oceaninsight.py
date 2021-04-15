@@ -615,6 +615,12 @@ class OISpectrometer:
     See above for help.""".format(err))
 
     @classmethod
+    def displayAny(cls):
+        spectrometer = cls.any()
+        if spectrometer is not None:
+            SpectraViewer(spectrometer).display()
+
+    @classmethod
     def any(cls) -> 'OISpectrometer':
         """ Return the first supported spectrometer found as a Python object
         that can be used immediately.
