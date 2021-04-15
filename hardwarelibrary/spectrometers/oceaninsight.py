@@ -60,6 +60,12 @@ It is in a single python file to simplify usage by others.
 
 class NoSpectrometerConnected(RuntimeError):
     pass
+class UnableToInitialize(RuntimeError):
+    pass
+class UnableToCommunicate(RuntimeError):
+    pass
+class SpectrumRequestTimeoutError(RuntimeError):
+    pass
 
 
 class OISpectrometer:
@@ -248,7 +254,7 @@ class OISpectrometer:
             time.sleep(0.1)
             self.getCalibration()
         except Exception as err:
-            raise RuntimeError("Error when initializing device: {0}".format(err))
+            raise UnableToInitialize("Error when initializing device: {0}".format(err))
 
     def shutdownDevice(self):
         """
@@ -359,7 +365,7 @@ class OISpectrometer:
 
         except Exception as err:
             self.flushEndpoints()
-            raise RuntimeError('Reset attempted {0}'.format(err))
+            raise UnableToCommunicate('Unable to communicate. Reset attempted {0}'.format(err))
 
     def requestSpectrum(self):
         """ Requests a spectrum.  The command will not return until the 
@@ -372,7 +378,7 @@ class OISpectrometer:
         while not self.isSpectrumRequested():
             time.sleep(0.001)
             if time.time() > timeOut:
-                raise TimeoutError('The spectrometer never acknowledged the reception of the spectrum request')
+                raise SpectrumRequestTimeoutError('The spectrometer never acknowledged the reception of the spectrum request')
 
     def isSpectrumRequested(self) -> bool:
         """ The spectrometer is currently waiting for an acquisition to 
@@ -698,7 +704,7 @@ class OISpectrometer:
             device = devices[0]
         elif len(devices) > 1:
             if serialNumber is not None:
-                raise RuntimeError('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
+                raise NoSpectrometerConnected('Ocean Insight device with the appropriate serial number ({0}) was not found in the list of devices {1}'.format(serialNumber, devices))
             else:
                 # No serial number provided, just take the first one
                 device = devices[0]
@@ -706,9 +712,9 @@ class OISpectrometer:
             # No devices with criteria provided
             anyOIDevices = OISpectrometer.connectedUSBDevices()
             if len(anyOIDevices) == 0:
-                raise RuntimeError('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
+                raise NoSpectrometerConnected('Ocean Insight device not found because there are no Ocean Insight devices connected.'.format())
             else:
-                raise RuntimeError('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
+                raise NoSpectrometerConnected('Ocean Insight device not found. There are Ocean Insight devices connected {1}, but they do not match either the model or the serial number requested.'.format(anyOIDevices))
 
         return device
 
