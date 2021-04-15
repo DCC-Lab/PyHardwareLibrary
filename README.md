@@ -29,6 +29,56 @@ OISpectrometer.displayAny()
 
 The first supported spectrometer connected will be chosen and a window will appear displaying the spectrum.
 
+If you want to do more such as integrating it in some other software you are writing, at this point the best option is to type `help(someClass)` to get the help from the code:
+
+```python
+>>> from hardwarelibrary.spectrometers import OISpectrometer
+>>> help(OISpectrometer)
+
+Help on class OISpectrometer in module hardwarelibrary.spectrometers.oceaninsight:
+
+class OISpectrometer(builtins.object)
+ |  OISpectrometer(idProduct, model, serialNumber=None)
+ |  
+ |  An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
+ |  to the hardware with simple functions to get the spectrum, or modify the
+ |  integration time. It is the base class for all Ocean Insight Spectrometers,
+ |  but you will not instantiate this directly: use USB2000() or USB4000(),
+ |  or simply: OISpectrometer.any() to get any spectrometer.
+ |  
+ |  Access to the device is done with pyusb and does not require any
+ |  additional information. The USB-specific attributes of the spectrometers are
+ |  available,  but are not needed for standard usage.  If you need to
+ |  implement additional functions and communicate with the device (not all
+ |  capabilities are currently coded), then you could implement them in a
+ |  separate function.
+ |  [...]
+ |  getCalibration(self)
+ |      Get the hardcoded calibration from the spectrometer.  It is a
+ |      3rd-order polynomial. Currently, no nonlinearities are considered.
+ |  
+ |  getIntegrationTime(self)
+ |      Get the integration time in as a float value in milliseconds
+ |      cls.timeScale is 1 for ms and 1000 if it is stored in µs
+ |  
+ |  getParameter(self, index)
+ |      Get any of the 20 parameters hardcoded into the spectrometer.
+ |      
+ |      Parameters
+ |      ----------
+ |      
+ |      index: int
+ |          0 – Serial Number
+ |          1 – 0th order Wavelength Calibration Coefficient 
+ |          2 – 1st order Wavelength Calibration Coefficient
+[...]
+
+```
+
+
+
+Of course, other devices will be supported in the near future.  As mentionned elsewhere in this document, the present `PyHardwareLibrary` project originates from a private `HardwareLibrary` project that supports many different devices, such as Sutter Instruments stages, many Thorlabs devices (stages, shutters, rotation stages, flip mirrors), Spectra Physics Lasers, Cobolt Lasers, Olympus microscopes, GenTech-EO power meters, LabJack, Zaber, Marzhauer, Prior, Newport, Intellidrive, so it is a question of time (and need) before they are ported to `PyHardwareLibrary`.
+
 ## Getting started with coding for new devices
 
 But maybe your interest is not just using the devices, but also learning how to code to control them. You should find extensive documentation here on how to proceed.
@@ -46,14 +96,16 @@ This is just a very simple example with a laser that probably few people have ac
 
 How does one go about supporting a new device? What is the best strategy?
 
-1. Obtain the manual.  Look for connectivity information (typically, I search for `ASCII` in the text). You will find information such as "baud rate, stop bits, hardware handshake" and most importatnly "ASCII commands"
+1. Obtain the manual.  Look for connectivity information (typically, search for `ASCII` or `serial` in the text). You will find information such as "baud rate, stop bits, hardware handshake" and most importantly "ASCII or binary commands". This is what you need.
 
    1. If you can't get the manual from the web site, contact the company.  As mentionned above, many will gladly help you: they usually want to sell devices or satisfy customers who did buy them.
    
 2. Connect to the device, one way or another.
 
-   1. If necessary, a driver may need to be installed to serialize the device (to make it appear as a serial port). In this case, you would use the `SerialPort` class.
-   2. If not available, direct USB access may be needed with `libusb` and `PyUSB`.  This is the most elegant solution, but requires some knowledge of USB.  `PyHardwareLibrary` makes use of `PyUSB` extensively.
+   1. If necessary, a driver may need to be installed to serialize the device (to make it appear as a serial port). In this case, you would use the `SerialPort` class after having installed that driver. 
+      1. Not all devices can appear as a "serial port".  Simple devices (e.g. a translation stage) are fine because they simply read commands ('MOVE") and reply ("OK").  However, others (camera, spectrometers) respond to commands and transmit data, sometime a lot of it and require many communication lines.  The USB standard provides that (with *endpoints*), but not the old-style serial port that essentially is just a two-way communication on a single channel. 
+      2. Also, for a device to appear as a serial port, the manufacturer needs to provide a certain amount of information in the USB descriptor of the device. If they don't, you are out of luck.
+   2. If standard serial ports are not available, direct USB access may be needed with `libusb` and `PyUSB`.  This is the most elegant solution, but requires some knowledge of USB.  `PyHardwareLibrary` makes use of `PyUSB` extensively, and `USBPort` simplifies communication.
    3. Figure out (ideally through testing, see next point) how to connect with `SerialPort` or `USBPort`, both derived classes from `CommunicationPort`
 
 3. Identify commands and write very simple tests with `SerialPort`  to confirm connectivity and validate command syntax (see the other [section](#Testing-serial-ports) below for more details):
@@ -153,13 +205,13 @@ When testing serial ports, we want to test both the real connection to a given d
 
 
 
-### PhysicalDevice implementation
+## Design goals
 
 *This part is not fully implemented yet.*
 
 Communicating with the device through serial ports is the first step.  However, most of the time, we care about some tasks we want to do with the device (turn on and use laser, acquire spectrum from spectrometer, etc...).  Therefore, after having figured out what the commands are and how the device responds, it is important to "wrap" or encapsulate all of those commands inside a class (or object) that represents the device to the end-user and make it easy to use without having to know the details. `PyHardwareLibrary` uses a base class called `PhysicalDevice` 
 
-A real physical device is not simple to handle: errors can occur at any time (because of the device itsefl), because the user did not connect it or did not turn it on, because the device is in an irregular  state (e.g., it reached the end of the travel range for instance).  Hence, it becomes important to handle errors gracefully but especially robustly.
+A real physical device is not simple to handle: errors can occur at any time (because of the device itself), because the user did not connect it or did not turn it on, because the device is in an irregular  state (e.g., it reached the end of the travel range for instance).  Hence, it becomes important to handle errors gracefully but especially robustly.
 
 The strategy used by the present library is the following:
 
@@ -173,10 +225,13 @@ The strategy used by the present library is the following:
 
 ## Motivation
 
-I must also vent my frustration that end-user software from the manufacturers is often abysmaIly-designed, buggy and/or simply frustrating to use. I have even seen example code from companies that simply does not even compile. Others will only support Windows 7, and even say it with a straight face in 2021 like it's totally normal. On top of that, many companies will claim (erroneously) that their hardware cannot run on macOS, my platform of choice.  This is usually because of shear laziness or straight out incompetence: as long as it can connect to the computer, it can be supported.  For USB devices, it is often **trivial** to write a "driver" to support a device with appropriate documentation, and I have done it on numerous occasions. Shout out to Sutter Instruments, ActiveSilicon, Hamamatsu, Ocean Insight, and Thorlabs for being friendly to developers: they provide all the necessary information upon request and are of great help to scientists. On the other hand, here is a finger🖕 to many other companies I will not name here, but many camera providers come to mind and a prominent National company that makes Instruments in the US wins the grand prize.
+I must also vent my frustration that end-user software from the manufacturers is often abysmaIly-designed, buggy and/or simply frustrating to use. I have even seen example code from companies that simply does not even compile. Others will only support Windows 7, and even say it with a straight face in 2021 like it's totally normal. On top of that, many companies will claim (erroneously) that their hardware cannot run on macOS, my platform of choice.  This is usually because of shear laziness or straight out incompetence: as long as it can connect to the computer, it can be supported.  For USB devices, it is often **trivial** to write a "driver" to support a device with appropriate documentation, and I have done it on numerous occasions. The rule of thumb is that the companies that have good software say, on Windows, usually have good software on many platforms, as they obviously understand how to program and undertand the simplicity of writing cross-platform code if you make it a design requirement. On the other hand, I have found that lack of support for platforms other than Windows usually translates in fairly crappy software on Windows anyway: these companies tend to be hardware companies that consider software only secondary and probably farm it out.  Shout out to ActiveSilicon, Sutter Instruments, Hamamatsu, Ocean Insight (for their documentation but certainly not for their software), and Thorlabs for being friendly to developers: they provide all the necessary information upon request and are of great help to scientists. On the other hand, here is a middle finger🖕 to many other companies I will not name here, but many camera providers come to mind (some located near *Princeton* University) as well as a prominent *National* company that makes *Instruments* in the US that wins the grand prize for its uselessness and overall incompetence at providing anything useful in software to their end users for the last 20 years despite producing great hardware (somebody should also let them know that more than 12 pixels can be used to draw icons because this <img src="README.assets/automation.png" alt="automation" style="zoom:200%;" /> with a big red x in it apparently represents "automation" and this <img src="README.assets/Am.png" alt="Am" style="zoom:200%;" /> is "amplitude modulation". It would be funny if it wasn't so sad).
 
 ## Contact
 
 Prof. Daniel Côté, Ph.D. and P.Eng, dccote@cervo.ulaval.ca
 
 Group web site: http://www.dcclab.ca
+
+Youtube channel: http://www.youtube.com/user/dccote
+
