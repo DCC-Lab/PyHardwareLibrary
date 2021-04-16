@@ -138,9 +138,9 @@ In this particular situation (a Kensington laser pointer), there is a single int
 2. We don't need to dig deeper in Human Interface Devices at this point, but the computer will communicate with the device with accepted protocols on endpoint 0.
 3. Some devices (in fact, most scientific equipment) will be "*serializable*".  When this information is included in the USB Interface Descriptor, the system will have sufficient information to create a virtual serial port.  At that point, the device will "appear" as a regular serial device (COM on Windows, `/dev/cu.*` on macOS and Linux). You can then connect to it like an old-style serial port just like the good ol'days with bauds, stop bits and parity, possible handshakes and all (this is a separate discussion).
 
-### Input and output endpoints
+### Viewing input and output endpoints
 
-Finally, each USB interface has communication channels, or **endpoints**, that it decides to define for its purpose. An end point is a one-way communication either to the device (OUT) or into the computer (IN).  This Kensington Pointer has a single input enpoint, which means we cannot "talk" to it, we can only "read" from it.  Its **USB Endpoint Descriptor** is the following:
+Finally, each USB interface has communication channels, or **endpoints**, that it decides to define for its purpose. An endpoint is a one-way communication either to the device (OUT) or into the computer (IN).  This Kensington Pointer has a single input enpoint, which means we cannot "talk" to it, we can only "read" from it.  Its **USB Endpoint Descriptor** is the following:
 
 ```python
       ENDPOINT 0x81: Interrupt IN ==========================
@@ -161,7 +161,7 @@ The important take home points are:
 
 3. The endpoints can communicate information in various ways, and most of the time we do not care so much how it does so. Here we have an **INTERRUPT** endpoint that will provide information to the computer whenever needed. Because it is a keyboard/mouse, so we want to be responsive: it will typically refresh the position or the keys at 100 Hz.
 
-4. My Logitech mouse has a very similar USB Descriptor with very similar parameters, aside from the fact that it delivers only 4 bytes of information:
+4. My Logitech mouse has a very similar USB Device Descriptor with very similar parameters, aside from the fact that it delivers only 4 bytes of information each time :
 
    ```python
    DEVICE ID 046d:c077 on Bus 020 Address 002 =================
@@ -326,8 +326,6 @@ So for a hardware programmer who wants to use a device, the procedure will typic
    1. To do so, you will need to know the details from the manufacturer.  Typically, they will tell you : "Send your commands to Endpoint 1" and "Read your replies from endpoint 2". For instance, Ocean Insight makes spectrometers and the [manual](https://github.com/DCC-Lab/PyHardwareLibrary/blob/master/hardwarelibrary/manuals/USB2000-OEM-Data-Sheet.pdf) is very clear: on page 11, it says that there are two endpoint groups (IN and OUT) number 2 and 7. Each command described in the following pages tells you where to send your command and where to read the replies from. That is a good manual from a good company that likes its users.
    2. Some companies will not provide you with the endpoints information and will just provide a list of commands for their device (assuming you will talk through the regular serial interface).  You can experiment with endpoints relatively easily to figure out which is which for simple devices. For instance, a powermeter will typically have only one IN and one OUT endpoint, so it is easy to figure out what to do.
 
-## Communicating with USB devices
-
 I have not said a single word about *actually* communicating with devices.  On your computer, drivers provided by Microsoft, Apple and others will go through a process to determine who controls a device when it is connected.  Your first project may be to try to read the keystrokes from your keyboard or the mouse position from your optical mouse, but that will not work:  when you connect your device, the operating system has a list of "generic drivers" that will take ownership of known devices, like a mouse, keyboard, printer, etc: that is the whole point of Plug-And-Play devices. The system reads the USBDescriptors, and other details and may be able to **match** a driver to your device.  If it does so, it will **claim** the exclusive use of the interface.  Hence, if you try to communicate with a device through an interface that was already claimed by the operating system, then you will get an error:
 
 ```
@@ -340,9 +338,96 @@ You will find many articles on the web, especially in Linux dicussions, to unloa
 
 However, with scientific equipment that is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, the system will rarely match and we will be able to have access to the USB interface and communicate with the device through the various endpoints.
 
-### Programming a new USB device
+## Communicating with USB devices
 
-This section will provide an example on how to go about programming a device. I am thinking of programming the Mightex line CCD, but this remains to be determined.
+We may know how to identify a device, configure it, pick an interface and communication channels, but then what? What does it imply to "program a device" ? What does it mean to "program a 3D stage" ? We will start with the easiest devices (those with a few commands, hopefully in text), and then move on to more complicated devices (with binary commands and multiple endpoints).
+
+The basic idea when we program a device is that we send a command that the device recognizes ("move to 10,0,0"), it will perform the requested task (actually move), and then will reply ("Ok"). For many devices, controlling the device is just a series of request/reply until you are done. The work is therefore to send the right data down the endpoints to the device, and interpret the replies the device is sending.
+
+### Encoding the information
+
+The information is encoded in bytes. The bytes have different meaning depending on what were are sending. A letter is a single byte (8 bits) that can take 256 values from 0 to 255, or in hexadecimal 0x00 to 0xff.  ASCII encoding is standard for text: in that system, the letter 'A' is the number 65 (0x41), 'C' is 0x43 etc... To write integer numbers, we can put more than one byte together. For instance, if we put 2 bytes together, we can get 65,536 different values (from `0x0000` to `0xffff`), if we use 4 bytes together, we can write 4,294,967,296 different values (from `0x00000000` to `0xffffffff`). These integers have names in programming: 1 byte is called a `char`acter, 2 bytes is a `short int` and 4 bytes is a `long int`.  It is possible to interpret these as `signed` or `unsigned`, where `signed` is usually the default if nothing else is mentionned. The detailed difference between `signed` and `unsigned` is not critical here, as long as we use the appropriate type.  When we start with the least significant bytes then the most significant, we say the format is "little-endian", otherwise it is "big-endian".
+
+### Sutter ROE-200
+
+Let's look at a classic from microscopy and neuroscience, the MPC-385 XYZ stage from Sutter Instruments with its ROE-200 controller. The manual is available [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/cd7bf0cf6256ba4dbc6eb26f0657c0db59b35848/hardwarelibrary/manuals/MPC-325_OpMan.pdf) or on their web site, and it is sufficiently detailed for us.  When connected, we inspect the **USB Descriptors**. We then find our device, configure it, pick an interface, then inspection of the descriptors tells us it has two endpoints: one IN, one OUT. 
+
+```python
+device = usb.core.find(idVendor=4930, idProduct=1) # Sutter Instruments has idVendor 4930 or 0x1342
+if device is None:
+    raise IOError("Can't find device")
+
+device.set_configuration()                         # first configuration
+configuration = device.get_active_configuration()  # get the active configuration
+interface = configuration[(0,0)]                   # pick the first interface (0) with no alternate (0)
+
+outputEndpoint = interface[0]                      # First endpoint is the output endpoint
+inputEndpoint = interface[1]                       # Second endpoint is the input endpoint
+
+```
+
+### Commands
+
+It is a very simple device, because it has a very limited set of commands it accepts. It can **move**, it can tell you its **position**.  There are other commands, but they will not be critical here and we will not implement them.
+
+<img src="README-USB.assets/image-20210415195905341.png" alt="image-20210415195905341" style="zoom:25%;" /><img src="README-USB.assets/image-20210415195013040.png" alt="image-20210415195013040" style="zoom: 25%;" />
+
+Let's look at the anatomy of the **Get Current Position** command: it is the `C` character (which has an ASCII code of 0x43), and the documentation says that the total number of bytes is two for the command. Reading other versions of the manual and discussing with Sutter tells us that all commands are followed by a carriage return `\r`  (ASCII character 0x0d). So if we send this command to the device, it should reply with its position.
+
+The reply will be 13 bytes: it will consist of 3 values for X, Y and Z coordinates, encoded as `signed long integers` (32 bits or 4 bytes).  Closing this will be the carriage return `\r`, indicated at the top of the next page, for a total of 13 bytes.
+
+### Sending GetPosition command
+
+Python has `byte` and `bytearray` objects. The `b` indicates that the string of text must be interpreted as bytes. We pick the OUT endpoint, and send the command with:
+
+```python
+commandBytes = bytearray(b'C\r')
+outputEndpoint.write(commandBytes)
+```
+
+### Reading GetPosition reply
+
+We read the 13 bytes from the input endpoint:
+
+```python
+replyBytes = inputEndPoint.read(size_or_buffer=13)
+```
+
+If everything goes well, the last byte will be the character `\r`.  We know from the documentation that these 13 bytes represent 3 signed long integers and a character. Python has a function to `pack` and `unpack` this data. The function is described [here](https://docs.python.org/3/library/struct.html), and the format that corresponds to our binary data is `<lllc`: Little-endian (<), three long ('l') and a letter ('c') 
+
+```python
+x,y,z, lastChar = unpack('<lllc', replyBytes)
+
+if lastChar == b'\r':
+    print("The position is {0}, {1}, {2}".format(x,y,z))
+else:
+    print('Error in reply: last character not 0x0d')
+   
+```
+
+### Sending MovePosition command
+
+To move the stage to a different position, we need to encode (i.e. `pack`) the positions we want into binary data. This is done with:
+
+```python
+# We already have the position in x,y and z. We will move a bit from there.
+commandBytes = pack('<clllc', ('M', x+10, y+10, z+10, '\r'))
+outputEndpoint.write(commandBytes)
+```
+
+### Reading MovePosition reply
+
+The stage will move and will send a `\r` when done, as per the documentation.
+
+```python
+replyBytes = inputEndPoint.read(size_or_buffer=1)
+lastChar = unpack('<c', replyBytes)
+
+if lastChar != b'\r':
+    print('Error: incorrect reply character')
+```
+
+
 
 # References
 
