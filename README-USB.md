@@ -6,7 +6,7 @@ by Prof. Daniel Côté, Ph.D., P. Eng., dccote@cervo.ulaval.ca, http://www.dccla
 
 You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons: it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or may not even appear necessary.  In addition, because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. Therefore, when you are just trying to understand serial communications for your problem ("*I just want to send a command to my XYZ stage!*"), all this complexity becomes paralyzing. I hope to help you understand better from the perspective of a non-expert.
 
-Of course, you don't always need to program eveerything from scratch: very often, manufacturers will provide a Python Software Development Kit (or SDK) with all the work done for you.  However, we assume here that either it is not available or you simply want to learn how they are made.
+Of course, you don't always need to program everything from scratch, like we will do here: very often, manufacturers will provide a Python Software Development Kit (or SDK) with all the work done for you. If it exists, use it. However, we assume here that either such an SDK is not available or you simply want to learn how they are made.
 
 ## Inspecting USB devices
 
@@ -283,52 +283,27 @@ DEVICE ID 03f0:c511 on Bus 020 Address 001 =================
        bmAttributes     :    0x2 Bulk
        wMaxPacketSize   :  0x200 (512 bytes)                   # Large 512 bytes each packet
        bInterval        :    0x0
-[ ... ]
-    INTERFACE 2: Vendor Specific ===========================   # Yet another interface
-     bLength            :    0x9 (9 bytes)
-     bDescriptorType    :    0x4 Interface
-     bInterfaceNumber   :    0x2
-     bAlternateSetting  :    0x0
-     bNumEndpoints      :    0x2
-     bInterfaceClass    :   0xff Vendor Specific               # Vendor uses its own protocol. Could
-     bInterfaceSubClass :    0x4                               # be the scanner or something else.
-     bInterfaceProtocol :    0x1
-     iInterface         :    0x0 
-      ENDPOINT 0xA: Bulk OUT ===============================   # Endpoint #10 (0xa) OUT to the device
-       bLength          :    0x7 (7 bytes)
-       bDescriptorType  :    0x5 Endpoint
-       bEndpointAddress :    0xa OUT
-       bmAttributes     :    0x2 Bulk
-       wMaxPacketSize   :  0x200 (512 bytes)
-       bInterval        :    0x0
-      ENDPOINT 0x8B: Bulk IN ===============================   # Endpoint #11 (0xb) IN from the device
-       bLength          :    0x7 (7 bytes)
-       bDescriptorType  :    0x5 Endpoint
-       bEndpointAddress :   0x8b IN
-       bmAttributes     :    0x2 Bulk
-       wMaxPacketSize   :  0x200 (512 bytes)
-       bInterval        :    0x0
-[ ... ]
+
 ```
 
 Important highlights:
 
 1. As you can see, some USB devices can provide several interfaces and options with many endpoints.  I picked this example to highlight that the USB standard offers a really general solution for device communication, and this is why it was designed and was widely accepted. 
 2. There are different types of endpoints: INTERRUPT, BULK, ISOCHRONOUS. **Bulk** is what we could call a "standard" communication channel for us, experimentalists, trying to make things work.  For the most part, we don't really need to worry about it: we will communicate with our devices and get replies.
-3. Here, having all this information about my printer is not really helping me communicate with it, because I don't know what commands it will accept. This information may or may not be proprietary, and without it, there is very little hope to "program" the printer directly (why you would want to do that is your business).
+3. Here, having all this information about my printer is not really helping me communicate with it, because I don't know what commands it will accept. This information may or may not be proprietary, and without it, there is very little hope to "program" the printer directly.
 
 ### Final words
 
-So for a hardware programmer who wants to use a device, the procedure will typically be like this:
+So for a hardware programmer who wants to use a USB device, the procedure will typically be like this:
 
 1. Find the information specific about the device you want to use, so you can find it on the bus (idProduct, idVendor, etc...).
 2. Get the **USB Device Descriptor**, configure it, typically with its only **USB Configuration**.
 3. Pick a **USB Interface** (in scientific equipment, there is also often only one).
-4. With the USB interface and PyUSB, you can then use **USB Endpoints** to send (OUT) or read (IN) commands.
+4. With the **USB interface** and PyUSB, you can then use **USB Endpoints** to send (OUT) or read (IN) commands.
    1. To do so, you will need to know the details from the manufacturer.  Typically, they will tell you : "Send your commands to Endpoint 1" and "Read your replies from endpoint 2". For instance, Ocean Insight makes spectrometers and the [manual](https://github.com/DCC-Lab/PyHardwareLibrary/blob/master/hardwarelibrary/manuals/USB2000-OEM-Data-Sheet.pdf) is very clear: on page 11, it says that there are two endpoint groups (IN and OUT) number 2 and 7. Each command described in the following pages tells you where to send your command and where to read the replies from. That is a good manual from a good company that likes its users.
    2. Some companies will not provide you with the endpoints information and will just provide a list of commands for their device (assuming you will talk through the regular serial interface).  You can experiment with endpoints relatively easily to figure out which is which for simple devices. For instance, a powermeter will typically have only one IN and one OUT endpoint, so it is easy to figure out what to do.
 
-I have not said a single word about *actually* communicating with devices.  On your computer, drivers provided by Microsoft, Apple and others will go through a process to determine who controls a device when it is connected.  Your first project may be to try to read the keystrokes from your keyboard or the mouse position from your optical mouse, but that will not work:  when you connect your device, the operating system has a list of "generic drivers" that will take ownership of known devices, like a mouse, keyboard, printer, etc: that is the whole point of Plug-And-Play devices. The system reads the USBDescriptors, and other details and may be able to **match** a driver to your device.  If it does so, it will **claim** the exclusive use of the interface.  Hence, if you try to communicate with a device through an interface that was already claimed by the operating system, then you will get an error:
+I have not said much about *actually* communicating with devices.  On your computer, drivers provided by Microsoft, Apple and others will go through a process to determine who controls a device when it is connected.  Your first project may be to try to read the keystrokes from your keyboard or the mouse position from your optical mouse, but that will not work:  when you connect your device, the operating system has a list of "generic drivers" that will take ownership of known devices, like a mouse, keyboard, printer, etc: that is the whole point of Plug-And-Play devices. The system reads the USBDescriptors, and other details and may be able to **match** a driver to your device.  If it does so, it will **claim** the exclusive use of the interface.  Hence, if you try to communicate with a device through an interface that was already claimed by the operating system (for example, your USB keyboard or mice),  you will get an error:
 
 ```
 usb.core.USBError: [Errno 13] Access denied (insufficient permissions)
@@ -336,9 +311,9 @@ usb.core.USBError: [Errno 13] Access denied (insufficient permissions)
 
 This of course is completely expected: two programs cannot send commands at the same time to a device through the same channels, the device would have no way of knowing what to do.  Therefore, we will only be able to communicate with devices that the operating system has not **matched**. Many problems on Windows originate from this: an incorrect driver is installed and claims the device (erroneously).  You then have to remove the driver from the registry to avoid having a match that prevents the right driver from controlling the device.
 
-You will find many articles on the web, especially in Linux dicussions, to unload a driver to be able to claim an interface. On the Mac, this is done with `kextunload` but I do not recommend it one bit and I really don't see a situation where this would be necessary.
+You will find many articles on the web, especially in Linux forums, to unload a driver to be able to claim an interface. On the Mac, this is done with `kextunload` but I do not recommend it one bit and I really don't see a situation where this would be necessary. Deleting the driver from system is an even worse solution.
 
-However, with scientific equipment that is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, the system will rarely match and we will be able to have access to the USB interface and communicate with the device through the various endpoints.
+However,  scientific equipment is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, therefore the system will rarely match and we will be able to have access to the USB interface and communicate with the device through the various endpoints. That's what we will do next.
 
 ## Communicating with USB devices
 
@@ -577,7 +552,15 @@ Notice how:
 
 ### Robust encapsulation
 
+We can still improve things. In this version:
 
+1. The device does not need to be connected for the `SutterDevice` to be created.
+
+2. The write and read functions are limited to two functions that can manage any errors gracefully: if there is any error, we shutdown everything and will initialize the device again on the next call.
+
+3. Minimal docstrings (Python inline help) is available.
+
+   
 
 ```python
 # This file is called bestsutter.py
@@ -696,7 +679,7 @@ class SutterDevice:
       self.moveInMicrostepsTo( positionInMicrosteps)
 
     def moveBy(self, delta) -> bool:
-      """ Move by a delta displacement from current position in microns """
+      """ Move by a delta displacement (dx, dy, dz) from current position in microns """
 
       dx,dy,dz  = delta
       position = self.position()
@@ -712,19 +695,14 @@ if __name__ == "__main__":
     device.moveBy( (-10, -10, -10) )
 ```
 
-
-
-1. The device does not need to be connected for the `SutterDevice` to be created.
-
-2. The write and read functions are limited to two functions that can manage any errors gracefully: if there is any error, we shutdown everything and will initialize the device again on the next call.
-
-   
-
 # References
 
 I have found various web sites over the years that may help you understand better, even though everything I wrote above is from experience accumulated over the years. Many web sites are either too detailed or too superficial. It is hard to find reasonable information, but I like the following:
 
 1. "Beyond Logic", https://www.beyondlogic.org/usbnutshell/usb1.shtml.  Really complete, but may be too difficult.
-2. "Pourquoi j'aime controler les appareils", http://www.dcclab.ca/francais-tutoriel-introduction-au-controle/?lang=fr
-3. A small demo (in french) for serial communications with the FTDI chip: http://www.dcclab.ca/francais-daq-entrees-sorties-numeriques-avec-le-um232r/?lang=en
+2. "Pourquoi j'aime controler les appareils", https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-01.md
+3. A small demo (in french) for serial communications with the FTDI chip: https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-02.md
 
+**Post-scriptum**
+
+Interesting: you made it this far.  If you want to discuss the possibility of an intership at some point in my group, send me an email with the subject "productId=stage", and tell me the vendorId of FTDI. Then we can talk.
