@@ -6,6 +6,8 @@ by Prof. Daniel Côté, Ph.D., P. Eng., dccote@cervo.ulaval.ca, http://www.dccla
 
 You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons: it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or may not even appear necessary.  In addition, because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. Therefore, when you are just trying to understand serial communications for your problem ("*I just want to send a command to my XYZ stage!*"), all this complexity becomes paralyzing. I hope to help you understand better from the perspective of a non-expert.
 
+Of course, you don't always need to program eveerything from scratch: very often, manufacturers will provide a Python Software Development Kit (or SDK) with all the work done for you.  However, we assume here that either it is not available or you simply want to learn how they are made.
+
 ## Inspecting USB devices
 
 Let's start by exploring with Python and PyUSB to see what these devices are telling us. We will not communicate with them directly yet, we will simply inspect them.
@@ -14,20 +16,20 @@ Let's start by exploring with Python and PyUSB to see what these devices are tel
 
 I wish we could dive right in.  I really do. If you just want to see what I do, skip and go to the exploration part (First Steps).  But if you want to explore on your computer too, then you need to install PyUSB and libusb.
 
-This should be simple: `pip install pyusb`. But then, you need to install `libusb`, which is the actual engine that talks to the USB port on your computer, and PyUSB needs to know where it is.  Libusb is an open source library that has been adopted by many developers because it is complete, bug-free and cross-platform, and without it, PyUSB will not work. You can also use Zadig on Windows to install it or brew on macOS. It may already be installed on your computer.
+The first part is simple. Install the PyUSB module with `pip`:
 
-```
+```sh
 pip install pyusb
 ```
 
-On macOS and Linux, install libusb with these two lines in the terminal:
+But then, you need to install `libusb`, which is the actual engine that talks to the USB ports on your computer, and PyUSB needs to know where it is. Libusb is an open source library that has been adopted by many developers because it is complete, bug-free and cross-platform, and without it, PyUSB will not work. Doing `pip install libusb` is not a solution, it is a different module and keeps the libusb "for itself". It also does not ship with the macOS libusb. You can use Zadig on Windows to install it or brew on macOS. It may also already be installed on your computer (if you see `/usr/local/lib/libusb-1.0.0.dylib` on your computer, it should work).  On macOS and Linux, install libusb with these two lines in the terminal:
 
-```
+```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install libusb
 ```
 
-On Windows, get [Zadig](https://zadig.akeo.ie) and keep for fingers crossed. Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to work (for now). Don't get me started on [DLLs on Windows](https://github.com/DCC-Lab/PyHardwareLibrary/commit/ddfaf442d61348d7ed8611f2436e43f20b450c45).
+On Windows, get [Zadig](https://zadig.akeo.ie) and keep for fingers crossed. Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to keep your Python scripts (for now). Don't get me started on [DLLs on Windows](https://github.com/DCC-Lab/PyHardwareLibrary/commit/ddfaf442d61348d7ed8611f2436e43f20b450c45). If everything really does not work for one reason or another, you can use [USBView](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/usbview) or [USBTreeView](https://www.uwe-sieber.de/usbtreeview_e.html).
 
 ### First steps
 
