@@ -606,8 +606,8 @@ class SutterDevice:
         return
       
       self.device = usb.core.find(idVendor=4930, idProduct=1) 
-			if self.device is None:
-    		raise IOError("Can't find Sutter device")
+      if self.device is None:
+        raise IOError("Can't find Sutter device")
 
       self.device.set_configuration()        # first configuration
       self.configuration = self.device.get_active_configuration()  # get the active configuration
@@ -620,7 +620,7 @@ class SutterDevice:
       """
       If the device fails, we shut everything down. We should probably flush the buffers also.
       """
-			
+      
       self.device = None
       self.configuration = None
       self.interface = None
@@ -631,7 +631,7 @@ class SutterDevice:
       """ The function to write a command to the endpoint. It will initialize the device 
       if it is not alread initialized. On failure, it will warn and shutdown."""
       try:
-				if self.outputEndpoint is None:
+        if self.outputEndpoint is None:
           self.initializeDevice()
           
         self.outputEndpoint.write(commandBytes)
@@ -646,26 +646,26 @@ class SutterDevice:
       """
 
       try:
-				if self.outputEndpoint is None:
+        if self.outputEndpoint is None:
           self.initializeDevice()
 
         replyBytes = inputEndPoint.read(size_or_buffer=size)
         theTuple = unpack(format, replyBytes)
         if theTuple[-1] != b'\r':
            raise RuntimeError('Invalid communication')
-  		  return theTuple[:-1] # We remove the last character
-  		except Exception as err:
+        return theTuple[:-1] # We remove the last character
+      except Exception as err:
         print('Error when reading reply: {0}'.format(err))
-        self.shutdown()
-	      return None
+        self.shutdownDevice()
+        return None
       
     def positionInMicrosteps(self) -> (int,int,int):
       """ Returns the position in microsteps """
       commandBytes = bytearray(b'C\r')
-			self.sendCommand(commandBytes)
+      self.sendCommand(commandBytes)
       return self.readReply(size=13, format='<lllc')
   
-  	def moveInMicrostepsTo(self, position):
+    def moveInMicrostepsTo(self, position):
       """ Move to a position in microsteps """
       x,y,z  = position
       commandBytes = pack('<clllc', ('M', x, y, z, '\r'))
@@ -675,7 +675,7 @@ class SutterDevice:
     def position(self) -> (float, float, float):
       """ Returns the position in microns """
 
-			position = self.positionInMicrosteps()
+      position = self.positionInMicrosteps()
       if position is not None:
           return (position[0]/self.microstepsPerMicrons, 
                   position[1]/self.microstepsPerMicrons,
@@ -683,7 +683,7 @@ class SutterDevice:
       else:
           return None
       
-  	def moveTo(self, position):
+    def moveTo(self, position):
       """ Move to a position in microns """
 
       x,y,z  = position
@@ -691,7 +691,7 @@ class SutterDevice:
                               y*self.microstepsPerMicrons,
                               z*self.microstepsPerMicrons)
       
-			self.moveInMicrostepsTo( positionInMicrosteps)
+      self.moveInMicrostepsTo( positionInMicrosteps)
 
     def moveBy(self, delta) -> bool:
       """ Move by a delta displacement from current position in microns """
