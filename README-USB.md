@@ -340,13 +340,13 @@ However, with scientific equipment that is usually defined as a *vendor-specific
 
 ## Communicating with USB devices
 
-We may know how to identify a device, configure it, pick an interface and communication channels, but then what? What does it imply to "program a device" ? What does it mean to "program a 3D stage" ? We will start with the easiest devices (those with a few commands, hopefully in text), and then move on to more complicated devices (with binary commands and multiple endpoints).
+We may know how to identify a device, configure it, pick an interface and communication channels, but then what? What does it imply to "program a device" ? What does it mean to "program a 3D stage" ? We will start with the easiest devices (those with a few commands), and then move on to more complicated devices (with binary commands and multiple endpoints).
 
-The basic idea when we program a device is that we send a command that the device recognizes ("move to 10,0,0"), it will perform the requested task (actually move), and then will reply ("Ok"). For many devices, controlling the device is just a series of request/reply until you are done. The work is therefore to send the right data down the endpoints to the device, and interpret the replies the device is sending.
+The basic idea when we program a device is to send a command that the device recognizes ("move to 10,0,0"), it will perform the requested task (actually move), and then will reply ("Ok"). For many devices, controlling the device is just a series of request/reply until you are done. The work is therefore to send the right data down the endpoints to the device, and interpret the replies the device is sending.
 
 ### Encoding the information
 
-The information is encoded in bytes. The bytes have different meaning depending on what were are sending. A letter is a single byte (8 bits) that can take 256 values from 0 to 255, or in hexadecimal 0x00 to 0xff.  ASCII encoding is standard for text: in that system, the letter 'A' is the number 65 (0x41), 'C' is 0x43 etc... To write integer numbers, we can put more than one byte together. For instance, if we put 2 bytes together, we can get 65,536 different values (from `0x0000` to `0xffff`), if we use 4 bytes together, we can write 4,294,967,296 different values (from `0x00000000` to `0xffffffff`). These integers have names in programming: 1 byte is called a `char`acter, 2 bytes is a `short int` and 4 bytes is a `long int`.  It is possible to interpret these as `signed` or `unsigned`, where `signed` is usually the default if nothing else is mentionned. The detailed difference between `signed` and `unsigned` is not critical here, as long as we use the appropriate type.  When we start with the least significant bytes then the most significant, we say the format is "little-endian", otherwise it is "big-endian".
+The information is encoded in bytes. The bytes have different meaning depending on what were are sending. A letter is a single byte (8 bits) that can take 256 values from 0 to 255, or in hexadecimal 0x00 to 0xff.  ASCII encoding is standard for text: in that system, the letter 'A' is the number 65 (0x41), 'C' is 0x43 etc... To write integer numbers, we can put more than one byte together. For instance, if we put 2 bytes together, we can get 65,536 different values (from `0x0000` to `0xffff`), if we use 4 bytes together, we can write 4,294,967,296 different values (from `0x00000000` to `0xffffffff`). These integers have names in Python: 1 byte is called a `char`acter, 2 bytes is a `short int` and 4 bytes is a `long int`.  It is possible to interpret these as `signed` or `unsigned`, where `signed` is usually the default if nothing else is mentionned. The detailed difference between `signed` and `unsigned` is not critical here, as long as we use the appropriate type.  When we start with the least significant bytes then the most significant, we say the format is "little-endian", otherwise it is "big-endian".
 
 ### Sutter ROE-200
 
@@ -370,7 +370,7 @@ inputEndpoint = interface[1]                       # Second endpoint is the inpu
 
 It is a very simple device, because it has a very limited set of commands it accepts. It can **move**, it can tell you its **position**.  There are other commands, but they will not be critical here and we will not implement them.
 
-<img src="README-USB.assets/image-20210415195905341.png" alt="image-20210415195905341" style="zoom:25%;" /><img src="README-USB.assets/image-20210415195013040.png" alt="image-20210415195013040" style="zoom: 25%;" />
+<img src="README-USB.assets/image-20210415195905341.png" alt="image-20210415195905341" style="zoom:25%;" /><img src="README-USB.assets/image-20210415195013040.png" alt="image-20210415195013040" style="zoom: 24%;" />
 
 Let's look at the anatomy of the **Get Current Position** command: it is the `C` character (which has an ASCII code of 0x43), and the documentation says that the total number of bytes is two for the command. Reading other versions of the manual and discussing with Sutter tells us that all commands are followed by a carriage return `\r`  (ASCII character 0x0d). So if we send this command to the device, it should reply with its position.
 
@@ -425,7 +425,148 @@ lastChar = unpack('<c', replyBytes)
 
 if lastChar != b'\r':
     print('Error: incorrect reply character')
+    
 ```
+
+The complete code, repackaged with functions, is available here:
+
+```python
+import usb.core
+import usb.util
+from struct import *
+
+device = usb.core.find(idVendor=4930, idProduct=1) # Sutter Instruments has idVendor 4930 or 0x1342
+if device is None:
+    raise IOError("Can't find device")
+
+device.set_configuration()                         # first configuration
+configuration = device.get_active_configuration()  # get the active configuration
+interface = configuration[(0,0)]                   # pick the first interface (0) with no alternate (0)
+
+outputEndpoint = interface[0]                      # First endpoint is the output endpoint
+inputEndpoint = interface[1]                       # Second endpoint is the input endpoint
+
+def position() -> (int,int,int):
+    commandBytes = bytearray(b'C\r')
+    outputEndpoint.write(commandBytes)
+
+    replyBytes = inputEndPoint.read(size_or_buffer=13)
+    x,y,z, lastChar = unpack('<lllc', replyBytes)
+
+    if lastChar == b'\r':
+        return (x,y,z)
+    else:
+        return None
+  
+def move(position) -> bool:
+    x,y,z  = position
+    commandBytes = pack('<clllc', ('M', x, y, z, '\r'))
+    outputEndpoint.write(commandBytes)
+    
+    replyBytes = inputEndPoint.read(size_or_buffer=1)
+		lastChar = unpack('<c', replyBytes)
+
+    if lastChar != b'\r':
+        return True
+    
+    return False
+    
+```
+
+## Encapsulating the device in a class
+
+We may have communicated with the device, but it would still be tedious to use:
+
+1. We will need to include this code in any Python script that manipulates the device
+2. We have variables floating around (`device`, `interface`, `inputEndpoint`, `outputEndpoint`), they will prevent us from using them again (they are global).
+3. We have to keep track of the position ourselves and convert to microns manually: currently the position is in micro steps
+4. Our error management is minimal.  For instance, what if the device does not reply in time? 
+
+It would be preferable to have a single object (i.e. the sutter device), and that object 1) manages the communication without us, 2) responds to `move` and `position`, 3) keeps track of its position, manage it and really, isolates us from the details? We don't really care that it communicates through USB and that there are "endpoints".  All we want is for the device to **move** and tell us **its position**.  We create a `SutterDevice` class that will do that: *a class hides the details away inside an object that keeps the variables and the functions to operate on these variables together.*
+
+```python
+# This file is sutter.py
+import usb.core
+import usb.util
+from struct import *
+
+class SutterDevice:
+    def __init_(self):
+      self.device = usb.core.find(idVendor=4930, idProduct=1) 
+			if device is None:
+    		raise IOError("Can't find Sutter device")
+
+      self.device.set_configuration()        # first configuration
+      self.configuration = self.device.get_active_configuration()  # get the active configuration
+      self.interface = self.configuration[(0,0)]  # pick the first interface (0) with no alternate (0)
+
+      self.outputEndpoint = self.interface[0] # First endpoint is the output endpoint
+      self.inputEndpoint = self.interface[1]  # Second endpoint is the input endpoint
+      
+      self.microstepsPerMicrons = 16
+
+    def positionInMicrosteps(self) -> (int,int,int):
+      commandBytes = bytearray(b'C\r')
+      outputEndpoint.write(commandBytes)
+
+      replyBytes = inputEndPoint.read(size_or_buffer=13)
+      x,y,z, lastChar = unpack('<lllc', replyBytes)
+
+      if lastChar == b'\r':
+        return (x,y,z)
+      else:
+        return None
+  
+  	def moveInMicrostepsTo(self, position) -> bool:
+      x,y,z  = position
+      commandBytes = pack('<clllc', ('M', x, y, z, '\r'))
+      outputEndpoint.write(commandBytes)
+
+      replyBytes = inputEndPoint.read(size_or_buffer=1)
+      lastChar = unpack('<c', replyBytes)
+
+      if lastChar != b'\r':
+        return True
+
+      return False
+    
+    def position(self) -> (float, float, float):
+			position = self.positionInMicrosteps()
+      if position is not None:
+          return (position[0]/self.microstepsPerMicrons, 
+                  position[1]/self.microstepsPerMicrons,
+                  position[2]/self.microstepsPerMicrons)
+      else:
+          return None
+      
+  	def moveTo(self, position) -> bool:
+      x,y,z  = position
+      positionInMicrosteps = (x*self.microstepsPerMicrons, 
+                              y*self.microstepsPerMicrons,
+                              z*self.microstepsPerMicrons)
+      
+      return self.moveInMicrostepsTo( positionInMicrosteps)
+
+    def moveBy(self, delta) -> bool:
+      dx,dy,dz  = delta
+      position = self.position()
+      if position is not None:
+          x,y,z = position
+          return self.moveTo( (x+dx, y+dy, z+dz) )
+			return True
+
+if __name__ == "__main__":
+    device = SutterDevice()
+
+    x,y,z = device.position()
+    device.moveTo( (x+10, y+10, z+10) )
+    device.moveBy( (-10, -10, -10) )
+```
+
+Notice how:
+
+1. We don't know the implementation details, yet it fully responds to our needs: it can move and tell us where it is.
+2. We can make other convenience functions that make use of the two key functions (`moveInMicrostepsTo` and `positionInMicrosteps`). For instance, we can create a `moveBy` function that will take care of getting the position for us then increase it and send the move command.
 
 
 
