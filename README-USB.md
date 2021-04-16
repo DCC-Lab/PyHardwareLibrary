@@ -350,7 +350,7 @@ The information is encoded in bytes. The bytes have different meaning depending 
 
 ### Sutter ROE-200
 
-Let's look at a classic from microscopy and neuroscience, the MPC-385 XYZ stage from Sutter Instruments with its ROE-200 controller. The manual is available [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/cd7bf0cf6256ba4dbc6eb26f0657c0db59b35848/hardwarelibrary/manuals/MPC-325_OpMan.pdf) or on their web site, and it is sufficiently detailed for us.  When connected, we inspect the **USB Descriptors**. We then find our device, configure it, pick an interface, then inspection of the descriptors tells us it has two endpoints: one IN, one OUT. 
+Let's look at a classic from microscopy and neuroscience, the MPC-385 XYZ stage from Sutter Instruments with its ROE-200 controller. The manual is available [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/cd7bf0cf6256ba4dbc6eb26f0657c0db59b35848/hardwarelibrary/manuals/MPC-325_OpMan.pdf) or on their web site, and it is sufficiently detailed for us.  When we connect the device, we inspect the **USB Descriptors**. We then find out that the idVendor if 4930, the idProduct is 1, we can configure it, pick an interface, then inspection of the endpoint descriptors tells us it has two endpoints: one IN, one OUT. 
 
 ```python
 device = usb.core.find(idVendor=4930, idProduct=1) # Sutter Instruments has idVendor 4930 or 0x1342
@@ -431,6 +431,7 @@ if lastChar != b'\r':
 The complete code, repackaged with functions, is available here:
 
 ```python
+# this file is called sutter.py
 import usb.core
 import usb.util
 from struct import *
@@ -482,10 +483,10 @@ We may have communicated with the device, but it would still be tedious to use:
 3. We have to keep track of the position ourselves and convert to microns manually: currently the position is in micro steps
 4. Our error management is minimal.  For instance, what if the device does not reply in time? 
 
-It would be preferable to have a single object (i.e. the sutter device), and that object 1) manages the communication without us, 2) responds to `move` and `position`, 3) keeps track of its position, manage it and really, isolates us from the details? We don't really care that it communicates through USB and that there are "endpoints".  All we want is for the device to **move** and tell us **its position**.  We create a `SutterDevice` class that will do that: *a class hides the details away inside an object that keeps the variables and the functions to operate on these variables together.*
+It would be preferable to have a single object (i.e. the sutter device), and that that object 1) manages the communication without us, 2) responds to `moveTo` and `position`, 3) keeps track of its position, manage it and really, isolates us from the details? We don't really care that it communicates through USB and that there are "endpoints".  All we want is for the device to **move** and tell us **its position**.  We can therefore create a `SutterDevice` class that will do that: *a class hides the details away inside an object that keeps the variables and the functions to operate on these variables together.*
 
 ```python
-# This file is sutter.py
+# This file is called bettersutter.py
 import usb.core
 import usb.util
 from struct import *
@@ -567,8 +568,155 @@ Notice how:
 
 1. We don't know the implementation details, yet it fully responds to our needs: it can move and tell us where it is.
 2. We can make other convenience functions that make use of the two key functions (`moveInMicrostepsTo` and `positionInMicrosteps`). For instance, we can create a `moveBy` function that will take care of getting the position for us then increase it and send the move command.
+3. We still may have problems if the communication with the device does not go as planned.
+4. If the device is not connected, or not on, the code will fail with no other options than to restart the program.
 
 
+
+### Robust encapsulation
+
+
+
+```python
+# This file is called bestsutter.py
+import usb.core
+import usb.util
+from struct import *
+
+class SutterDevice:
+    def __init_(self):
+      """
+      SutterDevice represents a XYZ stage.  
+      """
+      self.device = None
+      self.configuration = None
+      self.interface = None
+      self.outputEndpoint = None
+      self.inputEndpoint = None
+     
+      self.microstepsPerMicrons = 16
+
+    def initializeDevice(self):
+      """
+      We do a late initialization: if the device is not present at creation, it can still be
+      initialized later.
+      """
+
+      if self.device is not None:
+        return
+      
+      self.device = usb.core.find(idVendor=4930, idProduct=1) 
+			if self.device is None:
+    		raise IOError("Can't find Sutter device")
+
+      self.device.set_configuration()        # first configuration
+      self.configuration = self.device.get_active_configuration()  # get the active configuration
+      self.interface = self.configuration[(0,0)]  # pick the first interface (0) with no alternate (0)
+
+      self.outputEndpoint = self.interface[0] # First endpoint is the output endpoint
+      self.inputEndpoint = self.interface[1]  # Second endpoint is the input endpoint
+    
+    def shutdownDevice(self):
+      """
+      If the device fails, we shut everything down. We should probably flush the buffers also.
+      """
+			
+      self.device = None
+      self.configuration = None
+      self.interface = None
+      self.outputEndpoint = None
+      self.inputEndpoint = None
+      
+    def sendCommand(self, commandBytes):
+      """ The function to write a command to the endpoint. It will initialize the device 
+      if it is not alread initialized. On failure, it will warn and shutdown."""
+      try:
+				if self.outputEndpoint is None:
+          self.initializeDevice()
+          
+        self.outputEndpoint.write(commandBytes)
+      except Exception as err:
+        print('Error when sending command: {0}'.format(err))
+        self.shutdownDevice()
+    
+    def readReply(self, size, format) -> tuple:
+      """ The function to read a reply from the endpoint. It will initialize the device 
+      if it is not already initialized. On failure, it will warn and shutdown. 
+      It will unpack the reply into a tuple, and will remove the b'\r' that is always present.
+      """
+
+      try:
+				if self.outputEndpoint is None:
+          self.initializeDevice()
+
+        replyBytes = inputEndPoint.read(size_or_buffer=size)
+        theTuple = unpack(format, replyBytes)
+        if theTuple[-1] != b'\r':
+           raise RuntimeError('Invalid communication')
+  		  return theTuple[:-1] # We remove the last character
+  		except Exception as err:
+        print('Error when reading reply: {0}'.format(err))
+        self.shutdown()
+	      return None
+      
+    def positionInMicrosteps(self) -> (int,int,int):
+      """ Returns the position in microsteps """
+      commandBytes = bytearray(b'C\r')
+			self.sendCommand(commandBytes)
+      return self.readReply(size=13, format='<lllc')
+  
+  	def moveInMicrostepsTo(self, position):
+      """ Move to a position in microsteps """
+      x,y,z  = position
+      commandBytes = pack('<clllc', ('M', x, y, z, '\r'))
+      self.sendCommand(commandBytes)
+      self.readReply(size=1, format='<c')
+    
+    def position(self) -> (float, float, float):
+      """ Returns the position in microns """
+
+			position = self.positionInMicrosteps()
+      if position is not None:
+          return (position[0]/self.microstepsPerMicrons, 
+                  position[1]/self.microstepsPerMicrons,
+                  position[2]/self.microstepsPerMicrons)
+      else:
+          return None
+      
+  	def moveTo(self, position):
+      """ Move to a position in microns """
+
+      x,y,z  = position
+      positionInMicrosteps = (x*self.microstepsPerMicrons, 
+                              y*self.microstepsPerMicrons,
+                              z*self.microstepsPerMicrons)
+      
+			self.moveInMicrostepsTo( positionInMicrosteps)
+
+    def moveBy(self, delta) -> bool:
+      """ Move by a delta displacement from current position in microns """
+
+      dx,dy,dz  = delta
+      position = self.position()
+      if position is not None:
+          x,y,z = position
+          self.moveTo( (x+dx, y+dy, z+dz) )
+
+if __name__ == "__main__":
+    device = SutterDevice()
+
+    x,y,z = device.position()
+    device.moveTo( (x+10, y+10, z+10) )
+    device.moveBy( (-10, -10, -10) )
+```
+
+
+
+1. The device does not need to be connected for the `SutterDevice` to be created.
+
+2. The write and read functions are limited to two functions that can manage any errors gracefully: if there is any error, we shutdown everything and will initialize the device again on the next call.
+
+   
 
 # References
 
