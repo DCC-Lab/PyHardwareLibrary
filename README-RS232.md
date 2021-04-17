@@ -67,3 +67,17 @@ But eventually, device manufacturers had to update their devices to make them co
 
 It is possible to do even better: simple tools allow the manufacturer to change the USB idVendor to its own id (after registering it) so this would mean that the device could be easily identifiable, and other information could be made available such as idProduct, serial number, manufacturer etc... The market for scientific devices is small.  This means that the solution where the idVendor is unchanged was deemed sufficient by many manufacturers, because the devices would still work, and it meant no major investments in redesign, no need to register an idVendor with the USB consortium, no request to FTDI to include their idVendor in the list of supported vendors for their driver, and no driver code to write. So to this day, many USB devices appear as "FTDI chips", or idVendor 0x0403. When you [probe a USB device](README-USB.md) and see idVendor 0x0403, this means you will have to work a bit harder to get everything done, because it does not really tell you anything about the device: you only know that it is some device powered by a FTDI chip. You are essentially back to square one, into RS-232 world, but with USB on top. Fun times.
 
+
+
+## References
+
+There are many web sites with information from which I gathered a coherent picture, but most of the information here comes from my own personal experience, aside from the exact names of all the standards (RS-422, ISA bus), connectors (DB9, DE9, etc...), specific introduction dates, and such that I obtained from Wikipedia.
+
+
+
+Prof. Daniel Côté, Ph.D., P. Eng.
+
+http://www.dcclab.ca
+
+http://www.youtube.com/user/dccote
+
