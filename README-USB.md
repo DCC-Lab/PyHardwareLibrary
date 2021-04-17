@@ -4,9 +4,7 @@
 
 by Prof. Daniel Côté, Ph.D., P. Eng., dccote@cervo.ulaval.ca, http://www.dcclab.ca
 
-You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons: it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or may not even appear necessary.  In addition, because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. Therefore, when you are just trying to understand serial communications for your problem ("*I just want to send a command to my XYZ stage!*"), all this complexity becomes paralyzing. I hope to help you understand better from the perspective of a non-expert.
-
-Of course, you don't always need to program everything from scratch, like we will do here: very often, manufacturers will provide a Python Software Development Kit (or SDK) with all the work done for you. If it exists, use it. However, we assume here that either such an SDK is not available or you simply want to learn how they are made.
+You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. The USB standard is daunting to non-expert for many reasons:  because it is so general (universal), it needs to provide a solution to many, many different types of devices from mouse pointers to all-in-one printers, USB hubs, ethernet adaptors, etc. In addition, it was created to solve problems related to the original serial port RS-232, and if you have not worked with old serial ports, some of the problems USB solves will not be apparent to you or may not even appear necessary. Therefore, when you are just trying to understand serial communications for your problem ("*I just want to send a command to my XYZ stage!*"), all this complexity becomes paralyzing.  Of course, you don't always need to program everything from scratch, like we will do here: very often, manufacturers will provide a Python Software Development Kit (or SDK) with all the work done for you. **If it exists, use it.** However, we assume here that either such an SDK is not available or you simply want to learn how they are made.  We could always sweep everything under the rug, but you are currently reading this document, so it is assumed you want to understand the details.  I hope to help you understand better from the perspective of a non-expert.
 
 ## Inspecting USB devices
 
@@ -29,7 +27,7 @@ But then, you need to install `libusb`, which is the actual engine that talks to
 brew install libusb
 ```
 
-On Windows, get [Zadig](https://zadig.akeo.ie) and keep for fingers crossed. Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to keep your Python scripts (for now). Don't get me started on [DLLs on Windows](https://github.com/DCC-Lab/PyHardwareLibrary/commit/ddfaf442d61348d7ed8611f2436e43f20b450c45). If everything really does not work for one reason or another, you can use [USBView](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/usbview) or [USBTreeView](https://www.uwe-sieber.de/usbtreeview_e.html).
+On Windows, get [Zadig](https://zadig.akeo.ie) and [keep for fingers crossed](https://github.com/libusb/libusb/wiki/Windows#how-to-use-libusb-on-windows). Worse comes to worst, the simplest solution is to [download](https://libusb.info) it and keep `libusb-1.0.x.dll` in the directory where you expect to keep your Python scripts (for now). Don't get me started on [DLLs on Windows](https://github.com/DCC-Lab/PyHardwareLibrary/commit/ddfaf442d61348d7ed8611f2436e43f20b450c45). If everything really does not work for one reason or another, you can use [USBView](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/usbview) or [USBTreeView](https://www.uwe-sieber.de/usbtreeview_e.html) to at least look at the USB descriptors.
 
 ### First steps
 
@@ -49,7 +47,7 @@ for bus in usb.busses():
 
 I connected a Kensington Wireless presenter and Laser pointer.  I get the following **USB Device Descriptor**, which I commented for clarity:
 
-```python
+```sh
 DEVICE ID 047d:2012 on Bus 020 Address 001 =================
  bLength                :   0x12 (18 bytes)              # The length in bytes of this description
  bDescriptorType        :    0x1 Device                  # This is a USB Device Descriptor
@@ -71,10 +69,10 @@ DEVICE ID 047d:2012 on Bus 020 Address 001 =================
 Let's highlight what is important:
 
 1. First: numbers written 0x12, 0x01 etc... are hexadecimal numbers, or numbers in base 16. Each "digit" can take one of 16 values: 0-9, then a to f representing 10 to 15. Therefore,  0x12 is 1 x 16 + 2 = 18 dec.  Lowercase or uppercase are irrelevant.  Up to 9, decimal and hexadecimal are the same.
-2. The **vendor id** is unique to the vendor of this device.  This value is registered with the USB consortium for a small cost. We can use this later to get "all devices from Kensington".
+2. The **vendor id** is unique to the vendor of this device.  This value is registered with the USB consortium for a small cost. In the present case, we can use this later to get "all devices from Kensington".
 3. The **product id** is unique to a product, from Kensington.  The vendor manages their product ids as they wish.
 4. The **bNumConfigurations** is the number of possible configurations this USB device can take. It will generally be 1 with scientific equipment, but it can be more than that. We will simply assume it is always 1 for the rest of the present discussion, this is not a vital part for us.
-5. Don't worry about the letters (b, i, bcd) in front of the descriptors: they simply indicate without ambiguity how they are stored in the USB descriptor: a `b` represents a *byte* value, an `i` represents a *2-byte integer*, and a `bcd` is also a 2-byte integer, but interpreted in decimal (binary-coded-decimal). `bcdUSB`= 0x200 means 2.0.0.
+5. Don't worry about the letters (`b`, `i`, `bcd`) in front of the descriptors: they simply indicate without ambiguity how they are stored in the USB descriptor: a `b` represents a *byte* value, an `i` represents a *2-byte integer*, and a `bcd` is also a 2-byte integer, but interpreted in decimal (binary-coded-decimal). `bcdUSB`= 0x200 means 2.0.0.
 
 Right after connecting, the device is in an "unconfigured mode". Someone, somewhere, needs to take responsibility for this device and do something.  Again, we need to separate general user devices (mouse, printers etc...) from scientific hardware.  With user devices, the device class, subclass, vendor id, product id, and protocol are sufficient for the computer to determine whether or not it can manage it. If the computer has the driver for this device, it will "own" it and manage it.  For instance, the printer is recognized and then the operating system can do what it needs to do with it (this is [discussed below](#communicating-with-usb-devices)).  However, scientific equipement will often appear as "General Device", and the computer will likely not know what to do.  This is when we come in.
 
@@ -97,7 +95,7 @@ print(configuration)
 
 This will print the following **USB Configuration Descriptor**, which I am also commenting:
 
-```python
+```sh
   CONFIGURATION 1: 100 mA ==================================
    bLength              :    0x9 (9 bytes)
    bDescriptorType      :    0x2 Configuration        # This is a USB Configuration descriptor
@@ -112,8 +110,12 @@ This will print the following **USB Configuration Descriptor**, which I am also 
 
 Again, the important aspects.
 
-1. It has a configuration value of 1, which happens to be the only one.
+1. It has a configuration value of 1, which happens to be the only one. Notice that it starts at 1, not 0. 
+
+   *In fact, some devices in the wild are distributed with a single configuration labelled '0'. This is invalid according to the standard because `set_configuration(0)` is the method to unconfigure a device and `0` is the value returned when the device is unconfigured, but nevertheless still occurred.  For a while, since it was so common, Microsoft and Apple had a workaround and still accepted 0 as a valid configuration number but around 2020 (Windows 10 and Catalina I believe), both companies stopped doing that and required changes in the devices (which is hard: this is hardcoded in the device).*
+
 2. It says it has one **USB Interface.**  This is discussed below.
+
 3. The configuration has some technical details, such as the fact it does not need extra power and will require 100 mA or less when connected.
 
 ### Choosing a USB interface
@@ -144,7 +146,7 @@ In this particular situation (a Kensington laser pointer), there is a single int
 
 Finally, each USB interface has communication channels, or **endpoints**, that it decides to define for its purpose. An endpoint is a one-way communication either to the device (OUT) or into the computer (IN).  This Kensington Pointer has a single input enpoint, which means we cannot "talk" to it, we can only "read" from it.  Its **USB Endpoint Descriptor** is the following:
 
-```python
+```sh
       ENDPOINT 0x81: Interrupt IN ==========================
        bLength          :    0x7 (7 bytes)
        bDescriptorType  :    0x5 Endpoint     # This is a USB Endpoint Descriptor
@@ -165,7 +167,7 @@ The important take home points are:
 
 4. My Logitech mouse has a very similar USB Device Descriptor with very similar parameters, aside from the fact that it delivers only 4 bytes of information each time :
 
-   ```python
+   ```sh
    DEVICE ID 046d:c077 on Bus 020 Address 002 =================
     bLength                :   0x12 (18 bytes)
     bDescriptorType        :    0x1 Device
@@ -202,7 +204,7 @@ The important take home points are:
 
 Finally, here is the complete **USB Device Descriptor** for my HP Envy all-in-one printer:
 
-```python
+```sh
 DEVICE ID 03f0:c511 on Bus 020 Address 001 =================
  bLength                :   0x12 (18 bytes)
  bDescriptorType        :    0x1 Device
@@ -309,9 +311,9 @@ I have not said much about *actually* communicating with devices.  On your compu
 usb.core.USBError: [Errno 13] Access denied (insufficient permissions)
 ```
 
-This of course is completely expected: two programs cannot send commands at the same time to a device through the same channels, the device would have no way of knowing what to do.  Therefore, we will only be able to communicate with devices that the operating system has not **matched**. Many problems on Windows originate from this: an incorrect driver is installed and claims the device (erroneously).  You then have to remove the driver from the registry to avoid having a match that prevents the right driver from controlling the device.
+This of course is completely expected: two programs cannot send commands at the same time to a device through the same channels, the device would have no way of knowing what to do. In addition, *listening* to a keyboard for instance would be a major security flaw, and is not possible because the access for the device will be exclusive. Therefore, we will only be able to communicate with devices that the operating system has not **matched**. Many problems on Windows originate from this: an incorrect driver is installed and claims the device (erroneously).  You then have to remove the driver from the registry to avoid having a match that prevents the right driver from controlling the device.
 
-You will find many articles on the web, especially in Linux forums, to unload a driver to be able to claim an interface. On the Mac, this is done with `kextunload` but I do not recommend it one bit and I really don't see a situation where this would be necessary. Deleting the driver from system is an even worse solution.
+You will find [many articles on the web](https://github.com/libusb/libusb/wiki/FAQ#running-libusb), that describe how to claim an interface that was already claimed. On Linux, [you can actually call](https://github.com/libusb/libusb/wiki/FAQ#can-i-run-libusb-application-on-linux-when-there-is-already-a-kernel-driver-attached-to-it) `libusb_detach_kernel_driver` that will unload the driver if you have sufficient permission (root). On the Mac, [this is done with](https://github.com/libusb/libusb/wiki/FAQ#how-can-i-run-libusb-applications-under-mac-os-x-if-there-is-already-a-kernel-extension-installed-for-the-device-and-claim-exclusive-access) `kextunload` (also as root, in the terminal) but I do not recommend it one bit because it will attempt to unload the kernel driver for all devices, not just your device.  Aside from the fact that this will likely fail, I really don't see a situation where this would be appropriate. Deleting the driver from the system is an even worse solution. *If it is already claimed, then there is probably a method to communicate with it through the regular means of the system.*
 
 However,  scientific equipment is usually defined as a *vendor-specific device* with a *vendor-specific protocol*, therefore the system will rarely match and we will be able to have access to the USB interface and communicate with the device through the various endpoints. That's what we will do next.
 
@@ -325,9 +327,9 @@ The basic idea when we program a device is to send a command that the device rec
 
 The information is encoded in bytes. The bytes have different meaning depending on what were are sending. A letter is a single byte (8 bits) that can take 256 values from 0 to 255, or in hexadecimal `0x00` to `0xff`.  ASCII encoding is standard for text: in that system, the letter 'A' is the number 65 (0x41), 'C' is 67 (0x43) etc... To write integer numbers larger than 255, we can put more than one byte together. For instance, if we put 2 bytes together, we can get 65,536 different values (from `0x0000` to `0xffff`), if we use 4 bytes together, we can write 4,294,967,296 different values (from `0x00000000` to `0xffffffff`). These integers have names in Python: 1 byte is called a `char`acter, 2 bytes is a `short int` and 4 bytes is a `long int`.  It is possible to interpret these as `signed` or `unsigned`, where `signed` is usually the default if nothing else is mentionned. The detailed difference between `signed` and `unsigned` is not critical here, as long as we use the appropriate type.  When we start with the least significant bytes then the most significant, we say the format is "little-endian", otherwise it is "big-endian". You can find a bit more information [here](https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-02.md).
 
-### Sutter ROE-200
+### An example: Sutter ROE-200
 
-Let's look at a classic from microscopy and neuroscience, the MPC-385 XYZ stage from Sutter Instruments with its ROE-200 controller. The manual is available [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/cd7bf0cf6256ba4dbc6eb26f0657c0db59b35848/hardwarelibrary/manuals/MPC-325_OpMan.pdf) or on their web site, and it is sufficiently detailed for us.  When we connect the device, we can inspect its **USB Descriptors**. We then find out that the idVendor is 4930, the idProduct is 1. We can pick a USB configuration, pick a USB interface, then the inspection of the endpoint descriptors tells us it has two endpoints: one IN, one OUT. 
+Let's look at a classic from microscopy and neuroscience, the MPC-385 XYZ stage from Sutter Instruments with its ROE-200 controller. The manual is available [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/cd7bf0cf6256ba4dbc6eb26f0657c0db59b35848/hardwarelibrary/manuals/MPC-325_OpMan.pdf) or on their web site, and it is sufficiently detailed for us (it also has a few omissions that we will find).  When we connect the device, we can inspect its **USB Descriptors**. We then find out that the idVendor is 4930, the idProduct is 1. We can pick a USB configuration, pick a USB interface, then the inspection of the endpoint descriptors tells us it has two endpoints: one IN, one OUT. 
 
 ```python
 device = usb.core.find(idVendor=4930, idProduct=1) # Sutter Instruments has idVendor 4930 or 0x1342
@@ -699,16 +701,17 @@ We have made significant progress, but there are still problems or at least area
 
 1. The code above has not been fully tested.  How do we test this? Is it necessary? The solution will be **Unit Testing**. *Hint*: when we do, we will learn that the **move** command actually sends a 0x00 byte at a regular interval when the move is taking a long time. This is not in the documentation but it sure is in the device. 
 2. In fact, the code above was not tested at all, because I don't have the device on my computer, it is only in the lab and I wrote the code from home.  It would be nice to be able to test even without the device connected, especially when we integrate this code into other larger projects. The solution will be a mock (i.e. fake) **DebugSutterDeviceUSBPort** that behaves like the real thing. This will require abstracting away the **USBPort** itself.
-3. Error management is not easy with hardware devices. They can fail, they can be disconnected, they can be missing, the firmware in the device can be upgraded, etc... If the command times out, what are you supposed to do? Can you recover? The solution is a more general class **PhysicalDevice** that can manage these aspects, while offering enough flexibility to adapt to any type of device.
-4. We are putting a lot of work in this Sutter Instrument stage, but what if it breaks and your supervisor purchases or borrows another device (say a Prior)?  Should you change all your code? It is, after all, just another linear stage. The solution to this is a **LinearMotionDevice** base class that will offer a uniform set of functions to move and get the position. This way, the **SutterDevice** will inherit from **LinearMotionDevice**, and a new **PriorDevice** would also inherit from it and could act as a perfect substitute. This approach, which requires time investment in the short term, will limit the impact of any change in the future.  You can take a look at [**OISpectrometer**](https://github.com/DCC-Lab/PyHardwareLibrary/blob/c6fa50b932945388bb5bfce443669158275c5db4/hardwarelibrary/spectrometers/oceaninsight.py) in the PyHardwareLibrary for an example, where two spectrometers can be used interchangeably since they both derive from OISpectrometer, which can return a **USB2000** or a **USB4000** depending on what is connected.
+3. Error management is not easy with hardware devices. They can fail, they can be disconnected, they can be missing, the firmware in the device can be upgraded, etc... If the command times out, what are you supposed to do? Can you recover? The solution is a more general class **PhysicalDevice** that can manage these aspects, while offering enough flexibility to adapt to any type of device. The is the strategy behind **PyHardwareLibrary**.
+4. We are putting a lot of work in this Sutter Instrument stage, but what if it breaks and your supervisor purchases or borrows another device (say a Prior)?  Should you change all your code? It is, after all, just another linear stage. The solution to this is a **LinearMotionDevice** base class that will offer a uniform set of functions to move and get the position, without knowing any details about the device itself. This way, the **SutterDevice** will inherit from **LinearMotionDevice**, and a new **PriorDevice** would also inherit from it and could act as a perfect substitute. This approach, which requires time investment in the short term, will limit the impact of any change in the future.  You can take a look at [**OISpectrometer**](https://github.com/DCC-Lab/PyHardwareLibrary/blob/c6fa50b932945388bb5bfce443669158275c5db4/hardwarelibrary/spectrometers/oceaninsight.py) in the PyHardwareLibrary for an example, where two spectrometers can be used interchangeably since they both derive from OISpectrometer, which can return a **USB2000** or a **USB4000** depending on what is connected.
 
 # References
 
 I have found various web sites over the years that may help you understand better, even though everything I wrote above is from experience accumulated over the years. Many web sites are either too detailed or too superficial. It is hard to find reasonable information, but I like the following:
 
 1. "Beyond Logic", https://www.beyondlogic.org/usbnutshell/usb1.shtml.  Really complete, but may be too difficult.
-2. "Pourquoi j'aime controler les appareils", https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-01.md
-3. A small demo (in french) for serial communications with the FTDI chip: https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-02.md
+2. "USB made simple", https://www.usbmadesimple.co.uk/index.html.  In the present document, I completely gloss over the fact that there is an Control endpoint #0 (IN/OUT).  All the "USB details" occur on those endpoints and it is not described in the USB Descriptors because it must be there and is not configurable. This document will give you more information to understand the nitty-gritty details if you are interested. (I myself have never learned these details, this is too low-level for me). This would be useful if you are making a USB chip.
+3. "Pourquoi j'aime controler les appareils", https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-01.md
+4. A small demo (in french) for serial communications with the FTDI chip: https://github.com/dccote/Enseignement/blob/master/DAQ/Semaine-02.md
 
 **Post-scriptum**
 

@@ -9,6 +9,13 @@ You may be here for one of two things:
 
 If this applies to you, then keep reading.
 
+## Learning more
+
+* If you are interested in learning more about USB itself and connectivity details, please read [README-USB.md](README-USB.md).
+* If you are interested in learning more about RS-232 and its relation to USB, please read [README-RS232.md](README-RS232.md)
+
+
+
 ## What is the purpose of this hardware library?
 
 We often need to control devices in the laboratory (linear stages, spectrometers, cameras, shutters, etc...).  The drivers provided by many companies are a good start, but integrating the devices in custom software sometimes gets difficult. This Python module was created to **facilitate the development of drivers**,  **facilitate the creation of applications**, and **provide minimal but useful applications** for hardware that is often used in the lab. It originates from a (private) project that I personnally maintained for nearly 10 years where drivers were written in Objective-C for more than 30 different devices used in my laboratory.  However, Python is more commonly taught in school and supports essentially all platforms, therefore I started this project so that I can 1) teach how to go about developing simple drivers, 2) teach good programming practices to students, 3) get the hardware working for my own lab regardless of the platforms used (we use macOS and Windows), 4) get help to shorten the development cycles to support more devices.
