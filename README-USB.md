@@ -349,7 +349,7 @@ inputEndpoint = interface[1]                       # Second endpoint is the inpu
 
 It is a very simple device, because it has a very limited set of commands it accepts. It can **move**, it can tell you its **position**.  There are other commands, but they will not be critical here and we will not implement them.
 
-<img src="README-USB.assets/image-20210415195905341.png" alt="image-20210415195905341" style="zoom:25%;" /><img src="README-USB.assets/image-20210415195013040.png" alt="image-20210415195013040" style="zoom: 24%;" />
+<img src="README.assets/image-20210415195905341.png" alt="image-20210415195905341" style="zoom:25%;" /><img src="README.assets/image-20210415195013040.png" alt="image-20210415195013040" style="zoom: 24%;" />
 
 Let's look at the anatomy of the **Get Current Position** command: it is the `C` character (which has an ASCII code of 0x43), and the documentation says that the total number of bytes is two for the command. Reading other versions of the manual and discussing with Sutter tells us that all commands are followed by a carriage return `\r`  (ASCII character 0x0d). So if we send this command to the device, it should reply with its position.
 
