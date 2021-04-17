@@ -12,7 +12,7 @@ Let's start by exploring with Python and PyUSB to see what these devices are tel
 
 ### Installing PyUSB and libusb
 
-I wish we could dive right in.  I really do. If you just want to see what I do, skip and go to the exploration part (First Steps).  But if you want to explore on your computer too, then you need to install PyUSB and libusb.
+I wish we could dive right in.  I really do. If you just want to see what I do, skip and go to the exploration part ([First Steps](#first-steps)).  But if you want to explore on your computer too, then you need to install PyUSB and libusb.
 
 The first part is simple. Install the PyUSB module with `pip`:
 
@@ -290,7 +290,7 @@ DEVICE ID 03f0:c511 on Bus 020 Address 001 =================
 
 Important highlights:
 
-1. As you can see, some USB devices can provide several interfaces and options with many endpoints.  I picked this example to highlight that the USB standard offers a really general solution for device communication, and this is why it was designed and was widely accepted. 
+1. As you can see, some USB devices can provide several interfaces and options with many endpoints.  I picked this example to highlight that the USB standard offers a really general solution for device communication, and this is why it was designed and widely accepted upon introduction. 
 2. There are different types of endpoints: INTERRUPT, BULK, ISOCHRONOUS. **Bulk** is what we could call a "standard" communication channel for us, experimentalists, trying to make things work.  For the most part, we don't really need to worry about it: we will communicate with our devices and get replies.
 3. Here, having all this information about my printer is not really helping me communicate with it, because I don't know what commands it will accept. This information may or may not be proprietary, and without it, there is very little hope to "program" the printer directly.
 

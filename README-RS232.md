@@ -2,7 +2,64 @@
 
 by Prof. Daniel Côté, Ph.D., P. Eng., dccote@cervo.ulaval.ca, http://www.dcclab.ca
 
-You are here because you have an interest in programming hardware devices, and the communication with many of them is through the Universal Serial Bus, or USB. However, the ancestor of USB (the RS-232 serial port) sometimes shows its ugly head for reasons that will become obvious later, and understanding RS-232 becomes an important asset when dealing with some USB devices.
+You are here because you have an interest in programming hardware devices for scientific applications, and the communication with many of them is through the Universal Serial Bus, or USB. However, the ancestor of USB (the RS-232 serial port) sometimes shows its ugly head for reasons that will become obvious later, and understanding RS-232 becomes an important asset when dealing with some USB devices. This document will provide some background history and context to scientists who need to program USB devices. It is my perspective, with my superficial knowledge and my personal bias.
 
-*[in development]*
+## Early expansion ports
+
+Very quickly after the introduction of personal computers, it became clear that people wanted to interact with the outside world. The most important devices people wanted to connect were a printer and a modem. This required some means of communicating with a device external to the computer.  In the 80s, there were IBM PCs and Apple computers, but also a broad spectrum of more affordable computers like the Commodore-64, Amiga, Atari, ZX Spectrum, TRS-80. 
+
+There were three issues that needed to be tackled: the physical connector (how things connect to the computer), the electrical assignment of the pins (what pin serves what purpose), and the software (what is said on these wires). These three things together will eventually define "a standard".
+
+The way expansion was done at the time was mostly with an internal "slot", essentially a proprietary connector. The [Apple II](https://apple2history.org/history/ah13/#01) had an internal expansion slot that could be used for peripherals, the [Commodre 64](https://en.wikipedia.org/wiki/Commodore_64#Input/output_(I/O)_ports_and_power_supply) had a serial port that was a modified version of the IEEE-488 and a ROM expansion cartridge that could significantly expand the capabilities of the computer. [IBM PC's](https://en.wikipedia.org/wiki/IBM_Personal_Computer) had an internal ISA bus that also could accomodate various cards, including serial (RS-232) and parallel cards, and over time included an RS-232 port (a serial `COM` port) and what became IEEE 284 (a parallel `LPT` port). The Macintosh computer had RS-422 serial ports an a SCSI port.  As you can imagine, each manufacturer came up with their design, and purchasing an expansion card for one type of computer meant it would usually only work on that computer: the connectors were often different, and if they were not, the computer would also need to know what to say to the device (it needed to "support" that device with knowing what to say to make things happen). Sometimes, the connectors would the the same, but the pins would serve different purposes.  Today, a "connector" is mostly synomym with "a protocol", but that was not always the case. 
+
+Eventually, [RS-232](https://en.wikipedia.org/wiki/RS-232) emerged as a standard for serial communication. Many, many different devices were designed, built and sold using the RS-232 standard as the communication method, and quoting the Wikipedia page of RS-232, we can already see where this is going:
+
+> Nevertheless, thanks to their simplicity and past ubiquity, **RS-232 interfaces are still used**—particularly in industrial machines, networking equipment, and **scientific instruments** where a short-range, point-to-point, low-speed wired data connection is fully adequate.
+
+Let's look at it in more details, since it looks like this will be relevant to us.
+
+##The 'first' standard port: RS-232
+
+The RS-232 serial port often uses a DB-9 connector that looks like this:
+
+<img src="README-RS232.assets/image-20210417140020797.png" alt="image-20210417140020797" style="zoom:50%;" />
+
+We can certainly recognize the expected Receive and Transmit pins (Pin 2 RXD and Pin 3 TXD), but there are others that may need explanations. As mentionned before, the first uses of serial ports was for modems: we see this immediately with Pin 1 that is used to confirm that the phone line is active, and Pin 9 that indicates that the phone is ringing. The remaining pins are used to synchronize the computer with the peripheral: this is called hardware handshaking, or hardware flow control.
+
+### Hardware flow control
+
+The computer can request the permission to send data by asserting the Request to Send pin (RTS).  When the device is ready, it asserts (i.e. it raises the value to True, 1) the Clear To Send pin (CTS). In this situation, the device responds to request from the computer and **must** reply for the computer to start sending the data. The device can also request the permission to send data by asserting the Data Signal Ready (DSR) pin, and again, the computer **must** respond by asserting the Data Terminal Ready  (DTR) pin for the device to start sending the data.
+
+The part that is important to us is that the computer and device **must agree on what they will do**, because this hardware handshake is optional: if the device expects that the computer will use the RTS pin to signal the availability of data, and that it will not transmit it until the CTS pin is asserted, then the computer better do that: if not, the RxD pin on the device will start blurting out data, but the device will not be ready to retrieve it.  Similarly, if the computer expects to get the permission from the device through the assertion of the CTS pin, then the device better do it, because if it does not, the computer will just wait forever for a signal that will never show up.  It is similar with the DSR and DTR pins. 
+
+This "choice" (hardware handshake or not) is built into the device you have: if the device expects hardware flow control, the manual will tell you, and it will also tell you what type of hardware flow control you must perform.
+
+### Software flow control
+
+It is also possible to control the flow of data with special characters sent on the serial port, called XON and XOFF. This is not so critical to us and is rarely used, so I will not discuss it.  Obviously, if software flow control is expected, it needs to be managed at the software level (I never had to do that with any device I have ever progammed).
+
+### Speed and encoding
+
+So, assuming we have dealt with hardware handshake properly, the Transmit pin and the Receive pin will start going from 0 to 1 and 1 to 0 to communicate information.  Assuming we are sending a command to the device, the computer will send 0, then 0, 0, 0, 1, 1, 1, and finally 1 to send the values 0xf0, all on a single wire (TxD).  Since this is a single wire, this raises several questions:  
+
+1. How fast will the transitions occur? The voltage will be up for 1 ms, then down for another 1 ms, etc...? The answer to this is the **baud rate, or speed**. There are lists of standard speeds.
+2. Then, how many bits will I send to form one 'character' ? As a reminder, the first modems in the 80s transmitted 300 bits per second. That is *millions* of times slower than our internet connections today.  Therefore, we could use only 7 bits instead of 8 bits and be 12.5% faster, because the US-ASCII characters can fit into 7 bits. This is the **data bit** choice  (8 or 7).
+3. What if there is an error in transmission or reception? Electrical interferences occur, and errors are possible.  Is it possible to have at least some sort of error checking at a basic level? This is the purpose of the [**parity bit**](https://en.wikipedia.org/wiki/Parity_bit) (None, Even, Odd).
+4. Finally, if I were to send several '1's in a row, the voltage will be high for several milliseconds.  If I were to send 1 million '1's, this would mean the voltge on the TxD pin would be high for 15 minutes (1000 seconds with 1ms per bit).  Chances are that the device may get lost or desynchronized. The answer to this are **stop bits**, that indicate the start and end of the character.
+
+So when setting up an RS-232 connection, we need to determine all these parameters.  They are typically indicated by something like: [**9600/8:N:1**](https://en.wikipedia.org/wiki/8-N-1), for 9600 bits per second, 8 bits per character, no parity bit and 1 stop bit. Hardware or software flow control is indicated separately.  This information is indicated in the manual, and the speed is sometimes adjustable through various commands. There are tons of web sites with details about this information, but I will not go deeper here: we know these parameters must be set properly to communicate.
+
+### The problems with RS-232
+
+It should be obvious now what the problems can be: if the communication parameters are incorrect, no command will be understood, and no reply could be understood either.
+
+There is a second problem, less apparent than the first one but as important: even if I succeed in *setting up* the communication with the device, how do I know what is connected? Is it a printer? If it is, which printer? It's an HP printer? What model is it? With RS-232, before you can confirm the identity of the device you need to communicate, send commands and understand the replies.  This is quite wasteful: assuming that the communication is set up properly, you would need to send a command under the assumption that the device connected is the one you think it is.  If you don't get a reply, you can assume it is probably not the right device. Then again, maybe the communication parameters were incorrect. Who really knows?
+
+These are exactly the problems that USB was meant to solve.
+
+## The introduction of USB in mid-90s
+
+
+
+## The transition from RS-232: FTDI comes to the rescue
 
