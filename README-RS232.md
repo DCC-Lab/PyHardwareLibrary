@@ -57,11 +57,9 @@ There is a second problem, less apparent than the first one but as important: ev
 
 These are exactly the type of problems that USB was meant to solve.
 
-## Introduction of USB in the mid 90s
+## The transition from RS-232 to USB: FTDI comes to the rescue
 
-[To be written]
-
-## The transition from RS-232: FTDI comes to the rescue
+When USB was introduced to the masses in 1998 with the iMac being the first computer dropping legacy ports, it was a revolution. USB was solving many problems we did not even know we had, but it made connectivity simpler: plug it in, start using it. That was nice. But then again, there were very few USB devices (I remember the only affordable printer was an [Epson Stylus 740 printer](https://epson.ca/Support/Printers/Single-Function-Inkjet-Printers/Epson-Stylus-Series/Epson-Stylus-Color-740i/s/SPT_C257111)) and to say that some of them were buggy (or the drivers were buggy or the cables were buggy) may be an understatement.
 
 Very quickly, chip manufacturers like FTDI provided a special chip that would take a USB connector and "translate it" into RS-232 with a DB-9 connector. These [USB-to-Serial adaptors](https://www.amazon.ca/USB-Serial-Adapter/s?k=USB+to+Serial+Adapter) from several vendors are still very popular, and most use the FTDI chip. It offered a quick solution to make RS-232 devices work on computers that were already leaving out the RS-232 ports (like the iMac for instance). The device manufacturers did not even have to do *anything*.
 
