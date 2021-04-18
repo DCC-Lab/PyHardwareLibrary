@@ -20,9 +20,11 @@ Let's look at it in more details, since it looks like this RS-232 serial port wi
 
 ##The 'first' standard port: RS-232
 
-The RS-232 serial port often uses a DB-9 connector that looks like this (obtained from the [commfront](https://www.commfront.com/pages/3-easy-steps-to-understand-and-control-your-rs232-devices)):
+The RS-232 serial port often uses a DB-9 connector that looks like this (obtained from the [commfront](https://www.commfront.com/pages/3-easy-steps-to-understand-and-control-your-rs232-devices)) with the following pin assignments:
 
 <img src="README.assets/image-20210417140020797.png" alt="image-20210417140020797" style="zoom:50%;" />
+
+The pins have different meaning if you are the computer (Data Terminal Equipment, DTE) or the device (Data Communication Equipment, or DCE): the transmit pin for one is obviously the receive pin for the other, etc.  I will dicuss from the perspective of the computer (DTE), because this is also the way USB works, and we care about programming the computer, not the device.
 
 We can certainly recognize the expected Receive and Transmit pins (Pin 2 RXD and Pin 3 TXD), but there are others that may need explanations. As mentionned before, the first uses of serial ports was for modems: we see this immediately with Pin 1 that is used to confirm that the phone line is active, and Pin 9 that indicates that the phone is ringing. The remaining pins are used to synchronize the computer with the peripheral: this is called hardware handshaking, or hardware flow control.
 
