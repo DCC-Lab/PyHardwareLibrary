@@ -109,10 +109,10 @@ So clearly, my ZWO camera does not qualify as a USB Web Cam of type that could b
 
 This is an entire discussion in itself, but here are the steps to make it work:
 
-1. We need to have the library from ASI, because it uses a proprietary communication protocol to talk the the camera (`0xff` vendor-specific. The mac/linux version [is here](https://download.astronomy-imaging-camera.com/download/asi-camera-sdk-linux-mac/?wpdmdl=381).
+1. We need to have the library from ASI, because it uses a proprietary communication protocol to talk the the camera (remember, `0xff` vendor-specific). The mac/linux version [is here](https://download.astronomy-imaging-camera.com/download/asi-camera-sdk-linux-mac/?wpdmdl=381).
 
    1. When you uncompress the file, you will find a library called: `libASICamera2.dylib`.
-      <img src="README-USB-Cameras.assets/image-20210421130225139.png" alt="image-20210421130225139" style="zoom: 50%;" />
+      <img src="README.assets/asiZwo.png" alt="ASIZwo" style="zoom:33%;" />
 
 2. There is a [Python module for the ASI ZWO Cameras](https://pypi.org/project/zwoasi/) that will use the library from ASI and provide us with the necessary methods to access the camera and snap images. `pip install asizwo`
 
@@ -161,7 +161,7 @@ This is an entire discussion in itself, but here are the steps to make it work:
 
 ### Finding my Macbook web cam
 
-The recent Macbook Pro has a T2-security chip that adds a layer of security so that hackers cannot sneak in and watch your camera.  However, PyUSB is not able to list the devices on that Secure USB bus apparently.  On Windows however, this works fine, so I suspect Parallels Desktop remaps the T2 bus to a regular bus that PyUSB can read.  Here I see many devices, but most importantly I can see my WebCam:
+The recent Macbook Pro has a T2-security chip that adds a layer of security so that hackers cannot sneak in and watch your camera.  However, PyUSB is not able to list the devices on that Secure USB bus apparently.  On Windows however, this works fine, so I suspect Parallels Desktop remaps the T2 bus to a regular bus that PyUSB can read, but [I will investigate later](https://stackoverflow.com/questions/67201458/not-seeing-all-usb-devices-with-pyusb-and-libusb-on-t2-macbook-pro).  Here I see many devices, but most importantly I can see my WebCam:
 
 ```shell
 DEVICE ID 203a:fff9 on Bus 002 Address 001 =================
@@ -195,7 +195,7 @@ DEVICE ID 203a:fff9 on Bus 002 Address 001 =================
        bInterval        :    0x0
 ```
 
-So I may not be able to see it directly with PyUSB on my Mac because of the T2 chip, but nevertheless, if I use Parallels Desktop to lookup my camera on Windows, I clearly see my Webcam fits the description of a generic USB camera (or UVC). I am not sure why that is the case, but it does not matter, we can have a solution: OpenCV or Open Computer Vision library. 
+So I may not be able to see it directly with PyUSB on my Mac for some reason, but nevertheless, if I use Parallels Desktop to lookup my camera on Windows, I clearly see that my Webcam fits the description of a generic USB camera (or UVC) because  `bDeviceClass`, `bDeviceSubClass` and `bDeviceProtocol` fields are set properly. I am not sure why that is the case, but it does not matter, we can have a solution: OpenCV or Open Computer Vision library, which we will look at below.
 
 ## Programming a UVC ourselves?
 
