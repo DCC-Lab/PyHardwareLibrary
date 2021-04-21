@@ -1,12 +1,12 @@
 [TOC]
 
-# Understanding cameras
+# Understanding USB cameras
 
 USB cameras are everywhere, including built into our laptops. Most of the time, we don't even need to do anything for them to work in any software. How is this possible? This is because the USB standard includes not only a class ("here is a camera") but also a protocol for any computer to talk to such cameras since for the most part, they all do the same thing: capture an image and transfer it to the computer.  Let's dive a bit into these **USB Video Class Cameras** (UVC for short) to try to see how this fits in with the rest of our knowledge about USB.
 
 ## Motivation and plan
 
-I needed to program my own USB Camera for a project.  In the process, I needed to figure out: why do I sometimes have to make it work myself and why does the computer sometimes recognize it by itself? Why do I sometimes need a driver or a library? Also, I have a [ZWO ASI183MM](https://astronomy-imaging-camera.com/product/asi183mm-pro-mono) Pro camera that I plan to use for a microscopy project. The web site mentionned : *["No driver installation needed on macOS"](https://astronomy-imaging-camera.com/software-drivers)*. I thought this was a sign that it  would work right away in all software, but that was not the case.  If I plug it in, it does not show up in Facetime or any other "regular software" like Quicktime Player.  So here I document my journey to help you (and me) understand USB cameras. 
+I needed to program my own USB Camera for a project.  In the process, I needed to figure out: why do I sometimes have to make it work myself (i.e. with a library or an external driver) and why does the computer sometimes recognize it by itself? Why do I sometimes need a driver or a library? Also, I have a [ZWO ASI183MM](https://astronomy-imaging-camera.com/product/asi183mm-pro-mono) Pro camera that I plan to use for a microscopy project. The web site mentionned : *["No driver installation needed on macOS"](https://astronomy-imaging-camera.com/software-drivers)*. I thought this was a sign that it  would work right away in all software, but that was not the case.  If I plug it in, it does not show up in Facetime or any other "regular software" like Quicktime Player.  So here I document my journey to help you (and me) understand USB cameras. 
 
 ## Finding USB cameras on my computer
 
@@ -126,9 +126,9 @@ This is an entire discussion in itself, but here are the steps to make it work:
 
    3. You need to go to the Security System Preferences and "Allow" libASICamera2.dylib to run even if it is an unsigned library.
 
-3. After that, you can look at [the example code](https://github.com/stevemarple/python-zwoasi/blob/master/zwoasi/examples/zwoasi_demo.py) to see how to get images from this great camera, affordable camera. That said, since not everyone has a ZWO camera, let's look at our USB Webcam.
+3. After that, you can look at [the example code](https://github.com/stevemarple/python-zwoasi/blob/master/zwoasi/examples/zwoasi_demo.py) to see how to get images from this great camera, affordable camera. That said, since not everyone has a ZWO camera, we will focus on our USB Webcam.
 
-4. The best option would be that the library would be signed,  it would be installed in `/usr/local/lib`, and the `asizwo` Python module would look it up there because it is a standard location. I may help the zwoasi module writer for that. We can temporarily attempt something like that:
+4. As an aside for `asizwo`, the best option would be that the library would be signed,  it would be installed in `/usr/local/lib`, and the `asizwo` Python module would look it up there because it is a standard location. I may help the zwoasi module writer for that. We can temporarily attempt something like that:
 
    ```sh
    Desktop % cp ~/ASI_linux_mac_SDK_V1.17/lib/mac/libASICamera2* /usr/local/lib/
@@ -201,7 +201,7 @@ So I may not be able to see it directly with PyUSB on my Mac for some reason, bu
 
 We could be optimistic that we could program the UVC camera ourselves.  We would read the documentation for the standard, and call everything with PyUSB (which itself goes through libusb). There are many reasons why this is not a good idea:
 
-1. First, let's not forget that the operating system will take over the device because it will recognize it.  When we try to communicate through an Endpoint, this will likely fail (not sure, should try it).
+1. First, let's not forget that the operating system will take over the device because it will recognize it.  When we try to communicate through an Endpoint, this will likely fail (not sure, should try it) because the operating system will have control of the USB Device. If we really wanted to start programming it, we would need to find a find for the device to not be recognized by the system. This is discussed [elsewhere](README-USB.md) how this is a bad idea.
 2. Second, the UVC standard is complicated. Again, take a look at [this](https://www.xmos.ai/download/AN00127:-USB-Video-Class-Device(2.0.2rc1).pdf) to see all the calls that we would need to implement. This looks like a lot of work.
 3. Third, really, it is the whole purpose of standard devices to be managed at the system level, so let's not try to redo what has been done already. 
 
