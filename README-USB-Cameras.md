@@ -199,9 +199,9 @@ So I may not be able to see it directly with PyUSB on my Mac for some reason, bu
 
 ## Programming a UVC ourselves?
 
-We could be optimistic that we could program the UVC camera ourselves.  We would read the documentation for the standard, and call everything with PyUSB (which itself goes through libusb). There are many reasons why this is not a good idea:
+We could be optimistic that we could program the UVC camera ourselves.  In that case, we would read the documentation for the standard, and call everything with PyUSB (which itself goes through libusb). There are many reasons why this is not a good idea:
 
-1. First, let's not forget that the operating system will take over the device because it will recognize it.  When we try to communicate through an Endpoint, this will likely fail (not sure, should try it) because the operating system will have control of the USB Device. If we really wanted to start programming it, we would need to find a find for the device to not be recognized by the system. This is discussed [elsewhere](README-USB.md) how this is a bad idea.
+1. First, let's not forget that the operating system will take over the device because it will recognize it.  When we try to communicate through a USB Endpoint, this will likely fail (not sure, should try it) because the operating system will have control of the USB Device. If we really wanted to start programming it, we would need to find a find for the device to not be recognized by the system. This is discussed [elsewhere](README-USB.md) how this is a bad idea.
 2. Second, the UVC standard is complicated. Again, take a look at [this](https://www.xmos.ai/download/AN00127:-USB-Video-Class-Device(2.0.2rc1).pdf) to see all the calls that we would need to implement. This looks like a lot of work.
 3. Third, really, it is the whole purpose of standard devices to be managed at the system level, so let's not try to redo what has been done already. 
 
