@@ -52,9 +52,20 @@ class TestIntegraPort(unittest.TestCase):
                 print("Nothing returned for command {0}".format(command))
 
     def testTryCommand(self):
-        getPower = TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+)\r\n")
-        self.assertFalse(getPower.send(port=self.port),getPower.exceptions)
-        print(getPower.matchAsFloat)
+        commands = [
+         TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+)\r\n"),
+         TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+)\r\n"),
+         TextCommand(name="STATUS", text="*STS", replyPattern = r"(.+)\r\n")
+        ]
+
+        for command in commands:
+            self.assertFalse(command.send(port=self.port),command.exceptions)
+            print(command.matchGroups[0])
+
+    def testCommandWithParameter(self):
+        command = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}", replyPattern = None)
+        self.assertFalse(command.send(port=self.port),command.exceptions)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -27,7 +27,6 @@ class Command:
         self.isReplyReceived = False
         self.isReplyReceivedSuccessfully = False
 
-    @property
     def matchAsFloat(self, index=0):
         if self.matchGroups is not None:
             return float(self.matchGroups[index])
@@ -47,11 +46,16 @@ class TextCommand(Command):
         self.replyPattern: str = replyPattern
         self.alternatePattern: str = alternatePattern
 
-    def send(self, port) -> bool:
+    def send(self, port, params=None) -> bool:
         try:
             self.isSent = True
             if self.replyPattern is not None:
-                self.reply, self.matchGroups = port.writeStringReadMatchingGroups(string=self.text,
+                if params is not None:
+                    textCommand = self.text.format(params)
+                else:
+                    textCommand = self.text
+                    
+                self.reply, self.matchGroups = port.writeStringReadMatchingGroups(string=textCommand,
                                                    replyPattern=self.replyPattern,
                                                    alternatePattern=self.alternatePattern,
                                                    endPoints=self.endPoints)
