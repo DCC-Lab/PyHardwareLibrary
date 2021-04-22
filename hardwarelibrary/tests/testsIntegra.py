@@ -64,8 +64,10 @@ class TestIntegraPort(unittest.TestCase):
 
     def testCommandWithParameter(self):
         command = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}", replyPattern = None)
+        self.assertFalse(command.send(port=self.port,params=(800)),command.exceptions)
+        command = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+)\r\n")
         self.assertFalse(command.send(port=self.port),command.exceptions)
-
+        self.assertTrue(command.matchAsFloat(0) == 800)
 
 if __name__ == '__main__':
     unittest.main()

@@ -49,18 +49,18 @@ class TextCommand(Command):
     def send(self, port, params=None) -> bool:
         try:
             self.isSent = True
+            if params is not None:
+                textCommand = self.text.format(params)
+            else:
+                textCommand = self.text
+
             if self.replyPattern is not None:
-                if params is not None:
-                    textCommand = self.text.format(params)
-                else:
-                    textCommand = self.text
-                    
                 self.reply, self.matchGroups = port.writeStringReadMatchingGroups(string=textCommand,
                                                    replyPattern=self.replyPattern,
                                                    alternatePattern=self.alternatePattern,
                                                    endPoints=self.endPoints)
             else:
-                nBytes = port.writeString(string=self.text, endPoint=self.endPoints[0])
+                nBytes = port.writeString(string=textCommand, endPoint=self.endPoints[0])
             self.isSentSuccessfully = True
         except Exception as err:
             self.exceptions.append(err)
