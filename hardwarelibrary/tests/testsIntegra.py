@@ -14,7 +14,6 @@ class TestIntegraPort(unittest.TestCase):
 
     def tearDown(self):
         self.port.close()
-        self.port = None
 
     def testCreate(self):
         self.assertIsNotNone(self.port)
@@ -28,7 +27,6 @@ class TestIntegraPort(unittest.TestCase):
         reply = self.port.readString()
         self.assertIsNotNone(reply)
         print("Power is {0}".format(reply))
-        # self.port.close()
 
     def testReadPowerForever(self):
         while True:

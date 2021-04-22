@@ -109,19 +109,18 @@ class USBPort(CommunicationPort):
         if not self.isOpen:
             self.open()
 
-        while length > len(self._internalBuffer):
-            if endPoint is None:
-                inputEndPoint = self.defaultInputEndPoint
-            else:
-                inputEndPoint = self.interface[endPoint]
+        if endPoint is None:
+            inputEndPoint = self.defaultInputEndPoint
+        else:
+            inputEndPoint = self.interface[endPoint]
 
-            with self.portLock:
+        with self.portLock:
+            while length > len(self._internalBuffer):
                 maxPacket = inputEndPoint.wMaxPacketSize
                 data = array.array('B',[0]*maxPacket)
                 nBytesRead = inputEndPoint.read(size_or_buffer=data)
                 self._internalBuffer += bytearray(data[:nBytesRead])
 
-        with self.portLock:
             data = self._internalBuffer[:length]
             self._internalBuffer = self._internalBuffer[length:]
 
