@@ -78,6 +78,8 @@ class USBPort(CommunicationPort):
         self.defaultOutputEndPoint = self.interface[outputIndex]
         self.defaultInputEndPoint = self.interface[inputIndex]
 
+        self.flush()
+
     def close(self):
         self._internalBuffer = None
         
@@ -93,6 +95,9 @@ class USBPort(CommunicationPort):
         return len(self._internalBuffer)
 
     def flush(self, endPoint=None):
+        if self.isNotOpen:
+            return
+
         if endPoint is None:
             inputEndPoint = self.defaultInputEndPoint
         else:
@@ -102,9 +107,12 @@ class USBPort(CommunicationPort):
             self._internalBuffer = bytearray()
             maxPacket = inputEndPoint.wMaxPacketSize
             data = array.array('B',[0]*maxPacket)
-            nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=30)
-            self._internalBuffer += bytearray(data[:nBytesRead])
-
+            try:
+                nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=30)
+                self._internalBuffer += bytearray(data[:nBytesRead])
+            except:
+                pass # not an error
+                                
     def readData(self, length, endPoint=None) -> bytearray:
         if not self.isOpen:
             self.open()
