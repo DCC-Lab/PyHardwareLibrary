@@ -32,39 +32,62 @@ class USBPort(CommunicationPort):
                         usbDevice = usb.core.find(idVendor=device.idVendor, idProduct=device.idProduct)
                         print(usbDevice)
 
-    def __init__(self, idVendor=None, idProduct=None, interfaceNumber=0, defaultEndPoints=(0, 1)):
+    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, interfaceNumber=0, defaultEndPoints=(0, 1)):
         CommunicationPort.__init__(self)
+        self.idVendor = idVendor
+        self.idProduct = idProduct
+        self.serialNumber = serialNumber
+        self.interfaceNumber = interfaceNumber
+        self.defaultEndPointsIndex = defaultEndPoints
 
-        self.device = usb.core.find(idVendor=idVendor, idProduct=idProduct)
+        self.device = None
+        self.configuration = None
+        self.interface = None        
+        self.defaultOutputEndPoint = None
+        self.defaultInputEndPoint = None
+
+        self._internalBuffer = bytearray()
+
+    def __del__(self):
+        """ We need to make sure that the device is free for others to use """
+        if self.device is not None:
+            self.device.reset()
+
+    @property
+    def isOpen(self):
+        if self.device is None:
+            return False    
+        else:
+            return True    
+    @property
+    def isNotOpen(self):
+        return not self.isOpen
+
+    def open(self):
+        self._internalBuffer = bytearray()
+
+        self.device = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
         if self.device is None:
             raise IOError("Can't find device")
 
         self.device.set_configuration()
         self.configuration = self.device.get_active_configuration()
-        self.interface = self.configuration[(interfaceNumber,0)]
+        self.interface = self.configuration[(self.interfaceNumber,0)]
         
-        self.defaultOutputEndPoint = self.interface[defaultEndPoints[0]]
-        self.defaultInputEndPoint = self.interface[defaultEndPoints[1]]
-
-        self._internalBuffer = bytearray()
-
-        self.portLock = RLock()
-        self.transactionLock = RLock()
-
-    @property
-    def isOpen(self):
-        if self.defaultOutputEndPoint is None:
-            return False    
-        else:
-            return True    
-
-    def open(self):
-        self._internalBuffer = bytearray()
-        return
+        outputIndex, inputIndex = self.defaultEndPointsIndex
+        self.defaultOutputEndPoint = self.interface[outputIndex]
+        self.defaultInputEndPoint = self.interface[inputIndex]
 
     def close(self):
-        self._internalBuffer = bytearray()
-        return
+        self._internalBuffer = None
+        
+        if self.device is not None:
+            self.device.reset()
+            self.device = None
+            self.configuration = None
+            self.interface = None        
+            self.defaultOutputEndPoint = None
+            self.defaultInputEndPoint = None
 
     def bytesAvailable(self, endPoint=None) -> int:
         return len(self._internalBuffer)
@@ -83,6 +106,9 @@ class USBPort(CommunicationPort):
             self._internalBuffer += bytearray(data[:nBytesRead])
 
     def readData(self, length, endPoint=None) -> bytearray:
+        if not self.isOpen:
+            self.open()
+
         while length > len(self._internalBuffer):
             if endPoint is None:
                 inputEndPoint = self.defaultInputEndPoint
@@ -102,6 +128,9 @@ class USBPort(CommunicationPort):
         return data
 
     def writeData(self, data, endPoint=None) -> int:
+        if not self.isOpen:
+            self.open()
+
         if endPoint is None:
             outputEndPoint = self.defaultOutputEndPoint
         else:
