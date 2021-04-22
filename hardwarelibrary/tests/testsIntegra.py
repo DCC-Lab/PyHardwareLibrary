@@ -18,22 +18,25 @@ class TestIntegraPort(unittest.TestCase):
     def testCreate(self):
         self.assertIsNotNone(self.port)
 
-    def testEndpoints(self):
-        print(self.port.defaultOutputEndPoint)
-        print(self.port.defaultInputEndPoint)
-
     def testReadPower(self):
         self.port.writeData(data=b"*CVU\r")
         reply = self.port.readString()
         self.assertIsNotNone(reply)
         print("Power is {0}".format(reply))
 
-    def testReadPowerForever(self):
-        while True:
-            self.port.writeData(data=b"*CVU\r")
+    # def testReadPowerForever(self):
+    #     while True:
+    #         self.port.writeData(data=b"*CVU")
+    #         reply = self.port.readString()
+    #         self.assertIsNotNone(reply)
+    #         print("Power is {0:0.1f}".format(float(reply)*1000))
+
+    def testValidateCommands(self):
+        commands = [b'*CVU',b'*GWL',b'*GAN',b'*GZO']
+        for command in commands:
+            self.port.writeData(data=command)
             reply = self.port.readString()
             self.assertIsNotNone(reply)
-            print("Power is {0:0.1f}".format(float(reply)*1000))
 
 
 if __name__ == '__main__':
