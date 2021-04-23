@@ -40,11 +40,17 @@ class Command:
         raise NotImplementedError()
 
 class TextCommand(Command):
-    def __init__(self, name, text, replyPattern = None, alternatePattern = None, endPoints = (None, None)):
+    def __init__(self, name, text, replyPattern = None, 
+                                   alternatePattern = None, 
+                                   multiReplyCount = 1,
+                                   finalReplyPattern = None, 
+                                   endPoints = (None, None)):
         Command.__init__(self, name, endPoints=endPoints)
         self.text : str = text
         self.replyPattern: str = replyPattern
         self.alternatePattern: str = alternatePattern
+        self.multiReplyCount = multiReplyCount
+        self.finalReplyPattern = finalReplyPattern
 
     def send(self, port, params=None) -> bool:
         try:
@@ -54,13 +60,43 @@ class TextCommand(Command):
             else:
                 textCommand = self.text
 
-            if self.replyPattern is not None:
-                self.reply, self.matchGroups = port.writeStringReadMatchingGroups(string=textCommand,
-                                                   replyPattern=self.replyPattern,
-                                                   alternatePattern=self.alternatePattern,
-                                                   endPoints=self.endPoints)
+            port.writeString(string=textCommand, endPoint=self.endPoints[0])
+
+            if self.multiReplyCount > 1:
+                self.reply = []
+                self.matchGroups = []
+
+                for i in range(self.multiReplyCount):
+                    reply, matchGroups = port.readMatchingGroups(
+                                   replyPattern=self.replyPattern,
+                                   alternatePattern=self.alternatePattern,
+                                   endPoint=self.endPoints[1])
+                    self.reply.append(reply)
+                    self.matchGroups.append(matchGroups)
+
+            elif self.finalReplyPattern is not None:
+                self.reply = []
+                self.matchGroups = []
+
+                while True:
+                    reply, matchGroups = port.readMatchingGroups(
+                                   replyPattern=self.replyPattern,
+                                   alternatePattern=self.alternatePattern,
+                                   endPoint=self.endPoints[1])
+                    self.reply.append(reply)
+                    self.matchGroups.append(matchGroups)
+
+                    if re.search(self.finalReplyPattern, reply) is not None:
+                        break
             else:
-                nBytes = port.writeString(string=textCommand, endPoint=self.endPoints[0])
+                if self.replyPattern is not None:
+                    self.reply, self.matchGroups = port.readMatchingGroups(
+                               replyPattern=self.replyPattern,
+                               alternatePattern=self.alternatePattern,
+                               endPoint=self.endPoints[1])
+                else:
+                    pass
+            
             self.isSentSuccessfully = True
         except Exception as err:
             self.exceptions.append(err)
@@ -183,6 +219,16 @@ class CommunicationPort:
                 return reply, match.groups()
             else:
                 raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
+
+    def readMatchingGroups(self, replyPattern, alternatePattern = None, endPoint=None):
+        reply = self.readString(endPoint=endPoint)
+
+        match = re.search(replyPattern, reply)
+
+        if match is not None:
+            return reply, match.groups()
+        else:
+            raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
 
 
 class DebugEchoCommunicationPort(CommunicationPort):

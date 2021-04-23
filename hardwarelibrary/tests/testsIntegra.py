@@ -51,23 +51,75 @@ class TestIntegraPort(unittest.TestCase):
             except:
                 print("Nothing returned for command {0}".format(command))
 
-    def testTryCommand(self):
+    def testTextCommandsNoParameter(self):
         commands = [
-         TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+)\r\n"),
-         TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+)\r\n"),
-         TextCommand(name="STATUS", text="*STS", replyPattern = r"(.+)\r\n")
+         TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+?)\r\n"),
+         TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+?)\r\n"),
+         TextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", finalReplyPattern=":100000000"),
+         TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
         ]
 
         for command in commands:
             self.assertFalse(command.send(port=self.port),command.exceptions)
             print(command.matchGroups[0])
 
-    def testCommandWithParameter(self):
-        command = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}", replyPattern = None)
-        self.assertFalse(command.send(port=self.port,params=(800)),command.exceptions)
-        command = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+)\r\n")
-        self.assertFalse(command.send(port=self.port),command.exceptions)
-        self.assertTrue(command.matchAsFloat(0) == 800)
+            with self.assertRaises(Exception):
+                leftover = self.port.readString()
+                print("Characters left after command {1}: {0}".format(leftover, command.name))
+
+
+    def testStatusCommand(self):
+        TextCommand(name="STATUS", text="*STS", replyPattern=r"(.+)\r\n", finalReplyPattern=":100000000"),
+
+        self.port.writeString("*STS")
+        try:
+            while True:
+                reply = self.port.readString()
+                if reply == ':100000000':
+                    break
+        except:
+            print("Done")
+
+    def testIntegraBugUnresponsiveAfterSetWavelength(self):
+        """ While testing, I found that the setwavelength command requires
+        a sleep after (it does not confirm the command with anything).
+        If we don't sleep, the GETWAVELENGTH will return nothing.
+        My experience is that the delay can be as low as 0.023 and as high as 0.03
+
+        It should always succeed for >0.05 and should always fail with ≤ 0.02
+        It is not sufficient to set a longer timeout as demonstrated with
+        testIntegraBugUnresponsiveAfterSetWavelengthMustSleep()
+        """
+        setCommand = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}")
+        getCommand = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+
+        # This should succeed
+        setCommand.send(port=self.port, params=(800))
+        time.sleep(0.05)
+        self.assertFalse(getCommand.send(port=self.port),msg="Surprinsingly failed sending command with delay 0.050 :{0}".format(getCommand.exceptions))
+        self.assertAlmostEqual(getCommand.matchAsFloat(0), 800.0)
+
+        # This should fail
+        setCommand.send(port=self.port, params=(800))
+        time.sleep(0.001)
+        self.assertTrue(getCommand.send(port=self.port),msg="Surprisingly succeeded sending command with delay 0.001")
+
+    def testIntegraBugUnresponsiveAfterSetWavelengthMustSleep(self):
+        """ While testing, I found that the setwavelength command requires
+        a sleep after (it does not confirm the command with anything).
+        If we don't sleep, the GETWAVELENGTH will return nothing.
+        My experience is that the delay can be as low as 0.023 and as high as 0.03
+
+        It is not sufficient to set a longer timeout, as is demonstrated here
+        """
+        setCommand = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}")
+        getCommand = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+
+        self.port.defaultTimeout = 2000
+        setCommand.send(port=self.port, params=(800))
+        # We except an error! setting a long timeout is not enough
+        self.assertTrue(getCommand.send(port=self.port))
+        self.assertTrue(isinstance(getCommand.exceptions[0], OSError))
 
 if __name__ == '__main__':
     unittest.main()

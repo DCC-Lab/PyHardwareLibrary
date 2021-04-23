@@ -45,7 +45,7 @@ class USBPort(CommunicationPort):
         self.interface = None        
         self.defaultOutputEndPoint = None
         self.defaultInputEndPoint = None
-
+        self.defaultTimeout = 50
         self._internalBuffer = bytearray()
 
     def __del__(self):
@@ -126,7 +126,7 @@ class USBPort(CommunicationPort):
             while length > len(self._internalBuffer):
                 maxPacket = inputEndPoint.wMaxPacketSize
                 data = array.array('B',[0]*maxPacket)
-                nBytesRead = inputEndPoint.read(size_or_buffer=data)
+                nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=self.defaultTimeout)
                 self._internalBuffer += bytearray(data[:nBytesRead])
 
             data = self._internalBuffer[:length]
@@ -144,7 +144,7 @@ class USBPort(CommunicationPort):
             outputEndPoint = self.interface[endPoint]
 
         with self.portLock:
-            nBytesWritten = outputEndPoint.write(data)
+            nBytesWritten = outputEndPoint.write(data, timeout=self.defaultTimeout)
             if nBytesWritten != len(data):
                 raise IOError("Not all bytes written to port")
 
@@ -160,7 +160,7 @@ class USBPort(CommunicationPort):
         while True:
             try:
                 data += self.readData(length=1, endPoint=endPoint)
-                if data[-1] == 10: # How to write?
+                if data[-1] == 10: # How to write '\n' ?
                     return data.decode(encoding='utf-8')
-            except:
-                raise IOError("Unable to read string terminator: {0}".format(data.decode(encoding='utf-8')))
+            except Exception as err:
+                raise IOError("Unable to read string terminator: {0}".format(err))
