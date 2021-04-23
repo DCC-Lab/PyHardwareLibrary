@@ -1,0 +1,124 @@
+# Coding example
+
+We all want to control devices, and that is why you are here. So how do we do this? Here you will find an example of how I implemented a simple "driver" in Python for a power meter device.
+
+1. We have a device.  Here it will be an Integra Power Meter from Gentec-EO.
+2. We look up the **USB Device descriptors** on the USB port to gather information.
+3. We find the manual, because it contains the commands we hope to implement, and possibly more information
+4. After having identified the interface and endpoints, we communicate we the device
+
+
+
+## Gentec-EO, Integra power meter
+
+Gentec-EO is a company from Québec city making tests and measurement devices, including power meters. They market this nice, simple and lightweight power meter called the Integra that connects to the computer via USB:
+
+<img src="README.assets/integra.png" alt="integra" style="zoom:33%;" />
+
+If we go to the [Product web page](https://www.gentec-eo.com/products/up19k-15s-h5-d0), we find the following information:
+
+1. The device specifications confirming we have the right power meter for the right job.
+2. The most important is the [Integra Manual](https://downloads.gentec-eo.com/prod/48fcf131/203008-Manual-Integra-V3.3.pdf), which we will use to the fullest extent.
+3. [Software](https://downloads.gentec-eo.com/prod/694fceed/PC-Gentec-EO-V2.01.12.exe) (Windows-only) for displaying power.
+4. [Drivers](https://downloads.gentec-eo.com/prod/15d21605/Gentec-EO-Drivers-V2.00.00.exe) (surprisingly Windows-only) for making the device work as a serial port on Windows.
+   1. It does tell us that the device can be serialized (that is, we will only need a simple two-way "port" to communicate with it) on macOS and Linux, because it can be serialized on Windows.
+   2. The driver is generic and mostly unidentified, so I was unable to find the macOS and Linux versions, but we won't need it anyway
+5. Firmware updates for the devices.  Interesting.
+
+## USB Descriptors of the device
+
+Running our usual USB device finder code:
+
+```python
+import usb.core
+import usb.util
+
+for bus in usb.busses():
+    for device in bus.devices:
+        if device != None:
+            usbDevice = usb.core.find(idVendor=device.idVendor, 
+                                      idProduct=device.idProduct)
+            print(usbDevice)
+
+```
+
+we get find the following descriptor for the Integra, which I commented:
+
+```shell
+DEVICE ID 1ad5:0300 on Bus 020 Address 005 =================
+ bLength                :   0x12 (18 bytes)
+ bDescriptorType        :    0x1 Device
+ bcdUSB                 :  0x200 USB 2.0
+ bDeviceClass           :    0x0 Specified at interface
+ bDeviceSubClass        :    0x0
+ bDeviceProtocol        :    0x0
+ bMaxPacketSize0        :    0x8 (8 bytes)
+ idVendor               : 0x1ad5             # idVendor unknown to https://devicehunt.com/all-usb-vendors
+ idProduct              : 0x0300             # internal to vendor
+ bcdDevice              :  0x112 Device 1.12
+ iManufacturer          :    0x1 Gentec-EO Inc.            
+ iProduct               :    0x2 Integra USB Meter
+ iSerialNumber          :    0x3 E8AF996F08001B00
+ bNumConfigurations     :    0x1             # Only 1 configuration
+  CONFIGURATION 1: 100 mA ==================================
+   bLength              :    0x9 (9 bytes)
+   bDescriptorType      :    0x2 Configuration
+   wTotalLength         :   0x35 (53 bytes)
+   bNumInterfaces       :    0x1             # Only 1 interface
+   bConfigurationValue  :    0x1
+   iConfiguration       :    0x4 HID Interface
+   bmAttributes         :   0xa0 Bus Powered, Remote Wakeup
+   bMaxPower            :   0x32 (100 mA)
+    INTERFACE 0: CDC Communication =========================
+     bLength            :    0x9 (9 bytes)
+     bDescriptorType    :    0x4 Interface
+     bInterfaceNumber   :    0x0
+     bAlternateSetting  :    0x0
+     bNumEndpoints      :    0x3             # 3 endpoints. We need to figure out which ones are for us
+     bInterfaceClass    :    0x2 CDC Communication      # This is general indication it can be serialized
+     bInterfaceSubClass :    0x2
+     bInterfaceProtocol :    0x1
+     iInterface         :    0x5 Virtual COM port (CDC) # This is a very explicit indication that it 
+                                                        # can be serialized
+      ENDPOINT 0x82: Interrupt IN ========================== # Interrupt IN, that can't be our 
+       bLength          :    0x7 (7 bytes)                   # serial input port, they are usually bulk
+       bDescriptorType  :    0x5 Endpoint
+       bEndpointAddress :   0x82 IN
+       bmAttributes     :    0x3 Interrupt
+       wMaxPacketSize   :   0x40 (64 bytes)
+       bInterval        :   0xff
+      ENDPOINT 0x3: Bulk OUT =============================== # Bulk OUT: this is our output endpoint
+       bLength          :    0x7 (7 bytes)
+       bDescriptorType  :    0x5 Endpoint
+       bEndpointAddress :    0x3 OUT
+       bmAttributes     :    0x2 Bulk
+       wMaxPacketSize   :   0x40 (64 bytes)
+       bInterval        :   0xff
+      ENDPOINT 0x83: Bulk IN =============================== # Bulk IN: this is our input endpoint
+       bLength          :    0x7 (7 bytes)
+       bDescriptorType  :    0x5 Endpoint
+       bEndpointAddress :   0x83 IN
+       bmAttributes     :    0x2 Bulk
+       wMaxPacketSize   :   0x40 (64 bytes)
+       bInterval        :   0xff
+
+```
+
+We don't need a *driver* to read the USB descriptors: we only need access to the USB port. A driver will take the device, configure it, pick and interface and expose it one way or another to the system so that other applications can communicate with it simply.  In this case, the Windows driver claims the device and then expose it as a COM port. We can check to see if the device is serialized on macOS in the `/dev/` directory, but `ls -l /dev/cu*` in the terminal returns nothing, so we do not have the equivalent driver on macOS Big Sur by default. If we insisted to find out, we would find a Windows machine, install the driver downloaded from Gentec-EO, and read its `.INF` file (somewhere) to find the detailed information about the driver, then download and install on macOS.
+
+So from the descriptor above, we find everything we need to start experimenting with the device: 1 configuration, 1 interface and two bulk OUT/IN endpoints.
+
+## Manual and commands
+
+The manual has all the information we need in terms of commands that the device accepts.  They are mostly text commands (ASCII), and the manual explains the structure:
+
+![image-20210423113954823](README.assets/image-20210423113954823.png)
+
+A carriage return is `\r` and a linefeed is `\n`.  [That we need to read both at the end like a typewriter from 1965](https://www.hanselman.com/blog/carriage-returns-and-line-feeds-will-ultimately-bite-you-some-git-tips) is an interesting story. From this documentation, I understand a command would always reply at least with an empty string to confirm it has recevied the command (but we will see that is not the case).
+
+  The simplest command we will try to confirm we can talk to the device is the VERSION command, and that's the one we will be implementing first to test the communication:
+
+![image-20210423112830851](README.assets/image-20210423112830851.png)
+
+
+
