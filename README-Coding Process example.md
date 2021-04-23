@@ -156,11 +156,11 @@ We get the following output, confirming we are doing this right:
 Integra Version 2.00.08
 ```
 
-From here, it looks like it is just a very simple repetition of this with all the known commands we want to support (see Integra User_Manual_Integra_V3.0, page 10). In particular, `*CVU` is "Get current power value", which is probably sufficient for many applications. However, there is also a calibration wavelength that will help the device convert the exact internal value (in mV) to actual power (mW). By default, it is 1064 nm, so we may want to change that.
+From here, it looks like it is just a very simple repetition of this with all the known commands we want to support (see Integra User_Manual_Integra_V3.0, page 10). In particular, `*CVU` is "Get current power value", which is probably sufficient for many applications. However, there is also a calibration wavelength that will help the device convert the exact internal value (in mV) to actual power (mW). By default, it is 1064 nm, so we may want to change that. This may appear good enough, and may be for your needs, but is it really that difficult to do more and build on other classes that can do the work for us?
 
 ## More communication with the Integra Device
 
-The first thing to do it to use a generic "communication port".  We should not really care about the details of how we communicate with the device: **USB**, **Serial**, **RS-232**, **Ethernet**, etc... : as long as we have a bidirectional communication channel, then why should we? `PyHardwareLibrary` actually has a group of ports available (`CommunincationPort`, `USBPort`, `SerialPort`, etc...). They all share common functionalities that are always required when having a dialog with a device. In fact, I am using these developments to refine their behaviour and API. A discussion of the details is available here, but we will simply use the `USBPort` class immediately to focus on the device, not the details.
+We should not really care about the details of how we communicate with a device: **USB**, **Serial**, **RS-232**, **Ethernet**, etc... : as long as we have a bidirectional communication channel, then why should we? `PyHardwareLibrary` actually has a group of ports available (`CommunicationPort`, `USBPort`, `SerialPort`, etc...). They all share common functionalities that are always required when having a dialog with a device. In fact, I am using these developments to refine their behaviour and their API. A discussion of the details is available [here](README-Communication ports.md), but we will simply use the `USBPort` class immediately to focus on the device, not the communicatin details.
 
 
 
