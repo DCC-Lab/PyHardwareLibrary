@@ -120,5 +120,39 @@ A carriage return is `\r` and a linefeed is `\n`.  [That we need to read both at
 
 ![image-20210423112830851](README.assets/image-20210423112830851.png)
 
+## Communicating with the Integra device
 
+Let's try the simplest script to communicate with our device:
+
+```python
+# This script is called firstIntegraCommunication.py
+import usb.core
+import usb.util
+from array import array 
+
+device = usb.core.find(idVendor=0x1ad5, idProduct=0x0300) # Find our device
+if device is None:
+    raise IOError("Can't find device")
+
+device.set_configuration()                                     # First (and only) configuration
+configuration = device.get_active_configuration()              # COnfirm configuration
+interface = configuration[(0,0)]                               # Get the first interface, no alternate
+
+interruptEndpoint = interface[0]                               # Not useful
+outputEndpoint = interface[1]                                  # Our output bulk OUT
+inputEndpoint = interface[2]                                   # Our input bulk IN
+
+outputEndpoint.write("*VER")                                   # The command, no '\r' or '\n'
+
+buffer = array('B',[0]*inputEndpoint.wMaxPacketSize)           # Buffer with maximum size
+bytesRead = inputEndpoint.read(size_or_buffer=buffer)          # Read and print as a string
+print( bytearray(buffer[:bytesRead]).decode(encoding='utf-8')) # Buffer is not resized, we do it ourselves
+```
+
+We get the following output, confirming we are doing this right:
+
+```shell
+(base) dccote@DCC-dccote tests % python firstIntegraCommunication.py
+Integra Version 2.00.08
+```
 

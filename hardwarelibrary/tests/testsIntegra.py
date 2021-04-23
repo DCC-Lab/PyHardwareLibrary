@@ -1,9 +1,7 @@
 import env # modifies path
 import unittest
 import time
-from threading import Thread, Lock
 
-from serial import *
 from hardwarelibrary.communication import USBPort, TextCommand
 import usb.core
 
@@ -11,9 +9,9 @@ class TestIntegraPort(unittest.TestCase):
     port = None
     def setUp(self):
         self.port = USBPort(idVendor=0x1ad5, idProduct=0x0300, interfaceNumber=0, defaultEndPoints=(1,2))
-
     def tearDown(self):
         self.port.close()
+
 
     def testCreate(self):
         self.assertIsNotNone(self.port)
