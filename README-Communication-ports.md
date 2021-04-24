@@ -2,7 +2,7 @@
 
 # General communication strategies
 
-You are here because you are interested in discussing general strategies to communicate with devices (any devices) and control them in the lab. It would appear tedious in the first place:
+You are here because you are interested in discussing general strategies to communicate with devices (any devices) and control them in the lab. In particular, the present document will discuss port abstraction in the context of device control.  It would appear tedious in the first place to :
 
 1. Set up communication
 2. Manage communication
@@ -10,12 +10,12 @@ You are here because you are interested in discussing general strategies to comm
 4. Analyze answer and determine the information hidden in it. Deal with units, floating point numbers, scientific notation, text
 5. Deal with errors when a command does not respond as expected.
 
-Especially with lab equipment, very often we will have a pattern that looks like: 1. Send text command 2. Analyze text reply 3. extract a number (e.g., a power value for instance).
+Especially with lab equipment, very often we will have a pattern that looks like: 1. Send text command 2. Analyze text reply 3. extract a number (e.g., a power value for instance), and really 4. this is with any type of device (old-style serial, USB, GPIB, Ethernet, etc...)
 
 ## The problems to solve
 
 1. Managing ports is a hardware issue that should be of minor interest to us
-2. Managing the dialog with the devices must be robust and general to avoid always coding very specific methods for analyzing the text
+2. Managing the dialog with the devices must be robust and general enough to avoid always going through the same strategies to analyze the reply.
 
 
 
@@ -24,7 +24,7 @@ Especially with lab equipment, very often we will have a pattern that looks like
 The solutions to these two problems are the following:
 
 1. A general class that offers all the "hooks" for any communication port, without dealing with the specific (`CommunicationPort`)
-2. General methods in `CommunicationPort` that will offer more than just hardware-level communication but rather general "dialog methods" to deal with a command, its reply and the analysis of the reply (this will be Regular-expression based methods, or `regex`).
+2. General methods in `CommunicationPort` that will offer more than just hardware-level communication but rather general "dialog methods" to deal with a command, its reply and the analysis of the reply (this will be Regular-expression based methods, or `regex`). These methods will be available to any port that derives from `CommunicationPort`.
 
 ## CommunicationPort
 
@@ -55,7 +55,7 @@ bytesRead = inputEndpoint.read(size_or_buffer=buffer)          # Read and get nu
 print( bytearray(buffer[:bytesRead]).decode(encoding='utf-8')) # Buffer is not resized, we do it ourselves
 ```
 
-In general with any device, we want to : write something to the port and read the reply. `PyUSB`  already offers everything we need, so why would we need another `CommunicationPort` on top? You can already see part of the answer in the previous script: writing the command to the port is simple, but reading the result as a string requires a few steps (assign buffer, read into buffer, convert to string). We would prefer to have something like this:
+`PyUSB`  already offers everything we need, so why would we need another class `CommunicationPort` on top? You can already see part of the answer in the previous script: writing the command to the port is simple, but reading the result as a string requires a few steps (assign buffer, read into buffer, convert to string). We would prefer to have something like this:
 
 ```python
 port = USBPort(idVendor=0x1ad5, idProduct=0x0300) # Hypothetical class we want
@@ -64,7 +64,7 @@ port.writeString('*VER')
 version = port.readString()
 ```
 
-and maybe other functions (as we will see below). The class `CommunicationPort` serves this purpose and can be found [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/ea4b05308662a26b583c6477c41b1cfb2cdc776f/hardwarelibrary/communication/communicationport.py). The idea here will be to always go through two key functions to read and write data (which will be highly specific to the port being used by the subclass), and code any other functions to go through those. Here are the basic primitive functions that we need for any kind of port:
+and maybe other functions (as we will see below) so we can focus on the device, not the communication with the device. The class `CommunicationPort` serves this purpose and can be found [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/ea4b05308662a26b583c6477c41b1cfb2cdc776f/hardwarelibrary/communication/communicationport.py). The idea is to always go through two key functions to read and write data (which will be highly specific to the port being used by the subclass), and code any other functions to go through those. Here are the basic primitive functions that we need for any kind of port:
 
 1. `open()` the port
 2. `flush()` the port of any remaining characters (in case of errors, and when opening).
@@ -73,7 +73,7 @@ and maybe other functions (as we will see below). The class `CommunicationPort` 
 5. `readData()` from the port
 6. `close()` the port
 
-Here is an excerpt below:
+Here is an excerpt below in `CommunicationPort`:
 
 ```python
 class CommunicationPort:
@@ -130,7 +130,7 @@ class CommunicationPort:
 
         return nBytes
 
-[ ... more to be described later ]
+[ ... more to be described later ... ]
 
 ```
 
@@ -259,19 +259,13 @@ class USBPort(CommunicationPort):
 
         return nBytesWritten
 
-    def readString(self, endPoint=None) -> str:      
-        data = bytearray()
-        while True:
-            try:
-                data += self.readData(length=1, endPoint=endPoint)
-                if data[-1] == 10: # How to write '\n' ?
-                    return data.decode(encoding='utf-8')
-            except Exception as err:
-                raise IOError("Unable to read string terminator: {0}".format(err))
-
 ```
 
 
+
+Another class called `SerialPort` makes use of Python POSIX library to communicate with devices, and is considered a port with one output endpoint and one input endpoint.
+
+So at this point, we have the technical details of the port managed.  What about the dialog, or the message-reply loop we will go through when controlling the device? 
 
 ## Dialog-based methods to send commands and read replies
 
@@ -344,7 +338,7 @@ if matchObj:
 	continue
 ```
 
-### How this fit with CommunicationPort
+### How this fits with CommunicationPort
 
 We can create functions that will write a command and read a reply, validate that it conforms to a regular expression, and possibly extract  certain values:
 
@@ -397,8 +391,8 @@ We can create functions that will write a command and read a reply, validate tha
 
 Important points to notice:
 
-1. Notice how it does not assume any communication ports, it simply makes use of the primitive `readString` and `writeString`, which as automatically implemented in all subclasses. 
-2. I will describe in more details the `portLock` and  `transactionLock` later, but it is important to appreciate (while you may not understand the details) that if we have a multi-threaded application:
+1. Notice how it does not assume any type of communication port, it simply makes use of the primitive `readString` and `writeString`,  which are automatically implemented in all subclasses because each subclass implements `readData` and `writeData`. 
+2. I will describe in more details the `portLock` and  `transactionLock` later, but it is important to appreciate (while you may not understand the details) that if we have a *multi-threaded application*:
    1. we do not want any other functions to access the port while we are accessing it. This is the purpose of `portLock`: we get exclusive access while we need it becausw we block anybody else trying to.
    2. if we write a command where we expect a reply, we don't want anyone to send another command while we are waiting for our reply. This is the purpose of `transactionLock`: a transaction in the HardwareLibrary module is a combination command-reply. most devices do not accept multiple commands before the previous one is not processed.
 

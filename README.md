@@ -11,13 +11,16 @@ If this applies to you, then keep reading.
 
 ## Learning more
 
-* If you are interested in learning more about USB itself and connectivity details, please read [README-USB.md](README-USB.md).
-* If you are interested in learning more about RS-232 and its relation to USB, please read [README-RS232.md](README-RS232.md)
-* If you are interested in learning more about RS-232 and its relation to USB, please read [README-USB-Cameras.md](README-USB-Cameras.md)
-* If you are interested in learning how PyHardwareLibrary deals with the many different ports, please read [README-Communication ports.md](README-Communication ports.md)
-* (French only) If you are interested in experimenting with an RS-232 chip from FTDI, please read [DAQ I/O with UM232R](https://github.com/dccote/Enseignement/blob/4c8eca0c7ca7ec74c60774af57483f5d77fb60be/DAQ/Semaine-02.pdf). You can probably Google translate or DeepL translate the Markdown file [here](https://github.com/dccote/Enseignement/blob/4c8eca0c7ca7ec74c60774af57483f5d77fb60be/DAQ/Semaine-02.md).
+If you are interested in learning more about:
 
+* **USB itself** and connectivity details, please read [README-USB.md](README-USB.md).
+* **RS-232 and its relation to USB**, please read [README-RS232.md](README-RS232.md)
+* **experimenting with an RS-232 chip from FTDI**, please read [DAQ I/O with UM232R (french only)](https://github.com/dccote/Enseignement/blob/4c8eca0c7ca7ec74c60774af57483f5d77fb60be/DAQ/Semaine-02.pdf). You can probably Google translate or DeepL translate the Markdown file [here](https://github.com/dccote/Enseignement/blob/4c8eca0c7ca7ec74c60774af57483f5d77fb60be/DAQ/Semaine-02.md).
+* **USB Cameras**, please read [README-USB-Cameras.md](README-USB-Cameras.md)
+* how `PyHardwareLibrary` **deals with the many different ports**, please read [README-Communication ports.md](README-Communication-ports.md)
+* **the process involved in supporting a new device** in  `PyHardwareLibrary` but also in general, please read [README-New-device-coding-example.md](README-New-device-coding-example.md)
 
+It would be a good plan to read all of the above, essentially in that order.
 
 ## What is the purpose of this hardware library?
 
