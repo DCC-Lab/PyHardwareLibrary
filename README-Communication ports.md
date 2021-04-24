@@ -344,6 +344,61 @@ if matchObj:
 	continue
 ```
 
-### Final word
+### How this fit with CommunicationPort
 
-Regular expressions are powerful and allow you to quickly focus on your task rather than dealing with the annoying mundanities of file naming, or the details of a text. For more information, Google "regular expression" with the name of your language of choice.
+We can create functions that will write a command and read a reply, validate that it conforms to a regular expression, and possibly extract  certain values:
+
+```python
+    def writeStringExpectMatchingString(self, string, replyPattern, alternatePattern = None, endPoints=(None,None)):
+        with self.transactionLock:
+            self.writeString(string, endPoints[0])
+            reply = self.readString(endPoints[1])
+            match = re.search(replyPattern, reply)
+            if match is None:
+                if alternatePattern is not None:
+                    match = re.search(alternatePattern, reply)
+                    if match is None:
+                        raise CommunicationReadAlternateMatch(reply)
+                raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}'".format(replyPattern))
+
+        return reply
+
+    def writeStringReadFirstMatchingGroup(self, string, replyPattern, alternatePattern = None, endPoints=(None,None)):
+        with self.transactionLock:
+            reply, groups = self.writeStringReadMatchingGroups(string, replyPattern, alternatePattern, endPoints)
+            if len(groups) >= 1:
+                return reply, groups[0]
+            else:
+                raise CommunicationReadNoMatch("Unable to find first group with pattern:'{0}' in {1}".format(replyPattern, groups))
+
+    def writeStringReadMatchingGroups(self, string, replyPattern, alternatePattern = None, endPoints=(None,None)):
+        with self.transactionLock:
+            self.writeString(string, endPoints[0])
+            reply = self.readString(endPoints[1])
+
+            match = re.search(replyPattern, reply)
+
+            if match is not None:
+                return reply, match.groups()
+            else:
+                raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
+
+    def readMatchingGroups(self, replyPattern, alternatePattern = None, endPoint=None):
+        reply = self.readString(endPoint=endPoint)
+
+        match = re.search(replyPattern, reply)
+
+        if match is not None:
+            return reply, match.groups()
+        else:
+            raise CommunicationReadNoMatch("Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
+
+```
+
+Important points to notice:
+
+1. Notice how it does not assume any communication ports, it simply makes use of the primitive `readString` and `writeString`, which as automatically implemented in all subclasses. 
+2. I will describe in more details the `portLock` and  `transactionLock` later, but it is important to appreciate (while you may not understand the details) that if we have a multi-threaded application:
+   1. we do not want any other functions to access the port while we are accessing it. This is the purpose of `portLock`: we get exclusive access while we need it becausw we block anybody else trying to.
+   2. if we write a command where we expect a reply, we don't want anyone to send another command while we are waiting for our reply. This is the purpose of `transactionLock`: a transaction in the HardwareLibrary module is a combination command-reply. most devices do not accept multiple commands before the previous one is not processed.
+
