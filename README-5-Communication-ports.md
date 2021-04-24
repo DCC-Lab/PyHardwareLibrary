@@ -10,14 +10,12 @@ You are here because you are interested in discussing general strategies to comm
 4. Analyze answer and determine the information hidden in it. Deal with units, floating point numbers, scientific notation, text
 5. Deal with errors when a command does not respond as expected.
 
-Especially with lab equipment, very often we will have a pattern that looks like: 1. Send text command 2. Analyze text reply 3. extract a number (e.g., a power value for instance), and really 4. this is with any type of device (old-style serial, USB, GPIB, Ethernet, etc...)
+Very often we will have a pattern that looks like: 1. Send text command 2. Analyze text reply 3. extract a number (e.g., a power value for instance), and really, this is with any type of device (old-style serial, USB, GPIB, Ethernet, etc...).  
 
 ## The problems to solve
 
 1. Managing ports is a hardware issue that should be of minor interest to us
 2. Managing the dialog with the devices must be robust and general enough to avoid always going through the same strategies to analyze the reply.
-
-
 
 ## Solutions
 
@@ -25,8 +23,9 @@ The solutions to these two problems are the following:
 
 1. A general class that offers all the "hooks" for any communication port, without dealing with the specific (`CommunicationPort`)
 2. General methods in `CommunicationPort` that will offer more than just hardware-level communication but rather general "dialog methods" to deal with a command, its reply and the analysis of the reply (this will be Regular-expression based methods, or `regex`). These methods will be available to any port that derives from `CommunicationPort`.
+3. Another level of abstraction that encapsulates a `TextCommand` or a `DataCommand` and deals with all the details of sending the command, getting the reply and managing errors.
 
-## CommunicationPort
+## 1. CommunicationPort
 
 To communicate with devices, we could use `PyUSB` directly:
 
@@ -267,11 +266,11 @@ Another class called `SerialPort` makes use of Python POSIX library to communica
 
 So at this point, we have the technical details of the port managed.  What about the dialog, or the message-reply loop we will go through when controlling the device? 
 
-## Dialog-based methods to send commands and read replies
+## 2. Dialog-based methods to send commands and read replies
 
 This section will digress for a minute and discuss the details of regular expressions (or `regex`) and their use when communicating with devices.
 
-### The problem that regexs solve
+### The problem that regular expressions solve
 
 Regular expressions allow you to recognize patterns in text and extract information from them. From a programmer's curiosity that took root with obscure Unix and Linux commands `awk` and `sed`, but especially the Perl language, they are now standardized and available in almost all programming languages. It is a powerful tool for working with any form of text. In the case of the scientist or engineer, let's think of the following situations:
 
@@ -395,4 +394,8 @@ Important points to notice:
 2. I will describe in more details the `portLock` and  `transactionLock` later, but it is important to appreciate (while you may not understand the details) that if we have a *multi-threaded application*:
    1. we do not want any other functions to access the port while we are accessing it. This is the purpose of `portLock`: we get exclusive access while we need it becausw we block anybody else trying to.
    2. if we write a command where we expect a reply, we don't want anyone to send another command while we are waiting for our reply. This is the purpose of `transactionLock`: a transaction in the HardwareLibrary module is a combination command-reply. most devices do not accept multiple commands before the previous one is not processed.
+
+## 3. Encapsulate the command-reply behaviour in a Command class
+
+This will be discussed later, but  `Command`, `TextCommand` and `DataCommand` classes are defined to manage everything in a single entity. 95% of the time, we send a command, read a reply and extract a value from the reply, then do something with this value. This can be encapsulated in a class that will manage all the details for us.
 
