@@ -158,9 +158,64 @@ Integra Version 2.00.08
 
 From here, it looks like it is just a very simple repetition of this with all the known commands we want to support (see Integra User_Manual_Integra_V3.0, page 10). In particular, `*CVU` is "Get current power value", which is probably sufficient for many applications. However, there is also a calibration wavelength that will help the device convert the exact internal value (in mV) to actual power (mW). By default, it is 1064 nm, so we may want to change that. This may appear good enough, and may be for your needs, but is it really that difficult to do more and build on other classes that can do the work for us?
 
-## More communication with the Integra Device
+## Unit testing a device
 
-We should not really care about the details of how we communicate with a device: **USB**, **Serial**, **RS-232**, **Ethernet**, etc... : as long as we have a bidirectional communication channel, then why should we? `PyHardwareLibrary` actually has a group of ports available (`CommunicationPort`, `USBPort`, `SerialPort`, etc...). They all share common functionalities that are always required when having a dialog with a device. In fact, I am using these developments to refine their behaviour and their API. A discussion of the details is available [here](README-Communication ports.md), but we will simply use the `USBPort` class immediately to focus on the device, not the communication details.
+We have not really been methodical yet: we have written a very simple script to try one command, and we confirmed that it worked. But we can do better with a strategy called _Unit Testing_ .
+
+We should not really care about the details of how we communicate with a device: **USB**, **Serial**, **RS-232**, **Ethernet**, etc... : as long as we have a bidirectional communication channel, then why should we? In addition, using `PyUSB` is great, but will we always be using PyUSB? What if it stops being supported? Since `PyHardwareLibrary`  is an application-oriented library, we have our own  group of ports available (`CommunicationPort`, `USBPort`, `SerialPort`, etc...), and they all derive from `CommunicationPort`. They all share common functionalities that are always required when having a dialog with a device. In fact, I am using these developments to refine their behaviour and their API. A discussion of the details of [`CommunicationPort`is](README-Communication ports.md) available [here](README-Communication ports.md), but we will simply use the `USBPort` class immediately to focus on the device, not the communication details. 
+
+The present documentation will be completed with an explanation of the `unittests` that were created for the device:
+
+```python
+import env # modifies path
+import unittest
+import time
+
+from hardwarelibrary.communication import USBPort, TextCommand
+import usb.core
+
+class TestIntegraPort(unittest.TestCase):
+    port = None
+    def setUp(self):
+        self.port = USBPort(idVendor=0x1ad5, idProduct=0x0300, interfaceNumber=0, defaultEndPoints=(1,2))
+    def tearDown(self):
+        self.port.close()
+
+    def testCreate(self):
+        self.assertIsNotNone(self.port)
+
+    def testReadPower(self):
+        self.port.writeData(data=b"*CVU\r")
+        reply = self.port.readString()
+        self.assertIsNotNone(reply)
+        self.assertTrue(float(reply) != 0)
+
+    def testValidateCommands(self):
+        commands = [b'*VEr',b'*STS', b'ST2', b'*CVU',b'*GWL',b'*GAN',b'*GZO',b'*GAS',b'*GCR',b'SSU',b'SSD',b'*DVS']
+        for command in commands:
+            self.port.writeData(data=command)
+            try:
+                if command != b'*DVS':
+                    reply = self.port.readString()
+                    self.assertIsNotNone(reply)
+                else:
+                    while True:
+                        try:
+                            reply = self.port.readString()
+                            self.assertIsNotNone(reply)
+                        except:
+                            break
+            except:
+                print("Nothing returned for command {0}".format(command))
+
+[... and more .... ] 
+                
+if __name__ == '__main__':
+    unittest.main()
+
+```
+
+
 
 
 
