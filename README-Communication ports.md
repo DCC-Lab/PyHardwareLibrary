@@ -19,7 +19,7 @@ Especially with lab equipment, very often we will have a pattern that looks like
 
 
 
-## Solution
+## Solutions
 
 The solutions to these two problems are the following:
 
@@ -275,4 +275,75 @@ class USBPort(CommunicationPort):
 
 ## Dialog-based methods to send commands and read replies
 
-This section will discuss the details of `regex` and its use for communicating with devices.
+This section will digress for a minute and discuss the details of regular expressions (or `regex`) and their use when communicating with devices.
+
+### The problem that regexs solve
+
+Regular expressions allow you to recognize patterns in text and extract information from them. From a programmer's curiosity that took root with obscure Unix and Linux commands `awk` and `sed`, but especially the Perl language, they are now standardized and available in almost all programming languages. It is a powerful tool for working with any form of text. In the case of the scientist or engineer, let's think of the following situations:
+
+* Dealing with series of files in a general way.
+* Isolating dates
+* Recognizing numbers, figures, etc...
+
+For example: You want to extract the first and last name of a person in the following text:
+
+`Côté, Daniel`
+
+So you want the word before the comma, then, after the spaces, the other word. You could read the characters one by one, but what if you have the following name?
+
+`De Koninck, Yves`
+
+The analysis can get more and more complicated and twisted. So, rather than reading the characters one by one and doing the analysis, you can use regular expressions that were invented to describe just such patterns. In this case, you could quickly extract the first and last name with the following regular expression:
+
+`\s*(\S.+?),\s*(\S.*?)\s*`
+
+The parentheses in the regular expression represent *matching groups*. In our case, the first expression between brackets is the name, the second the first name, without the spaces that may or may not be present before or after the name. In the first case, we would have "Côté" and "Daniel", while in the second case we would have "De Koninck" and "Yves".
+
+### The basic language of regular expressions
+
+In their simplest form, a regular expression is a sequence of characters with a repetition indicator. The capture parentheses allow to keep the text that was recognized. It can then be referred to in a way that depends on the programming tool used ($1, $2, ... in Perl, \1 \2, ... in the "Find" box of Sublime Text, etc.).
+
+| Expression | Signification | Expression | Signification |
+| ----------------- | ---------------------------- | ---------- | ----------------------------------------------------- |
+| . | N'importe quel caractère | * | 0 ou plusieurs fois |
+| \s | Espace blanc (ou tabulation) | + | 1 un plusieurs fois |
+| \S | Tout sauf un espace blanc | ? | 0 ou 1 fois |
+| \d | Un chiffre | {n} | n fois |
+| \D | Tout sauf un chiffre | {n,m} | entre n et m fois |
+| ^ | Début de ligne | *? | 0 ou plusieurs fois, mais priorité au prochain patron |
+| $ | Fin de ligne | () | Parenthèses de capture |
+| Lettre ou chiffre | La lettre ou le chiffre | (?:) | Paranthèse de regroupement sans capture |
+| \\. | Le point | [abc] | a or b or c |
+| \\\\ | Le caractère \\ | | |
+
+### Examples of regular expressions
+
+| Object | Expression |
+| ------------------------------------------------------------ | --------------------------------------------------- |
+| file name | ```(.\*?)\\.(...)``` |
+| file name and path | ```(.\*?)/(.\*?)\\.(...)``` |
+| A date like AAA-MM-JJ | ```(\\d{4})-(\d\d)-(\d\d)``` |
+| A filename with fichier-XXX-YYY-ZZZ.tif where XXX, YYY et ZZZ sont des chiffres | ```fichier-(\\d{3})-(\\d{3})-(\\d{3})\\.tif{1,2}``` |
+| A floating point number | `[+-]?\d(\.\d*)?` |
+| An signed integer | `[+-]?\d+` |
+| Scientific notation number | `[+-]?\d(\.\d+)?[Ee][+-]?\d+` |
+
+### Regex in Python
+
+Python supports regular expressions. They are used as follows to extract numerical values in a two-column table in a Markdown file (for example: `| 2.0 | 4.0 |` but also `| .02 | 0.01 |`):
+
+```python
+import re
+
+matchObj = re.match("\||s*(\.?\d+.?\d*)\s*||s*(\.?\d+.?\d*)\s*", line)
+if matchObj:
+	value = float(matchObj.group(1))
+	x.append(value)
+	value = float(matchObj.group(2))
+	y.append(value)
+	continue
+```
+
+### Final word
+
+Regular expressions are powerful and allow you to quickly focus on your task rather than dealing with the annoying mundanities of file naming, or the details of a text. For more information, Google "regular expression" with the name of your language of choice.

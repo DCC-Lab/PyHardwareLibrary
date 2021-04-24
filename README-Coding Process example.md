@@ -160,7 +160,7 @@ From here, it looks like it is just a very simple repetition of this with all th
 
 ## More communication with the Integra Device
 
-We should not really care about the details of how we communicate with a device: **USB**, **Serial**, **RS-232**, **Ethernet**, etc... : as long as we have a bidirectional communication channel, then why should we? `PyHardwareLibrary` actually has a group of ports available (`CommunicationPort`, `USBPort`, `SerialPort`, etc...). They all share common functionalities that are always required when having a dialog with a device. In fact, I am using these developments to refine their behaviour and their API. A discussion of the details is available [here](README-Communication ports.md), but we will simply use the `USBPort` class immediately to focus on the device, not the communicatin details.
+We should not really care about the details of how we communicate with a device: **USB**, **Serial**, **RS-232**, **Ethernet**, etc... : as long as we have a bidirectional communication channel, then why should we? `PyHardwareLibrary` actually has a group of ports available (`CommunicationPort`, `USBPort`, `SerialPort`, etc...). They all share common functionalities that are always required when having a dialog with a device. In fact, I am using these developments to refine their behaviour and their API. A discussion of the details is available [here](README-Communication ports.md), but we will simply use the `USBPort` class immediately to focus on the device, not the communication details.
 
 
 
