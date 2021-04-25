@@ -27,29 +27,29 @@ class CommunicationPort:
 
     @property
     def isOpen(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement isOpen")
 
     @property
     def isNotOpen(self):
         return not self.isOpen
 
     def open(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement open()")
 
     def close(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement close()")
 
     def bytesAvailable(self) -> int:
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement bytesAvailable()")
 
     def flush(self):
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement flush()")
 
     def readData(self, length, endPoint=None) -> bytearray:
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement readData()")
 
     def writeData(self, data, endPoint=None) -> int:
-        raise NotImplementedError()
+        raise NotImplementedError("Derived class must implement writeData()")
 
     def readString(self, endPoint=None) -> str:      
         with self.portLock:
