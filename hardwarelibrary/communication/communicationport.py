@@ -2,7 +2,8 @@ import serial
 import re
 import time
 import random
-from threading import Thread, RLock
+import inspect
+from threading import RLock
 from commands import *
 
 class CommunicationReadTimeout(serial.SerialException):
@@ -27,29 +28,36 @@ class CommunicationPort:
 
     @property
     def isOpen(self):
-        raise NotImplementedError("Derived class must implement isOpen")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     @property
     def isNotOpen(self):
         return not self.isOpen
 
     def open(self):
-        raise NotImplementedError("Derived class must implement open()")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def close(self):
-        raise NotImplementedError("Derived class must implement close()")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def bytesAvailable(self) -> int:
-        raise NotImplementedError("Derived class must implement bytesAvailable()")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def flush(self):
-        raise NotImplementedError("Derived class must implement flush()")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def readData(self, length, endPoint=None) -> bytearray:
-        raise NotImplementedError("Derived class must implement readData()")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def writeData(self, data, endPoint=None) -> int:
-        raise NotImplementedError("Derived class must implement writeData()")
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def readString(self, endPoint=None) -> str:      
         with self.portLock:

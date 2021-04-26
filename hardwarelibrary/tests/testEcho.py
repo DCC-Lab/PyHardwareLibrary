@@ -4,8 +4,7 @@ import time
 from threading import Thread, Lock
 
 from serial import *
-from hardwarelibrary import *
-from communicationport import *
+from hardwarelibrary.communication import *
 
 payloadData = b'1234'
 payloadString = '1234\n'
@@ -15,7 +14,7 @@ threadFailed = -1
 class BaseTestCases:
 
     class TestEchoPort(unittest.TestCase):
-        port = DebugEchoCommunicationPort()
+        port = DebugEchoPort()
 
         def testCreate(self):
             self.assertIsNotNone(self.port)
@@ -240,7 +239,7 @@ def threadReadWrite(port, index):
 class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = EchoStringDebugCommunicationPort()
+        self.port = DebugEchoPort()
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
@@ -250,62 +249,62 @@ class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
         self.port.close()
         self.assertFalse(self.port.isOpen)
 
-class TestDebugEchoDataPort(BaseTestCases.TestEchoPort):
+# class TestDebugEchoDataPort(BaseTestCases.TestEchoPort):
 
-    def setUp(self):
-        self.port = EchoDataDebugCommunicationPort()
-        self.assertIsNotNone(self.port)
-        self.port.open()
-        self.assertTrue(self.port.isOpen)
-        self.port.flush()
+#     def setUp(self):
+#         self.port = DebugEchoPort()
+#         self.assertIsNotNone(self.port)
+#         self.port.open()
+#         self.assertTrue(self.port.isOpen)
+#         self.port.flush()
 
-    def tearDown(self):
-        self.port.close()
-        self.assertFalse(self.port.isOpen)
+#     def tearDown(self):
+#         self.port.close()
+#         self.assertFalse(self.port.isOpen)
 
-    def testTextCommandNonDefaultEndPoint(self):
-        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(1,1))
-        self.assertIsNotNone(command)
-        self.assertFalse(command.send(self.port))
-        self.assertTrue(command.isSentSuccessfully)
-        self.assertTrue(command.reply == "1234\n")
-        self.assertFalse(command.hasError)
+#     def testTextCommandNonDefaultEndPoint(self):
+#         command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(1,1))
+#         self.assertIsNotNone(command)
+#         self.assertFalse(command.send(self.port))
+#         self.assertTrue(command.isSentSuccessfully)
+#         self.assertTrue(command.reply == "1234\n")
+#         self.assertFalse(command.hasError)
 
-    def testTextCommandDifferentEndPointsTimeout(self):
-        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(0,1))
-        self.assertIsNotNone(command)
-        self.assertTrue(command.send(self.port))
-        self.assertFalse(command.isSentSuccessfully)
-        self.assertTrue(command.hasError)
+#     def testTextCommandDifferentEndPointsTimeout(self):
+#         command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(0,1))
+#         self.assertIsNotNone(command)
+#         self.assertTrue(command.send(self.port))
+#         self.assertFalse(command.isSentSuccessfully)
+#         self.assertTrue(command.hasError)
 
-class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
+# class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
-    def setUp(self):
-        self.port = EchoStringDebugCommunicationPort()
-        self.assertIsNotNone(self.port)
-        self.port.open()
-        self.assertTrue(self.port.isOpen)
-        self.port.delay = 0.01
-        self.port.flush()
+#     def setUp(self):
+#         self.port = DebugEchoPort()
+#         self.assertIsNotNone(self.port)
+#         self.port.open()
+#         self.assertTrue(self.port.isOpen)
+#         self.port.delay = 0.01
+#         self.port.flush()
 
-    def tearDown(self):
-        self.port.close()
+#     def tearDown(self):
+#         self.port.close()
 
 
-class TestRealEchoPort(BaseTestCases.TestEchoPort):
+# class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
-    def setUp(self):
-        try:
-            self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
-            self.assertIsNotNone(self.port)
-            self.port.open()
-            self.port.flush()
-        except:
-            raise unittest.SkipTest("No ECHO device connected")
+#     def setUp(self):
+#         try:
+#             self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
+#             self.assertIsNotNone(self.port)
+#             self.port.open()
+#             self.port.flush()
+#         except:
+#             raise unittest.SkipTest("No ECHO device connected")
 
-    def tearDown(self):
-        self.port.flush()
-        self.port.close()
+#     def tearDown(self):
+#         self.port.flush()
+#         self.port.close()
 
 
 if __name__ == '__main__':
