@@ -323,19 +323,42 @@ In their simplest form, a regular expression is a sequence of characters with a 
 
 ### Regex in Python
 
-Python supports regular expressions. They are used as follows to extract numerical values in a two-column table in a Markdown file (for example: `| 2.0 | 4.0 |` but also `| .02 | 0.01 |`):
+Python supports regular expressions. They are used as follows to extract numerical values from the following string: `Power: 1.24 W`, a typical reply from a device:
 
 ```python
 import re
 
-matchObj = re.match("\||s*(\.?\d+.?\d*)\s*||s*(\.?\d+.?\d*)\s*", line)
+line = "Power : 1.24 W"
+
+# Any of these options will match:
+matchObj = re.match(r"Power : (\d*\.\d*) W", line)    # Sensitive to any change in format
+matchObj = re.match(r"Power\s*:\s*(\d*\.\d*) W", line)# A bit less sensitive, but still assumes Watts
+matchObj = re.match(r"Power\s*:\s*(\d*\.\d*)", line)  # A bit less sensitive (you don't need full string)
+matchObj = re.match(r".+(\d*\.\d*)", line)            # Ignores everything until a digit
+matchObj = re.match(r".+\s:\s*(\d*\.\d*)", line)      # Assumes the value comes after a :
+matchObj = re.match(r".+\s:\s*([+-]?\d*\.\d*)", line) # Sometimes, values may appear negative
+                                                      # an optinal sign is included
+matchObj = re.match(r".+\s:\s*([+-]?\d*\.\d*[Ee]?[+-]?\d*)", line) # This would match scientific notation
+matchObj = re.match(r".+\s:\s*(\S+)\s+\S", line)      # This would assume anything after : is the value
+                                                      # Except the space-W.
+matchObj = re.match(r".+\s:\s*(\S+)\s+(\S+)", line) # Anything after : is value, but also capture the units
+
+# This will fail:
+# matchObj = re.match(".+\s:\s*(\d+)", line)         # FAIL: \d does not match the .
+# matchObj = re.match("(.\d+)", line)                # FAIL: . is "any character" and \d does not match the dot.
+
 if matchObj:
 	value = float(matchObj.group(1))
-	x.append(value)
-	value = float(matchObj.group(2))
-	y.append(value)
-	continue
+	units = "W"
+	try:
+		units = matchObj.group(2)
+	except:
+		pass
+	print("Value is : {0} and the units are : {1}".format(value, units))
+ 
 ```
+
+The most important part of regex is not to get the perfect expression, **but one that works for you**. Unless you are writing a Python program that analyzes the syntax of some text, it only needs to match what you want, with some robustness. it does not need to validate that the output is "correct".  For instance, the regeular expression for a valid email is nearly a page-long, but we don't want that: we simply want to obtain a certain value from a string.  The regeular expression that I would use if the device returns `Power : 1.24 W`, would be `".+\s:\s*(\S+)\s+(\S+)"` and I would validate the units in the code to be sure, just in case the company changes from W to mW at some points. It is robust enough to any numerical values, including scientific notation, and will capture the units.
 
 ### How this fits with CommunicationPort
 
