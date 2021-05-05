@@ -1,46 +1,52 @@
+[TOC]
+
 # Supporting the Ocean Insight QEPro
 
 The QE Pro from Ocean Insight is a spectacular spectrometer with great sensitivity for Raman.  My Lab bought one recently.  Not cheap, but worth it. It so happens that it also uses the OceanView software, which I strongly believe was written on a friday night before a long week-end by a bunch of monkeys on crack.  I will therefore try to integrate it to my `OISpectrometer` class in `PyHardwareLibrary`.
 
 I am chronicling the story of how I will end up supporting the QE Pro.  This will provide an idea of the process to whoever is hoping to the same with another device.
 
-### May 3rd 2021
+## May 3rd 2021
 
-#### Manual
+### Manual
 
-First thing: get the OEM manual, where all the commands are written.  I already have the OEM from all the other spectrometers (USB2000, USB4000, etc...) but as much as they feel similar, there are differences.  I could not find the manual on Ocean Insight's web site.  I could not find it on google.  I sent a Technical Request via the web site. I got a reply within 24 hours with the manuals, which are not made public by default anymore. I saved them in the `manuals` section of `PyHardwareLibrary`.
+First thing: get the OEM manual, where all the commands are written.  I already have the [OEM manuals](../manuals/) from all the other spectrometers (USB2000, USB4000, etc...) but as much as they feel similar, there are significant differences.  I could not find the manual on [Ocean Insight's web site](https://www.oceaninsight.com/support/documents-manuals/).  I could not find it on google either.  I sent a [Technical Request](https://www.oceaninsight.com/support/faqs/supportrma-request-form/) via the web site. I got a reply within 24 hours with the manuals, which are not made public by default anymore. I saved the OEM version in the [manuals](../manuals/) section of `PyHardwareLibrary`.
 
 A quick look shows it will be a significant undertaking because the structure of commands has changed completely from the USB2000 and USB4000:
 
 <img src="README-Chronicles-of-QEPro.assets/image-20210504210038087.png" alt="image-20210504210038087" style="zoom: 25%;" />
 
-The PDF version I have is corrupted (Acrobat and Preview on macOS).
+The PDF version I have is corrupted (Acrobat and Preview on macOS): 
 
 <img src="README-Chronicles-of-QEPro.assets/image-20210504211848237.png" alt="image-20210504211848237" style="zoom: 33%;" />
 
-On windows I was able to read the information partially but sufficiently to understand that I did not have more info about endpoints:
+On Windows I was able to read the information partially but sufficiently to understand that I did not have more info about endpoints:
 
 <img src="README-Chronicles-of-QEPro.assets/image-20210504212318959.png" alt="image-20210504212318959" style="zoom:50%;" />
 
-So contrary to other versions for other spectrometers, the manual appears a bit incomplete with no discussion on endpoints. Other manuals did specifically mention endpoints and where commands needed to be sent. I will probably need to figure this out by trial and error.
+So contrary to other spectrometers, the manual appears a bit incomplete with no discussion on endpoints. Other manuals did specifically mention endpoints and where commands needed to be sent. I will probably need to figure this out by trial and error.
 
-The application aspects of the protocol are well documented:
+## May 4th 2021
+
+The general aspects of the protocol appear well documented:
 
 <img src="README-Chronicles-of-QEPro.assets/image-20210504214622995.png" alt="image-20210504214622995" style="zoom:50%;" />
 
 
 
-#### Protocol and message layout information
+### Protocol and message layout information
 
-We send messages which are of the form:
+Now, down to the details of the USB Communication, we send messages of the form:
 
 <img src="README-Chronicles-of-QEPro.assets/image-20210504215915088.png" alt="image-20210504215915088" style="zoom:50%;" />
+
+There are two types of messages: commands (no reply) and queries (reply).  It is possible to force a reply from the commands:
 
 
 
 ​     <img src="README-Chronicles-of-QEPro.assets/image-20210504220246760.png" alt="image-20210504220246760" style="zoom:50%;" />
 
-#### USB information
+### USB information
 
 The manual says:
 
@@ -115,7 +121,9 @@ DEVICE ID 2457:4004 on Bus 001 Address 025 =================
 
 
 
-So configuring the USB device should be very straightforward: first and only config, first and only interface.
+So configuring the USB device should be very straightforward: first and only config, first and only interface. So the next step will be to build a structure (NamedTuple) , `pack/unpack` message
 
+## May 5th 
 
+I received an updated manual from Gamble Techologies. It has been copied to the manuals directory.
 
