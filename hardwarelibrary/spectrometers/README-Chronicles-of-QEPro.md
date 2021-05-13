@@ -121,7 +121,7 @@ DEVICE ID 2457:4004 on Bus 001 Address 025 =================
 
 
 
-So configuring the USB device should be very straightforward: first and only config, first and only interface. So the next step will be to build a structure (NamedTuple) , `pack/unpack` message
+So configuring the USB device should be very straightforward: first and only config, first and only interface. So the next step will be to build a message structure (`NamedTuple`) , and plan the functions for `packing/unpacking` messages.
 
 ## May 5th 
 
