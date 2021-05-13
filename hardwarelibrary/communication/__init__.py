@@ -1,8 +1,8 @@
-from .communicationport import CommunicationPort, Command, TextCommand, DataCommand
+from .communicationport import *
 from .serialport import SerialPort
 from .usbport import USBPort
-from .usbd import USBParameters, DeviceCommand, USBDeviceDescription
-
+from .diagnostics import USBParameters, DeviceCommand, USBDeviceDescription
+from .echoport import DebugEchoPort
 import usb.backend.libusb1
 import platform
 from pathlib import *
