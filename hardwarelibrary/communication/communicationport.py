@@ -4,7 +4,7 @@ import time
 import random
 import inspect
 from threading import RLock
-from commands import *
+from .commands import *
 
 class CommunicationReadTimeout(serial.SerialException):
     pass
