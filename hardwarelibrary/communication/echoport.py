@@ -1,4 +1,4 @@
-from communication import *
+from hardwarelibrary.communication import *
 
 class DebugEchoPort(CommunicationPort):
     def __init__(self, delay=0):
