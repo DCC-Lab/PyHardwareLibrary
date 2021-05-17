@@ -50,7 +50,7 @@ class SerialPort(CommunicationPort):
             self.port.reset_input_buffer()
             self.port.reset_output_buffer()
 
-    def readData(self, length, endpoint=0) -> bytearray:
+    def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
             data = self.port.read(length)
             if len(data) != length:
@@ -58,7 +58,7 @@ class SerialPort(CommunicationPort):
 
         return data
 
-    def writeData(self, data, endpoint=0) -> int:
+    def writeData(self, data, endPoint=0) -> int:
         with self.portLock:
             nBytesWritten = self.port.write(data)
             if nBytesWritten != len(data):
