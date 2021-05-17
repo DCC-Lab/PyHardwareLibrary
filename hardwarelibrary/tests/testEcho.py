@@ -293,20 +293,24 @@ class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
 #         self.port.close()
 
 
-# class TestRealEchoPort(BaseTestCases.TestEchoPort):
+class TestRealEchoPort(BaseTestCases.TestEchoPort):
 
-#     def setUp(self):
-#         try:
-#             self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
-#             self.assertIsNotNone(self.port)
-#             self.port.open()
-#             self.port.flush()
-#         except:
-#             raise unittest.SkipTest("No ECHO device connected")
+    def setUp(self):
+        try:
+            self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+            self.assertIsNotNone(self.port)
+            self.port.open()
+            time.sleep(0.1)
+            self.port.flush()
+            time.sleep(0.1)
+        except:
+            raise unittest.SkipTest("No ECHO device connected")
 
-#     def tearDown(self):
-#         self.port.flush()
-#         self.port.close()
+    def tearDown(self):
+        time.sleep(0.1)
+        self.port.flush()
+        time.sleep(0.1)
+        self.port.close()
 
 
 if __name__ == '__main__':

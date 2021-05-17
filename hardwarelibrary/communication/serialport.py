@@ -47,6 +47,10 @@ class SerialPort(CommunicationPort):
 
     def flush(self):
         if self.isOpen:
+            try:
+                _ = self.port.readData()
+            except:
+                pass
             self.port.reset_input_buffer()
             self.port.reset_output_buffer()
 
@@ -54,7 +58,7 @@ class SerialPort(CommunicationPort):
         with self.portLock:
             data = self.port.read(length)
             if len(data) != length:
-                raise CommunicationReadTimeout()
+                raise CommunicationReadTimeout("Only obtained {0}".format(data))
 
         return data
 
