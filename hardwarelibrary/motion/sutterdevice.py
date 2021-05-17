@@ -1,6 +1,7 @@
-from .physicaldevice import *
-from .linearmotiondevice import *
-from .communicationport import *
+from hardwarelibrary.physicaldevice import *
+from hardwarelibrary.motion.linearmotiondevice import *
+from hardwarelibrary.communication.communicationport import *
+from hardwarelibrary.communication.commands import DataCommand
 
 import numpy as np
 import re
@@ -48,7 +49,7 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
                 raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
             self.port.open()
-            self.port.doGetPosition()
+            self.doGetPosition()
 
         except Exception as error:
             if self.port is not None:
@@ -64,15 +65,15 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
         self.port = None
         return
 
-class SutterDebugSerialPort(DebugCommunicationPort):
+class SutterDebugSerialPort(CommunicationPort):
     def __init__(self):
         super(SutterDebugSerialPort,self).__init__()
         self.xSteps = 0
         self.ySteps = 0
         self.zSteps = 0
 
-        move = CommandData(name='move', hexPattern='6d(.{8})(.{8})(.{8})')
-        position = CommandData(name='position', hexPattern='63')
+        move = DataCommand(name='move', hexPattern='6d(.{8})(.{8})(.{8})')
+        position = DataCommand(name='position', hexPattern='63')
         self.commands.append(move)
         self.commands.append(position)
 
