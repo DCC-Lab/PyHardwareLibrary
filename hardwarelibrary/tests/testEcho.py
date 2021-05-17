@@ -2,6 +2,7 @@ import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
+import random
 
 from serial import *
 from hardwarelibrary.communication import *
