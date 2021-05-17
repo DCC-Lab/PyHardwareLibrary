@@ -4,11 +4,19 @@ import time
 from threading import Thread, Lock
 from struct import *
 
-from serial import *
 from hardwarelibrary.motion.sutterdevice import SutterDevice, SutterDebugSerialPort 
+from hardwarelibrary.communication.usbport import USBPort
 
-class TestSutterSerialPort(unittest.TestCase):
+class TestSutterSerialPortBase(unittest.TestCase):
     port = None
+
+    def setUp(self):
+        self.port = USBPort(idVendor=0x1342, idProduct=0x0001)
+        self.port.open()
+        #self.port = DebugPort() 
+
+    def tearDown(self):
+        self.port.close()
 
     def testCreate(self):
         self.assertIsNotNone(self.port)
@@ -58,18 +66,6 @@ class TestSutterSerialPort(unittest.TestCase):
         self.assertTrue( x == 1)
         self.assertTrue( y == 2)
         self.assertTrue( z == 3)
-
-
-# class TestDebugSutterSerialPort(BaseTestCases.TestSutterSerialPort):
-
-#     def setUp(self):
-#         self.port = SutterDebugSerialPort()
-#         self.assertIsNotNone(self.port)
-#         self.port.open()
-
-#     def tearDown(self):
-#         self.port.close()
-
 
 if __name__ == '__main__':
     unittest.main()
