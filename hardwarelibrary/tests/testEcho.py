@@ -213,11 +213,12 @@ class BaseTestCases:
         def testDataCommand(self):
             command = DataCommand(b"Test", data=b"1234\n", replyDataLength=5)
             self.assertIsNotNone(command)
-            self.assertFalse(command.send(self.port))
+            self.assertFalse(command.send(self.port), msg="Exceptions were {0}".format(command.exceptions))
             self.assertTrue(command.isSentSuccessfully)
             self.assertTrue(command.reply == b"1234\n")
             self.assertFalse(command.hasError)
 
+        @unittest.expectedFailure
         def testDataCommandError(self):
             command = DataCommand(b"Test", data=b"1234\n", replyDataLength=6)
             self.assertIsNotNone(command)
