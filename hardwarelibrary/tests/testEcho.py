@@ -4,6 +4,7 @@ import time
 from threading import Thread, Lock
 import random
 import array
+import os
 
 from serial import *
 from hardwarelibrary.communication import *
@@ -258,22 +259,24 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
 class TestFTDIAdaptor(unittest.TestCase):
 
-    def testFindDevice(self):
-        dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
-        self.assertIsNotNone(dev)
+    # def testFindDevice(self):
+    #     dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+    #     self.assertIsNotNone(dev)
 
-    def testFindConfigureDevice(self):
-        dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
-        dev.set_configuration()
-        cfg = dev.get_active_configuration()
-        self.assertIsNotNone(cfg)
+    # def testFindConfigureDevice(self):
+    #     dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+    #     self.assertIsNotNone(dev)
+    #     dev.set_configuration()
+    #     cfg = dev.get_active_configuration()
+    #     self.assertIsNotNone(cfg)
 
-    def testFindConfigureInterfaceDevice(self):
-        dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
-        dev.set_configuration()
-        cfg = dev.get_active_configuration()
-        self.assertIsNotNone(cfg)
-        itf = cfg[(0,0)]
+    # def testFindConfigureInterfaceDevice(self):
+    #     dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+    #     self.assertIsNotNone(dev)
+    #     dev.set_configuration()
+    #     cfg = dev.get_active_configuration()
+    #     self.assertIsNotNone(cfg)
+    #     itf = cfg[(0,0)]
 
     @unittest.skip("It is not possible to write directly to endpoints of FTDI chip")
     def testFindConfigureInterfaceEndpointsDevice(self):
@@ -323,7 +326,10 @@ class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         try:
-            self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+            if os.name == 'posix':
+                self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
+            else:
+                self.port = SerialPort("COM4")
             self.assertIsNotNone(self.port)
             self.port.open()
             self.port.flush()
