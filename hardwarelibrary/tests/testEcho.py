@@ -42,9 +42,9 @@ class BaseTestCases:
             nBytes = self.port.writeData(payloadData)
             self.assertTrue(nBytes == len(payloadData))
 
-        # def testWriteDataBytesAvailable(self):
-        #     nBytes = self.port.writeData(payloadData)
-        #     self.assertEqual(nBytes, self.port.bytesAvailable())
+        def testWriteDataBytesAvailable(self):
+            nBytes = self.port.writeData(payloadData)
+            self.assertEqual(nBytes, self.port.bytesAvailable())
 
         def testWriteDataReadEcho(self):
             nBytes = self.port.writeData(payloadData)
@@ -73,9 +73,9 @@ class BaseTestCases:
                 data = self.port.readData(length=len(payloadData))
                 self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
-        def testWriteString(self):
-            nBytes = self.port.writeString(payloadString)
-            self.assertTrue(nBytes == len(payloadString))
+        # def testWriteString(self):
+        #     nBytes = self.port.writeString(payloadString)
+        #     self.assertTrue(nBytes == len(payloadString))
 
         def testWriteStringReadEcho(self):
             nBytes = self.port.writeString(payloadString)
@@ -161,6 +161,7 @@ class BaseTestCases:
                             "abcd1234\n",
                             replyPattern="(abc.)(\\d{5})")
 
+        @unittest.skip("No thread safety testing")
         def testThreadSafety(self):
             global threadFailed, globalLock
             threadFailed = -1
@@ -215,7 +216,7 @@ class BaseTestCases:
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port), msg="Exceptions were {0}".format(command.exceptions))
             self.assertTrue(command.isSentSuccessfully)
-            self.assertTrue(command.reply == b"1234\n")
+            self.assertTrue(command.reply == b"1234\n",msg="Reply was: {0}".format(command.reply))
             self.assertFalse(command.hasError)
 
         def testDataCommandError(self):
@@ -293,25 +294,44 @@ class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
 #         self.port.close()
 
 
-class TestRealEchoPort(BaseTestCases.TestEchoPort):
+class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         try:
             self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
             self.assertIsNotNone(self.port)
             self.port.open()
-            time.sleep(0.1)
             self.port.flush()
-            time.sleep(0.1)
         except:
             raise unittest.SkipTest("No ECHO device connected")
 
     def tearDown(self):
-        time.sleep(0.1)
         self.port.flush()
-        time.sleep(0.1)
         self.port.close()
 
+class TestRealEchoUSBPort(BaseTestCases.TestEchoPort):
+
+    def setUp(self):
+        try:
+            self.port = USBPort(idVendor=0x0403, idProduct=0x6001, defaultEndPoints=(1,0))
+            self.assertIsNotNone(self.port)
+            self.port.open()
+            time.sleep(0.1)
+            self.port.flush()
+            # time.sleep(0.1)
+            self.assertTrue(self.port.bytesAvailable() == 0)
+        except:
+            raise unittest.SkipTest("No ECHO device connected")
+
+    def tearDown(self):
+        # time.sleep(0.1)
+        self.port.flush()
+        self.port.close()
+
+
+    # def testBasic(self):
+    #     self.port = USBPort(idVendor=0x0403, idProduct=0x6001)
+    #     self.port.writeData('daniel')
 
 if __name__ == '__main__':
     unittest.main()

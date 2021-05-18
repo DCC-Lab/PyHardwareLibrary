@@ -45,7 +45,7 @@ class USBPort(CommunicationPort):
         self.interface = None        
         self.defaultOutputEndPoint = None
         self.defaultInputEndPoint = None
-        self.defaultTimeout = 50
+        self.defaultTimeout = 500
         self._internalBuffer = bytearray()
 
     def __del__(self):
@@ -64,6 +64,9 @@ class USBPort(CommunicationPort):
         return not self.isOpen
 
     def open(self):
+        if self.isOpen:
+            raise Exception("Port already open")
+
         self._internalBuffer = bytearray()
 
         self.device = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
@@ -77,24 +80,27 @@ class USBPort(CommunicationPort):
         outputIndex, inputIndex = self.defaultEndPointsIndex
         self.defaultOutputEndPoint = self.interface[outputIndex]
         self.defaultInputEndPoint = self.interface[inputIndex]
-
+        time.sleep(0.5)
         self.flush()
 
     def close(self):
-        self._internalBuffer = None
-        
-        if self.device is not None:
-            self.device.reset()
-            self.device = None
-            self.configuration = None
-            self.interface = None        
-            self.defaultOutputEndPoint = None
-            self.defaultInputEndPoint = None
+        with self.portLock:
+            self._internalBuffer = None
+            
+            if self.device is not None:
+                self.device.reset()
+                self.device = None
+                self.configuration = None
+                self.interface = None        
+                self.defaultOutputEndPoint = None
+                self.defaultInputEndPoint = None
 
     def bytesAvailable(self, endPoint=None) -> int:
-        return len(self._internalBuffer)
+        with self.portLock:
+            return len(self._internalBuffer)
 
     def flush(self, endPoint=None):
+        self._internalBuffer = bytearray()
         if self.isNotOpen:
             return
 
@@ -102,17 +108,20 @@ class USBPort(CommunicationPort):
             inputEndPoint = self.defaultInputEndPoint
         else:
             inputEndPoint = self.interface[endPoint]
+
+        time.sleep(0.05)
         
-        with self.portLock:
-            self._internalBuffer = bytearray()
+        with self.portLock:            
             maxPacket = inputEndPoint.wMaxPacketSize
             data = array.array('B',[0]*maxPacket)
             try:
-                nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=30)
-                self._internalBuffer += bytearray(data[:nBytesRead])
+                nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=100)
             except:
                 pass # not an error
-                                
+
+        time.sleep(0.05)
+
+
     def readData(self, length, endPoint=None) -> bytearray:
         if not self.isOpen:
             self.open()
@@ -146,16 +155,11 @@ class USBPort(CommunicationPort):
         with self.portLock:
             nBytesWritten = outputEndPoint.write(data, timeout=self.defaultTimeout)
             if nBytesWritten != len(data):
-                raise IOError("Not all bytes written to port")
+                raise IOError("Not all bytes written to port: actual {0} requested {1}".format(nBytesWritten, len(data)))
 
         return nBytesWritten
 
     def readString(self, endPoint=None) -> str:      
-        if endPoint is None:
-            inputEndPoint = self.defaultInputEndPoint
-        else:
-            inputEndPoint = self.interface[endPoint]
-
         data = bytearray()
         while True:
             try:
