@@ -1,4 +1,8 @@
 from .communicationport import *
+import time
+
+class UnableToOpenSerialPort(serial.SerialException):
+    pass
 
 class SerialPort(CommunicationPort):
     """
@@ -35,24 +39,31 @@ class SerialPort(CommunicationPort):
 
     def open(self):
         if self.port is None:
-            self.port = serial.Serial(self.portPath, 19200, timeout=0.3)
+            self.port = serial.Serial(self.portPath, 57600, timeout=0.3)
         else:
             self.port.open()
+
+        timeoutTime = time.time() + 0.5
+        while not self.isOpen:
+            time.sleep(0.05)
+            if time.time() > timeoutTime:
+                raise UnableToOpenSerialPort()
+        time.sleep(0.05)
 
     def close(self):
         self.port.close()
 
     def bytesAvailable(self) -> int:
-        return self.port.in_waiting
+        return self.port.inWaiting()
 
     def flush(self):
         if self.isOpen:
-            try:
-                _ = self.port.readData()
-            except:
-                pass
-            self.port.reset_input_buffer()
-            self.port.reset_output_buffer()
+            # When an FTDI chip is used, this short sleep delay appears necessary
+            # If not, the flush does not occur.
+            time.sleep(0.05)
+            self.port.flushInput()
+            self.port.flushOutput()
+            time.sleep(0.05)
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
