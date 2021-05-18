@@ -326,10 +326,7 @@ class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         try:
-            if os.name == 'posix':
-                self.port = SerialPort("/dev/cu.usbserial-ftDXIKC4")
-            else:
-                self.port = SerialPort("COM4")
+            self.port = SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="FTDXIKC4A")
             self.assertIsNotNone(self.port)
             self.port.open()
             self.port.flush()

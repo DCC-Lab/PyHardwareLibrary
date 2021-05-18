@@ -1,5 +1,7 @@
 from .communicationport import *
 import time
+from serial.tools.list_ports import comports
+import re
 
 class UnableToOpenSerialPort(serial.SerialException):
     pass
@@ -13,8 +15,12 @@ class SerialPort(CommunicationPort):
     2. with an instance of pyserial.Serial() that will support the same
        functions as pyserial.Serial() (open, close, read, write, readline)
     """
-    def __init__(self, bsdPath=None, portPath=None, port = None):
-        CommunicationPort.__init__(self, )
+    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, bsdPath=None, portPath=None, port= None):
+        CommunicationPort.__init__(self)
+
+        if idVendor is not None:
+            bsdPath = SerialPort.matchSinglePort(idVendor, idProduct, serialNumber)
+
         if bsdPath is not None:
             self.portPath = bsdPath
         elif portPath is not None:
@@ -29,6 +35,32 @@ class SerialPort(CommunicationPort):
 
         self.portLock = RLock()
         self.transactionLock = RLock()
+
+    @classmethod
+    def matchSinglePort(cls, idVendor=None, idProduct=None, serialNumber=None):
+        ports = cls.matchPorts(idVendor, idProduct, serialNumber)
+        if len(ports) == 1:
+            return ports[0]
+        return None
+
+    @classmethod
+    def matchPorts(cls, idVendor=None, idProduct=None, serialNumber=None):
+        # We must provide idVendor, idProduct and serialNumber
+        # or              idVendor and idProduct
+        # or              idVendor
+        ports = []
+        for port in comports():
+            if idProduct is None:
+                if port.vid == idVendor:
+                    ports.append(port.device)
+            elif serialNumber is None:
+                if port.vid == idVendor and port.pid == idProduct:
+                    ports.append(port.device)
+            else:
+                if port.vid == idVendor and port.pid == idProduct:
+                    if re.match(serialNumber, port.serial_number, re.IGNORECASE):
+                        ports.append(port.device)
+        return ports
 
     @property
     def isOpen(self):
