@@ -326,7 +326,7 @@ class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         try:
-            self.port = SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="FTDXIKC4A")
+            self.port = SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="FTDXIKC4")
             self.assertIsNotNone(self.port)
             self.port.open()
             self.port.flush()
