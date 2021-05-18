@@ -33,9 +33,6 @@ class SerialPort(CommunicationPort):
             
         self.port = None # direct port, must be closed.
 
-        self.portLock = RLock()
-        self.transactionLock = RLock()
-
     @classmethod
     def matchSinglePort(cls, idVendor=None, idProduct=None, serialNumber=None):
         ports = cls.matchPorts(idVendor, idProduct, serialNumber)
@@ -92,10 +89,10 @@ class SerialPort(CommunicationPort):
         if self.isOpen:
             # When an FTDI chip is used, this short sleep delay appears necessary
             # If not, the flush does not occur.
-            time.sleep(0.05)
+            time.sleep(0.02)
             self.port.flushInput()
             self.port.flushOutput()
-            time.sleep(0.05)
+            time.sleep(0.02)
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
