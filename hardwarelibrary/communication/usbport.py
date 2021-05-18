@@ -79,8 +79,13 @@ class USBPort(CommunicationPort):
         
         outputIndex, inputIndex = self.defaultEndPointsIndex
         self.defaultOutputEndPoint = self.interface[outputIndex]
+        if self.defaultOutputEndPoint.bEndpointAddress & 0x80 != 0:
+            raise Exception("Endpoint {0} is an input, not an output".format(outputIndex))
+
         self.defaultInputEndPoint = self.interface[inputIndex]
-        time.sleep(0.5)
+        if self.defaultInputEndPoint.bEndpointAddress & 0x80 == 0:
+            raise Exception("Endpoint {0} is an output, not an input".format(inputIndex))
+
         self.flush()
 
     def close(self):
@@ -109,17 +114,16 @@ class USBPort(CommunicationPort):
         else:
             inputEndPoint = self.interface[endPoint]
 
-        time.sleep(0.05)
+        time.sleep(0.1)
         
         with self.portLock:            
-            maxPacket = inputEndPoint.wMaxPacketSize
-            data = array.array('B',[0]*maxPacket)
+            data = usb.util.create_buffer(inputEndPoint.wMaxPacketSize)
             try:
                 nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=100)
             except:
                 pass # not an error
 
-        time.sleep(0.05)
+        time.sleep(0.1)
 
 
     def readData(self, length, endPoint=None) -> bytearray:
@@ -133,8 +137,7 @@ class USBPort(CommunicationPort):
 
         with self.portLock:
             while length > len(self._internalBuffer):
-                maxPacket = inputEndPoint.wMaxPacketSize
-                data = array.array('B',[0]*maxPacket)
+                data = usb.util.create_buffer(inputEndPoint.wMaxPacketSize)
                 nBytesRead = inputEndPoint.read(size_or_buffer=data, timeout=self.defaultTimeout)
                 self._internalBuffer += bytearray(data[:nBytesRead])
 
