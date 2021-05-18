@@ -1,0 +1,39 @@
+import env # modifies path
+import unittest
+import time
+from threading import Thread, Lock
+import random
+import array
+import os
+
+from hardwarelibrary.communication.serialport import SerialPort
+from serial.tools.list_ports import comports
+
+class TestSerialModule(unittest.TestCase):
+    def testListPorts(self):
+        for c in comports():
+            if c.vid is not None and c.pid is not None:
+                print("0x{0:04x} 0x{1:04x} {2}".format(c.vid, c.pid, c.device))
+            print(c.serial_number)
+            
+    def testMatchPort(self):
+        ports = SerialPort.matchPorts(idVendor=0x0403)
+        self.assertTrue(len(ports) != 0)
+
+    def testMatchUniquePort(self):
+        port = SerialPort.matchSinglePort(idVendor=0x0403)
+        self.assertIsNotNone(port)
+
+    def testMatchVendor(self):
+        self.assertIsNotNone(SerialPort(idVendor=0x0403))
+        self.assertIsNotNone(SerialPort(idVendor=0x0403, idProduct=0x6001))
+        self.assertIsNotNone(SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="ftDXIKC4"))
+
+    def testMatchVendorProduct(self):
+        self.assertIsNotNone(SerialPort(idVendor=0x0403, idProduct=0x6001))
+
+    def testMatchVendorProductSerial(self):
+        self.assertIsNotNone(SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="ftDXIKC4"))
+
+if __name__ == '__main__':
+    unittest.main()

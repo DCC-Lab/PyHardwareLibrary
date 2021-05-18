@@ -92,7 +92,7 @@ class TextCommand(Command):
 
 
 class DataCommand(Command):
-    def __init__(self, name, data, replyHexRegex = None, replyDataLength = 0, unpackingMask = None, endPoints = None):
+    def __init__(self, name, data, replyHexRegex = None, replyDataLength = 0, unpackingMask = None, endPoints = (None, None)):
         Command.__init__(self, name, endPoints=endPoints)
         self.data : bytearray = data
         self.replyHexRegex: str = replyHexRegex
@@ -106,12 +106,13 @@ class DataCommand(Command):
             if self.replyDataLength > 0:
                 self.reply = port.readData(length=self.replyDataLength)
             elif self.replyHexRegex is not None:
-                raise NotImplementedError()
+                raise NotImplementedError("DataCommand reply pattern not implemented")
                 # self.reply = port.readData(length=self.replyDataLength)
             self.isSentSuccessfully = True
         except Exception as err:
+            
             self.exceptions.append(err)
             self.isSentSuccessfully = False
-            return True
+            raise(err)
 
         return False
