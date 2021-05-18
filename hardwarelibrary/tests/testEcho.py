@@ -2,10 +2,14 @@ import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
+import random
+import array
+import os
 
 from serial import *
-from hardwarelibrary import *
-from communicationport import *
+from hardwarelibrary.communication import *
+
+import usb.util as util
 
 payloadData = b'1234'
 payloadString = '1234\n'
@@ -13,9 +17,8 @@ globalLock = Lock()
 threadFailed = -1
 
 class BaseTestCases:
-
     class TestEchoPort(unittest.TestCase):
-        port = DebugEchoCommunicationPort()
+        port = None
 
         def testCreate(self):
             self.assertIsNotNone(self.port)
@@ -42,9 +45,11 @@ class BaseTestCases:
             nBytes = self.port.writeData(payloadData)
             self.assertTrue(nBytes == len(payloadData))
 
-        # def testWriteDataBytesAvailable(self):
-        #     nBytes = self.port.writeData(payloadData)
-        #     self.assertEqual(nBytes, self.port.bytesAvailable())
+        def testWriteDataBytesAvailable(self):
+            nBytes = self.port.writeData(payloadData)
+            # We are testing an echo, there may be a delay.
+            time.sleep(0.1)
+            self.assertEqual(nBytes, self.port.bytesAvailable())
 
         def testWriteDataReadEcho(self):
             nBytes = self.port.writeData(payloadData)
@@ -73,9 +78,9 @@ class BaseTestCases:
                 data = self.port.readData(length=len(payloadData))
                 self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
 
-        def testWriteString(self):
-            nBytes = self.port.writeString(payloadString)
-            self.assertTrue(nBytes == len(payloadString))
+        # def testWriteString(self):
+        #     nBytes = self.port.writeString(payloadString)
+        #     self.assertTrue(nBytes == len(payloadString))
 
         def testWriteStringReadEcho(self):
             nBytes = self.port.writeString(payloadString)
@@ -213,15 +218,16 @@ class BaseTestCases:
         def testDataCommand(self):
             command = DataCommand(b"Test", data=b"1234\n", replyDataLength=5)
             self.assertIsNotNone(command)
-            self.assertFalse(command.send(self.port))
+            self.assertFalse(command.send(self.port), msg="Exceptions were {0}".format(command.exceptions))
             self.assertTrue(command.isSentSuccessfully)
-            self.assertTrue(command.reply == b"1234\n")
+            self.assertTrue(command.reply == b"1234\n",msg="Reply was: {0}".format(command.reply))
             self.assertFalse(command.hasError)
 
         def testDataCommandError(self):
             command = DataCommand(b"Test", data=b"1234\n", replyDataLength=6)
             self.assertIsNotNone(command)
-            self.assertTrue(command.send(self.port))
+            with self.assertRaises(Exception):
+                command.send(self.port)
             self.assertFalse(command.isSentSuccessfully)
             self.assertTrue(command.hasError)
 
@@ -237,10 +243,10 @@ def threadReadWrite(port, index):
 
 
 
-class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
+class TestDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = EchoStringDebugCommunicationPort()
+        self.port = DebugEchoPort()
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
@@ -250,53 +256,77 @@ class TestDebugEchoStringPort(BaseTestCases.TestEchoPort):
         self.port.close()
         self.assertFalse(self.port.isOpen)
 
-class TestDebugEchoDataPort(BaseTestCases.TestEchoPort):
 
-    def setUp(self):
-        self.port = EchoDataDebugCommunicationPort()
-        self.assertIsNotNone(self.port)
-        self.port.open()
-        self.assertTrue(self.port.isOpen)
-        self.port.flush()
+class TestFTDIAdaptor(unittest.TestCase):
 
-    def tearDown(self):
-        self.port.close()
-        self.assertFalse(self.port.isOpen)
+    # def testFindDevice(self):
+    #     dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+    #     self.assertIsNotNone(dev)
 
-    def testTextCommandNonDefaultEndPoint(self):
-        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(1,1))
-        self.assertIsNotNone(command)
-        self.assertFalse(command.send(self.port))
-        self.assertTrue(command.isSentSuccessfully)
-        self.assertTrue(command.reply == "1234\n")
-        self.assertFalse(command.hasError)
+    # def testFindConfigureDevice(self):
+    #     dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+    #     self.assertIsNotNone(dev)
+    #     dev.set_configuration()
+    #     cfg = dev.get_active_configuration()
+    #     self.assertIsNotNone(cfg)
 
-    def testTextCommandDifferentEndPointsTimeout(self):
-        command = TextCommand("Test", text="1234\n", replyPattern="1234", endPoints=(0,1))
-        self.assertIsNotNone(command)
-        self.assertTrue(command.send(self.port))
-        self.assertFalse(command.isSentSuccessfully)
-        self.assertTrue(command.hasError)
+    # def testFindConfigureInterfaceDevice(self):
+    #     dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+    #     self.assertIsNotNone(dev)
+    #     dev.set_configuration()
+    #     cfg = dev.get_active_configuration()
+    #     self.assertIsNotNone(cfg)
+    #     itf = cfg[(0,0)]
 
-class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
+    @unittest.skip("It is not possible to write directly to endpoints of FTDI chip")
+    def testFindConfigureInterfaceEndpointsDevice(self):
+        dev = usb.core.find(idVendor=0x0403, idProduct=0x6001)
+        dev.set_configuration()
+        cfg = dev.get_active_configuration()
+        self.assertIsNotNone(cfg)
+        itf = cfg[(0,0)]
+        epIn = itf[0]
+        epOut = itf[1]
+        self.assertTrue(epIn.bEndpointAddress & 0x80 != 0)
+        self.assertTrue(epOut.bEndpointAddress & 0x80 == 0)
 
-    def setUp(self):
-        self.port = EchoStringDebugCommunicationPort()
-        self.assertIsNotNone(self.port)
-        self.port.open()
-        self.assertTrue(self.port.isOpen)
-        self.port.delay = 0.01
-        self.port.flush()
+        # We cannot do this: writing to endpoints is not the way to use the device
+        # There seems to be a bit more information that is sent into these endpoints
+        maxPacket = epIn.wMaxPacketSize
+        data = util.create_buffer(maxPacket)
+        nBytes = epIn.read(size_or_buffer=data, timeout=1000)
+        print(nBytes, data)
 
-    def tearDown(self):
-        self.port.close()
+        text = b'aaaabbbbccccddddeeeeffff'
+        epOut.write(text)
+        epOut.write(text)
+        epOut.write(text)
+        time.sleep(1)
+        data = util.create_buffer(maxPacket)
+        nBytes = epIn.read(size_or_buffer=data, timeout=1000)
+        print(nBytes,data[:nBytes])
+        for c in data[:nBytes]:
+            print("{0:08b} ".format(c),end='')
+
+# class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
+
+#     def setUp(self):
+#         self.port = DebugEchoPort()
+#         self.assertIsNotNone(self.port)
+#         self.port.open()
+#         self.assertTrue(self.port.isOpen)
+#         self.port.delay = 0.01
+#         self.port.flush()
+
+#     def tearDown(self):
+#         self.port.close()
 
 
-class TestRealEchoPort(BaseTestCases.TestEchoPort):
+class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
         try:
-            self.port = CommunicationPort("/dev/cu.usbserial-ftDXIKC4")
+            self.port = SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="FTDXIKC4")
             self.assertIsNotNone(self.port)
             self.port.open()
             self.port.flush()
