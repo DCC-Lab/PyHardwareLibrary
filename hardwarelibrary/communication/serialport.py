@@ -19,7 +19,7 @@ class SerialPort(CommunicationPort):
         CommunicationPort.__init__(self)
 
         if idVendor is not None:
-            portPath = SerialPort.matchSinglePort(idVendor, idProduct, serialNumber)
+            portPath = SerialPort.matchAnyPort(idVendor, idProduct, serialNumber)
 
         if bsdPath is not None:
             self.portPath = bsdPath
@@ -33,13 +33,17 @@ class SerialPort(CommunicationPort):
             
         self.port = None # direct port, must be closed.
 
-        self.portLock = RLock()
-        self.transactionLock = RLock()
-
     @classmethod
     def matchSinglePort(cls, idVendor=None, idProduct=None, serialNumber=None):
         ports = cls.matchPorts(idVendor, idProduct, serialNumber)
         if len(ports) == 1:
+            return ports[0]
+        return None
+
+    @classmethod
+    def matchAnyPort(cls, idVendor=None, idProduct=None, serialNumber=None):
+        ports = cls.matchPorts(idVendor, idProduct, serialNumber)
+        if len(ports) >= 1:
             return ports[0]
         return None
 
