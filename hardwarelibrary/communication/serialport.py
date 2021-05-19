@@ -6,6 +6,9 @@ import re
 class UnableToOpenSerialPort(serial.SerialException):
     pass
 
+class MoreThanOneMatch(serial.SerialException):
+    pass
+
 class SerialPort(CommunicationPort):
     """
     An implementation of CommunicationPort using BSD-style serial port
