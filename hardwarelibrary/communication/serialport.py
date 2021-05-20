@@ -18,15 +18,13 @@ class SerialPort(CommunicationPort):
     2. with an instance of pyserial.Serial() that will support the same
        functions as pyserial.Serial() (open, close, read, write, readline)
     """
-    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, bsdPath=None, portPath=None, port=None):
+    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None):
         CommunicationPort.__init__(self)
 
         if idVendor is not None:
             portPath = SerialPort.matchAnyPort(idVendor, idProduct, serialNumber)
 
-        if bsdPath is not None:
-            self.portPath = bsdPath
-        elif portPath is not None:
+        if portPath is not None:
             self.portPath = portPath
         else:
             self.portPath = None
