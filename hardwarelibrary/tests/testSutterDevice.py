@@ -48,7 +48,7 @@ class TestPySerial(unittest.TestCase):
 
 
     def testPySerialPortSutterReadCommand(self):
-        x,y,z  = 0,0,0 #donne une position en y de 18 750 sur l'interface de l'appareil, soit divisé par 16
+        x,y,z  = 100000,0,0 
         port = serial.Serial("/dev/cu.usbserial-SI8YCLBE", timeout=5, baudrate=128000)
         commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
         nBytes = port.write(commandBytes)
