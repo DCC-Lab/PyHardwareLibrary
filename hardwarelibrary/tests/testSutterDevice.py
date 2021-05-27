@@ -7,26 +7,32 @@ from struct import *
 from hardwarelibrary.communication import *
 import serial
 
-class TestPySerial(unittest.TestCase):
+class TestSutter(unittest.TestCase):
     def setUp(self):
         self.port = None
-        if os.name == 'nt':
-            self.portPath = "COM4"
-        else: # macOS
-            self.portPath = "/dev/cu.usbserial-SI8YCLBE"
+        self.portPath = None
+
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            if port.vid == 4930 and port.pid == 1: # Sutter Instruments
+                self.portPath = port.device
+
+        if self.portPath is None:
+            self.fail("No Sutter connected. Giving up.")
 
     def tearDown(self):
-        self.port.close()
+        if self.port is not None:
+            self.port.close()
 
     def testPySerialPortNotNoneWhenEmpty(self):
-        self.port = serial.Serial()
-        self.assertIsNotNone(self.port)
+        port = serial.Serial()
+        self.assertIsNotNone(port)
 
     def testPySerialPortCannotOpenWhenEmpty(self):
-        self.port = serial.Serial()
-        self.assertIsNotNone(self.port)
+        port = serial.Serial()
+        self.assertIsNotNone(port)
         with self.assertRaises(Exception):
-            self.port.open()
+            port.open()
 
     def testPySerialPortSutter(self):
         self.port = serial.Serial(self.portPath)
@@ -40,17 +46,42 @@ class TestPySerial(unittest.TestCase):
         self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
         self.port.close()
         self.assertFalse(self.port.is_open)
-        
-    def testPySerialPortSutterReadCommand(self):
-        x,y,z  = 100000,0,0 
+
+    def testPortCanSteTimeoutLater(self):
         self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+        self.port.timeout = 1
+
+        self.assertEqual(self.port.timeout, 1)
+
+    def testSutterMoveCommand(self):
+        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+
+        x,y,z  = 100000,0,0 
         commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
         nBytes = self.port.write(commandBytes)
         self.assertTrue(nBytes == len(commandBytes))
+
         replyBytes = self.port.read(1)
-        print(replyBytes)
         self.assertTrue(replyBytes == b"\r")
-        self.port.close()
+
+    def testSutterLongMoveCommand(self):
+        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+
+        x,y,z  = 100000,100000,100000 
+        commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
+        nBytes = self.port.write(commandBytes)
+        self.assertTrue(nBytes == len(commandBytes))
+
+        replyBytes = self.port.read(1)
+        self.assertTrue(replyBytes == b"\r")
+
+        x,y,z  = 0,0,0 
+        commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
+        nBytes = self.port.write(commandBytes)
+        self.assertTrue(nBytes == len(commandBytes))
+
+        replyBytes = self.port.read(1)
+        self.assertTrue(replyBytes == b"\r")
 
     def testSutterReadPosition(self):
         self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
@@ -60,12 +91,14 @@ class TestPySerial(unittest.TestCase):
         self.assertTrue(nBytes == len(commandBytes))
 
         replyBytes = self.port.read(13)
-        print(replyBytes)
         info = unpack("<clll", replyBytes)
-        print(info)
-        print(info[1:])
-        print(info[3]/16)
         self.assertTrue(len(replyBytes) == 13)
+
+        # Buffer must be empty
+        self.port.timeout = 0.1
+        with self.assertRaise(Exception):
+            replyBytes = self.port.read(1)
+
 
 
 if __name__ == '__main__':
