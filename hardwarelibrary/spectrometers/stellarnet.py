@@ -29,6 +29,7 @@ class StellarNet(Spectrometer):
 
 
 if __name__ == "__main__":
+    print(Spectrometer.supportedClassNames())
     try:
         if len(sys.argv) == 1:
             spectrometer = StellarNet()

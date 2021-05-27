@@ -17,7 +17,7 @@ try:
     import usb.backend.libusb1
     from viewer import *
     from base import *
-    
+
 except Exception as err:
     print('** Error importing modules. {0}'.format(err))
     print('We will attempt to continue and hope for the best.')
@@ -55,7 +55,7 @@ It is in a single python file to simplify usage by others.
 
 """
 
-class OISpectrometer:
+class OISpectrometer(Spectrometer)  :
     """
     An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
     to the hardware with simple functions to get the spectrum, or modify the
