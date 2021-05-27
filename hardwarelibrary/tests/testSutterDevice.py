@@ -1,32 +1,18 @@
 import env # modifies path
 import unittest
 import time
-from threading import Thread, Lock
-import random
-import array
 import os
 from struct import *
 
 from hardwarelibrary.communication import *
 import serial
 
-"""
-class TestSerialPortFromDaniel(unittest.TestCase):
-    def testInit(self):
-        self.assertTrue(True)
-
-    def testPortFound(self):
-        port = SerialPort(idVendor=4930, idProduct=1)
-        self.assertIsNotNone(port)
-
-    def testPortOpen(self):
-        port = SerialPort(idVendor=4930, idProduct=1)
-        self.assertIsNotNone(port)
-        port.open()
-"""
-
-
 class TestPySerial(unittest.TestCase):
+    def setUp(self):
+        if os.name == 'nt':
+            self.portPath = "COM4"
+        else:
+            self.portPath = "/dev/cu.usbserial-SI8YCLBE"
 
     def testPySerialPortNotNoneWhenEmpty(self):
         port = serial.Serial()
@@ -39,17 +25,16 @@ class TestPySerial(unittest.TestCase):
             port.open()
 
     def testPySerialPortSutter(self):
-        port = serial.Serial("/dev/cu.usbserial-SI8YCLBE")
+        port = serial.Serial(self.portPath)
         self.assertIsNotNone(port)
         with self.assertRaises(Exception):
             # ALready open will raise exception
             port.open()
         port.close()
 
-
     def testPySerialPortSutterReadCommand(self):
         x,y,z  = 100000,0,0 
-        port = serial.Serial("/dev/cu.usbserial-SI8YCLBE", timeout=5, baudrate=128000)
+        port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
         commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
         nBytes = port.write(commandBytes)
         self.assertTrue(nBytes == len(commandBytes))
@@ -59,7 +44,7 @@ class TestPySerial(unittest.TestCase):
         port.close()
 
     def testSutterReadPosition(self):
-        port = serial.Serial("/dev/cu.usbserial-SI8YCLBE", timeout=5, baudrate=128000)
+        port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
         commandBytes = pack('<cc', b'C', b'\r')
         nBytes = port.write(commandBytes)
         self.assertTrue(nBytes == len(commandBytes))
