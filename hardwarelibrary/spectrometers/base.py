@@ -15,7 +15,6 @@ import usb.backend.libusb1
 
 from pathlib import *
 from viewer import *
-import stellarnet_driver3 as sn
 
 class NoSpectrometerConnected(RuntimeError):
     pass
@@ -33,10 +32,12 @@ class Spectrometer:
         self.integrationTime = 10
 
     def getSerialNumber(self):
-        return None
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def getSpectrum(self):
-        return None
+        fctName = inspect.currentframe().f_code.co_name
+        raise NotImplementedError("Derived class must implement {0}".format(fctName))
 
     def display(self):
         """ Display the spectrum with the SpectraViewer class."""
@@ -126,7 +127,7 @@ class Spectrometer:
     4. Tkinter module installed.
        If you click "Save" in the window, you may need the Tkinter module.
        This comes standard with most python distributions.
-    5. Obviously, a connected Ocean Insight spectrometer. It really needs to be 
+    5. Obviously, a connected Ocean Insight or StellarNet spectrometer. It really needs to be 
        a supported spectrometer ({1}).  The details of all 
        the spectrometers are different (number of pixels, bits, wavelengths,
        speed, etc...). More spectrometers will be supported in the future.
@@ -174,10 +175,11 @@ class Spectrometer:
 
     @classmethod
     def connectedUSBDevices(cls, idProduct=None, serialNumber=None):
-        """ Return a list of USB devices from Ocean Insight that are currently
-        connected (idVendor = 0x2457). If idProduct is provided, match only these
-        products. If a serial number is provided, return the matching device otherwise
-        return  an empty list. If no serial number is provided, return all devices.
+        """ 
+        Return a list of supported USB devices that are currently connected.
+        If idProduct is provided, match only these products. If a serial
+        number is provided, return the matching device otherwise return an
+        empty list. If no serial number is provided, return all devices.
 
         Parameters
         ----------
@@ -263,51 +265,3 @@ class Spectrometer:
         return device
 
 
-
-class BlackComet(Spectrometer):
-    def __init__(self):
-        self.model = "BlackComet StellarNet"
-        self.stellarNetHandle = None
-        try:
-            self.stellarNetHandle, wav = sn.array_get_spec(0)
-        except:
-            raise NoSpectrometerConnected("Unable to find a Stellarnet Spectrometer")
-
-        self.wavelength = np.array(wav)
-        self.integrationTime = 10
-
-    def getSerialNumber(self):
-        return "000-000-000"
-
-    def getSpectrum(self):
-        device = self.stellarNetHandle['device']
-        device.set_config(int_time=int(self.integrationTime), scans_to_avg=1, x_smooth=1)
-        zippedSpectrum = sn.array_spectrum(self.stellarNetHandle, self.wavelength)
-        _, spectrum = list(zip(*zippedSpectrum))
-        return spectrum
-
-    def display(self):
-        """ Display the spectrum with the SpectraViewer class."""
-        viewer = SpectraViewer(spectrometer=self)
-        viewer.display()
-
-
-if __name__ == "__main__":
-    try:
-        if len(sys.argv) == 1:
-            spectrometer = BlackComet()
-            spectrometer.getSpectrum()
-        else: # any argument will do. Shh!
-            spectrometer = DebugSpectro()
-
-        spectrometer.display()
-
-    except usb.core.NoBackendError as err:
-        Spectrometer.showHelp("PyUSB does not find any 'backend' to communicate with the USB ports (e.g., libusb is not found anywhere).")
-    except NoSpectrometerConnected as err:
-        Spectrometer.showHelp("No spectrometers detected: you can use `python oceaninsight.py debug` for testing")
-    except Exception as err:
-        """ Something unexpected occurred, which is probably a module not available.
-        We show some help and the error.
-        """
-        Spectrometer.showHelp(err)

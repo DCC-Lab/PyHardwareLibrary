@@ -1,3 +1,7 @@
+import usb.core
+import usb.util
+import usb.backend.libusb1
+
 import matplotlib.backends as backends
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -6,18 +10,18 @@ from matplotlib.widgets import Button, TextBox
 class SpectraViewer:
     def __init__(self, spectrometer):
         """ A matplotlib-based window to display and manage a spectrometer
-        to replace the insanely inept OceanView software from OceanInsight.
-        If anybody reads this from Ocean Insight, you can take direct people
+        to replace the insanely inept OceanView software from OceanInsight or 
+        the dude-wtf?1 software from Stellarnet.
+        If anybody reads this from Ocean Insight, you can direct people
         to this Python script.  It is simpler to call it directly from the
         spectrometer object with its own display function that will instantiate
         a SpectraViewer and call its display function with itself as a paramater.
-        There are now attributes of interest to a user.
 
         Parameters
         ----------
 
-        spectrometer: OISpectrometer
-            A spectrometer from Ocean Insight
+        spectrometer: Spectrometer
+            A spectrometer from Ocean Insight or Stellarnet
         """
 
         self.spectrometer = spectrometer
@@ -66,7 +70,7 @@ class SpectraViewer:
         fig.set_size_inches(10, 6, forward=True)
         serialNumber = self.spectrometer.getSerialNumber()
         model = self.spectrometer.model
-        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model {1}]'.format(serialNumber, model))
+        fig.canvas.set_window_title('Spectrometer [serial # {0}, model {1}]'.format(serialNumber, model))
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")
         return fig, axes
