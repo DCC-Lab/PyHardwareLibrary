@@ -16,7 +16,8 @@ try:
     import usb.util
     import usb.backend.libusb1
     from viewer import *
-
+    from base import *
+    
 except Exception as err:
     print('** Error importing modules. {0}'.format(err))
     print('We will attempt to continue and hope for the best.')
@@ -53,16 +54,6 @@ implementation was not difficult to code.
 It is in a single python file to simplify usage by others.
 
 """
-
-class NoSpectrometerConnected(RuntimeError):
-    pass
-class UnableToInitialize(RuntimeError):
-    pass
-class UnableToCommunicate(RuntimeError):
-    pass
-class SpectrumRequestTimeoutError(RuntimeError):
-    pass
-
 
 class OISpectrometer:
     """
