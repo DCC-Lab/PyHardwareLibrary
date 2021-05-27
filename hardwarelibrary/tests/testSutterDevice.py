@@ -53,7 +53,7 @@ class TestSutter(unittest.TestCase):
 
         self.assertEqual(self.port.timeout, 1)
 
-    def testSutterMoveCommand(self):
+    def testPySerialPortSutterReadCommand(self):
         self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
 
         x,y,z  = 100000,0,0 
