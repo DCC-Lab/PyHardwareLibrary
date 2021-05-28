@@ -43,18 +43,18 @@ class TestSutter(unittest.TestCase):
         self.port.close()
 
     def testPortClosesProperly(self):
-        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
         self.port.close()
         self.assertFalse(self.port.is_open)
 
     def testPortCanSteTimeoutLater(self):
-        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
         self.port.timeout = 1
 
         self.assertEqual(self.port.timeout, 1)
 
     def testPySerialPortSutterReadCommand(self):
-        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
 
         x,y,z  = 100000,0,0 
         commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
@@ -64,10 +64,11 @@ class TestSutter(unittest.TestCase):
         replyBytes = self.port.read(1)
         self.assertTrue(replyBytes == b"\r")
 
-    def testSutterLongMoveCommand(self):
-        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
 
-        x,y,z  = 100000,100000,100000 
+    def testSutterLongMoveCommandReturnZerosIfNotEnoughTime(self):
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
+
+        x,y,z  = 400000,400000,400000 
         commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
         nBytes = self.port.write(commandBytes)
         self.assertTrue(nBytes == len(commandBytes))
@@ -83,21 +84,60 @@ class TestSutter(unittest.TestCase):
         replyBytes = self.port.read(1)
         self.assertTrue(replyBytes == b"\r")
 
-    def testSutterReadPosition(self):
-        self.port = serial.Serial(self.portPath, timeout=5, baudrate=128000)
+        # Buffer must be empty
+        self.port.timeout = 0.1
+        replyBytes = self.port.read(1)
+        self.assertTrue(len(replyBytes) == 0)
+
+
+    def testSutterReadPositionOnce(self):
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
         
         commandBytes = pack('<cc', b'C', b'\r')
         nBytes = self.port.write(commandBytes)
         self.assertTrue(nBytes == len(commandBytes))
 
-        replyBytes = self.port.read(13)
-        info = unpack("<clll", replyBytes)
-        self.assertTrue(len(replyBytes) == 13)
+        replyBytes = self.port.read(14)
+        info = unpack("<clllc", replyBytes)
+        self.assertTrue(len(replyBytes) == 14)
+        self.assertTrue(info[0] == b'\x01')
 
         # Buffer must be empty
         self.port.timeout = 0.1
-        with self.assertRaise(Exception):
+        replyBytes = self.port.read(1)
+        self.assertTrue(len(replyBytes) == 0)
+
+
+    def testSutterReadPositionManyTimes(self):
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
+
+        for i in range(6):        
+            commandBytes = pack('<cc', b'C', b'\r')
+            nBytes = self.port.write(commandBytes)
+            self.assertTrue(nBytes == len(commandBytes))
+
+            replyBytes = self.port.read(14)
+            self.assertTrue(len(replyBytes) == 14)
+            info = unpack("<clllc", replyBytes)
+
+            # Buffer must be empty
+            self.port.timeout = 0.1
             replyBytes = self.port.read(1)
+            self.assertTrue(len(replyBytes) == 0)
+
+    def testSutterReadPositionManyTimesWith13BytesOnly(self):
+        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
+
+        with self.assertRaises(Exception):
+            for i in range(6):        
+                commandBytes = pack('<cc', b'C', b'\r')
+                nBytes = self.port.write(commandBytes)
+                self.assertTrue(nBytes == len(commandBytes))
+
+                replyBytes = self.port.read(13)
+                info = unpack("<clll", replyBytes)
+                self.assertTrue(len(replyBytes) == 13)
+                self.assertTrue(info[0] == b'\x01') # will fail on 2nd attempt
 
 
 
