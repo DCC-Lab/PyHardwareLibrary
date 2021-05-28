@@ -7,7 +7,7 @@ from struct import *
 from hardwarelibrary.communication import *
 import serial
 
-class TestSutter(unittest.TestCase):
+class TestSutterBasicCommands(unittest.TestCase):
     def setUp(self):
         self.port = None
         self.portPath = None
@@ -139,6 +139,46 @@ class TestSutter(unittest.TestCase):
                 self.assertTrue(len(replyBytes) == 13)
                 self.assertTrue(info[0] == b'\x01') # will fail on 2nd attempt
 
+
+class TestSutterIntegration(unittest.TestCase):
+    def setUp(self):
+        self.port = None
+        self.portPath = None
+
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            if port.vid == 4930 and port.pid == 1: # Sutter Instruments
+                self.portPath = port.device
+
+        if self.portPath is None:
+            self.fail("No Sutter connected. Giving up.")
+
+    def tearDown(self):
+        if self.port is not None:
+            self.port.close()
+
+    def move(self, x,y,z):
+        # Write this or copy/paste from above...
+        self.assertTrue(False)
+
+    def getPosition(self):
+        # Write this or copy/paste from above...
+        self.assertTrue(False)
+
+    def testMove(self):
+        self.assertTrue(False)
+
+    def testMoveAndConfirmPosition(self):
+        self.assertTrue(False)
+
+    def testMoveSeveralTimes(self):
+        self.assertTrue(False)
+
+    def testReadPosition(self):
+        self.assertTrue(False)
+
+    def testReadPositionSeveralTimes(self):
+        self.assertTrue(False)
 
 
 if __name__ == '__main__':
