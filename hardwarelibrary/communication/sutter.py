@@ -1,14 +1,9 @@
 from struct import *
-import sys
-import serial
-from serial.tools.list_ports import comports
-#sys.path.insert(0, "/Users/justinemajor/Documents/gph.doc/git/PyHardwareLibrary/hardwarelibrary/communication")
 import time
-import array
-import os
 import serial
+from serial import SerialPort
 
-#/dev/cu.usbserial-SI8YCLBE
+
 class SutterDevice:
     def __init__(self):
         """
@@ -16,8 +11,6 @@ class SutterDevice:
         """
         
         self.port = serial.Serial("/dev/cu.usbserial-SI8YCLBE", timeout=5, baudrate=128000)
-
-        #ajouter les instances nécessaires
 
         self.microstepsPerMicrons = 16
 
@@ -75,47 +68,40 @@ class SutterDevice:
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        return self.readReply(size=14, format='<clllc')[1:-1]
+        return self.readReply(size=14, format='<clllc')
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """
         x,y,z  = position
         commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
         self.sendCommand(commandBytes)
-        #self.readReply(size=1, format='<c')
     
     def position(self) -> (float, float, float):
         """ Returns the position in microns """
 
         position = self.positionInMicrosteps()
         if position is not None:
-            return (position[0]/self.microstepsPerMicrons, 
-                    position[1]/self.microstepsPerMicrons,
-                    position[2]/self.microstepsPerMicrons)
+            return (position[1]/self.microstepsPerMicrons,
+                    position[2]/self.microstepsPerMicrons,
+                    position[3]/self.microstepsPerMicrons)
         else:
             return None
 
     def moveTo(self, position):
         """ Move to a position in microns """
-        #if not self.port.is_open:
-            #self.port.open()
         x,y,z  = position
         positionInMicrosteps = (x*self.microstepsPerMicrons, 
                                 y*self.microstepsPerMicrons,
                                 z*self.microstepsPerMicrons)
         self.moveInMicrostepsTo(positionInMicrosteps)
-        #self.port.close()
 
     def moveBy(self, delta) -> bool:
         #Move by a delta displacement (dx, dy, dz) from current position in microns
-        #if not self.port.is_open:
-            #self.port.open()
         dx,dy,dz  = delta
         position = self.position()
         if position is not None:
             x,y,z = position
             self.moveTo((x+dx, y+dy, z+dz))
-        #self.port.close()
 
 
 if __name__ == "__main__":
