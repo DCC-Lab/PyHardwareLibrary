@@ -5,15 +5,14 @@ from threading import Thread, Lock
 from struct import *
 
 from hardwarelibrary.motion.sutterdevice import SutterDevice, SutterDebugSerialPort 
-from hardwarelibrary.communication.usbport import USBPort
+from hardwarelibrary.communication.serialport import SerialPort
 
 class TestSutterSerialPortBase(unittest.TestCase):
     port = None
 
     def setUp(self):
-        self.port = USBPort(idVendor=0x1342, idProduct=0x0001)
+        self.port = SerialPort(idVendor=0x1342, idProduct=0x0001)
         self.port.open()
-        #self.port = DebugPort() 
 
     def tearDown(self):
         self.port.close()
@@ -66,6 +65,35 @@ class TestSutterSerialPortBase(unittest.TestCase):
         self.assertTrue( x == 1)
         self.assertTrue( y == 2)
         self.assertTrue( z == 3)
+
+
+class TestSutterDevice(unittest.TestCase):
+    def setUp(self):
+        self.device = SutterDevice()
+        self.assertIsNotNone(self.device)
+
+    def testDevicePosition(self):
+        (x,y,z) = self.device.positionInMicrosteps()
+        self.assertTrue(x>0)
+        self.assertTrue(y>0)
+        self.assertTrue(z>0)
+    def testDeviceMove(self):
+        self.device.moveTo(1,2,3)
+
+        (x,y,z) = self.device.position()
+        self.assertTrue(x==1)
+        self.assertTrue(y==2)
+        self.assertTrue(z==3)
+
+    def testDeviceMoveBy(self):
+        (xo,yo,zo) = self.device.position()
+
+        self.device.moveBy(10,20,30)
+
+        (x,y,z) = self.device.position()
+        self.assertTrue(x-x0 == 10)
+        self.assertTrue(y-y0 == 20)
+        self.assertTrue(z-z0 == 30)
 
 if __name__ == '__main__':
     unittest.main()
