@@ -7,15 +7,8 @@ from struct import *
 from hardwarelibrary.motion.sutterdevice import SutterDevice, SutterDebugSerialPort 
 from hardwarelibrary.communication.serialport import SerialPort
 
-class TestSutterSerialPortBase(unittest.TestCase):
+class TestSutterSerialPortBase:
     port = None
-
-    def setUp(self):
-        self.port = SerialPort(idVendor=0x1342, idProduct=0x0001)
-        self.port.open()
-
-    def tearDown(self):
-        self.port.close()
 
     def testCreate(self):
         self.assertIsNotNone(self.port)
@@ -66,10 +59,20 @@ class TestSutterSerialPortBase(unittest.TestCase):
         self.assertTrue( y == 2)
         self.assertTrue( z == 3)
 
+class TestSutterDebugSerialPort(TestSutterSerialPortBase, unittest.TestCase):
+
+    def setUp(self):
+        self.port = SutterDebugSerialPort()
+        self.assertIsNotNone(self.port)
+        self.port.open()
+
+    def tearDown(self):
+        self.port.close()
+
 
 class TestSutterDevice(unittest.TestCase):
     def setUp(self):
-        self.device = SutterDevice()
+        self.device = SutterDevice(serialNumber="debug")
         self.assertIsNotNone(self.device)
 
     def testDevicePosition(self):
@@ -78,17 +81,18 @@ class TestSutterDevice(unittest.TestCase):
         self.assertTrue(y>0)
         self.assertTrue(z>0)
     def testDeviceMove(self):
-        self.device.moveTo(1,2,3)
+        destination = (1,2,3)
+        self.device.moveTo( destination )
 
         (x,y,z) = self.device.position()
-        self.assertTrue(x==1)
-        self.assertTrue(y==2)
-        self.assertTrue(z==3)
+        self.assertTrue(x==destination[0])
+        self.assertTrue(y==destination[1])
+        self.assertTrue(z==destination[2])
 
     def testDeviceMoveBy(self):
         (xo,yo,zo) = self.device.position()
 
-        self.device.moveBy(10,20,30)
+        self.device.moveBy( (10,20,30) )
 
         (x,y,z) = self.device.position()
         self.assertTrue(x-x0 == 10)

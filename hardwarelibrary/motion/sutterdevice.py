@@ -8,7 +8,7 @@ import re
 import time
 from struct import *
 
-class SutterDevice(PhysicalDevice, LinearMotionDevice):
+class SutterDevice(PhysicalDevice):
 
     def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
                  productId: np.uint32 = None, vendorId: np.uint32 = None):
@@ -21,7 +21,6 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
             self.portPath = None
 
         PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
-        LinearMotionDevice.__init__(self)
         self.port = None
         self.xMinLimit = 0
         self.yMinLimit = 0
@@ -123,7 +122,7 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
                     position[2]/self.microstepsPerMicrons,
                     position[3]/self.microstepsPerMicrons)
         else:
-            return None
+            return (None, None, None)
 
     def moveTo(self, position):
         """ Move to a position in microns """
