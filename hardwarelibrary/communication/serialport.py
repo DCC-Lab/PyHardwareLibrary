@@ -69,9 +69,9 @@ class SerialPort(CommunicationPort):
         else:
             return self.port.is_open    
 
-    def open(self):
+    def open(self, baudRate=57600, timeout=0.3):
         if self.port is None:
-            self.port = serial.Serial(self.portPath, 57600, timeout=0.3)
+            self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)
         else:
             self.port.open()
 
