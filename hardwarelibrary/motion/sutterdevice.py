@@ -72,6 +72,7 @@ class SutterDevice(PhysicalDevice):
                 self.initializeDevice()
             
             self.port.writeData(commandBytes)
+            reply = self.readReply(1)
 
         except Exception as err:
             print('Error when sending command: {0}'.format(err))
@@ -105,7 +106,7 @@ class SutterDevice(PhysicalDevice):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        return self.readReply(size=14, format='<clllc')
+        return self.readReply(size=13, format='<lllc')
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """
@@ -118,9 +119,9 @@ class SutterDevice(PhysicalDevice):
 
         position = self.positionInMicrosteps()
         if position is not None:
-            return (position[1]/self.microstepsPerMicrons,
-                    position[2]/self.microstepsPerMicrons,
-                    position[3]/self.microstepsPerMicrons)
+            return (position[0]/self.microstepsPerMicrons,
+                    position[1]/self.microstepsPerMicrons,
+                    position[2]/self.microstepsPerMicrons)
         else:
             return (None, None, None)
 
@@ -144,14 +145,13 @@ class SutterDevice(PhysicalDevice):
         commandBytes = pack('<cc', b'H', b'\r')
  
         self.sendCommand(commandBytes)
-        reply = self.readData(length=1)
         
     def work(self):
         self.home()
         commandBytes = pack('<cc', b'Y', b'\r')
         
         self.sendCommand(commandBytes)
-        reply = self.readData(length=1)
+
 
 class SutterDebugSerialPort(CommunicationPort):
     def __init__(self):
