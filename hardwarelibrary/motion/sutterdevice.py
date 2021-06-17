@@ -145,6 +145,13 @@ class SutterDevice(PhysicalDevice):
  
         self.sendCommand(commandBytes)
         reply = self.readData(length=1)
+        
+    def work(self):
+        self.home()
+        commandBytes = pack('<cc', b'Y', b'\r')
+        
+        self.sendCommand(commandBytes)
+        reply = self.readData(length=1)
 
 class SutterDebugSerialPort(CommunicationPort):
     def __init__(self):
