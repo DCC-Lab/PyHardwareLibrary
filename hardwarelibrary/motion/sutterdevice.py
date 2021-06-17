@@ -8,7 +8,7 @@ import re
 import time
 from struct import *
 
-class SutterDevice(PhysicalDevice, LinearMotionDevice):
+class SutterDevice(PhysicalDevice):
 
     def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
                  productId: np.uint32 = None, vendorId: np.uint32 = None):
@@ -21,7 +21,6 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
             self.portPath = None
 
         PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
-        LinearMotionDevice.__init__(self)
         self.port = None
         self.xMinLimit = 0
         self.yMinLimit = 0
@@ -29,7 +28,7 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
         self.xMaxLimit = 25000
         self.yMaxLimit = 25000
         self.zMaxLimit = 25000
-
+        self.microstepsPerMicrons = 16
 
     def __del__(self):
         try:
@@ -43,12 +42,12 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
             if self.portPath == "debug":
                 self.port = SutterDebugSerialPort()
             else:
-                self.port = CommunicationPort(portPath=self.portPath)
+                self.port = SerialPort(idVendor=4930, idProduct=0x0001)
             
             if self.port is None:
                 raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
-            self.port.open()
+            self.port.open(baudRate=128000, timeout=10)
             self.doGetPosition()
 
         except Exception as error:
@@ -64,6 +63,95 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
         self.port.close()
         self.port = None
         return
+
+    def sendCommand(self, commandBytes):
+        """ The function to write a command to the endpoint. It will initialize the device 
+        if it is not alread initialized. On failure, it will warn and shutdown."""
+        try:
+            if self.port is None:
+                self.initializeDevice()
+            
+            self.port.writeData(commandBytes)
+            reply = self.readReply(1)
+
+        except Exception as err:
+            print('Error when sending command: {0}'.format(err))
+            self.shutdownDevice()
+
+    def readReply(self, size, format=None) -> tuple:
+        """ The function to read a reply from the endpoint. It will initialize the device 
+        if it is not already initialized. On failure, it will warn and shutdown. 
+        It will unpack the reply into a tuple.
+        """
+        try:
+            if self.port is None:
+                self.initializeDevice()
+
+            replyBytes = self.port.readData(size)
+            if len(replyBytes) == size:
+                if format is not None:
+                    theTuple = unpack(format, replyBytes)
+                    return theTuple
+                else:
+                    return ()
+            else:
+                raise Exception("Not enough bytes read")
+
+        except Exception as err:
+            print('Error when reading reply: {0}'.format(err))
+            self.shutdownDevice()
+            return None
+
+    def positionInMicrosteps(self) -> (int,int,int):
+        """ Returns the position in microsteps """
+        commandBytes = pack('<cc', b'C', b'\r')
+        self.sendCommand(commandBytes)
+        return self.readReply(size=13, format='<lllc')
+
+    def moveInMicrostepsTo(self, position):
+        """ Move to a position in microsteps """
+        x,y,z  = position
+        commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
+        self.sendCommand(commandBytes)
+    
+    def position(self) -> (float, float, float):
+        """ Returns the position in microns """
+
+        position = self.positionInMicrosteps()
+        if position is not None:
+            return (position[0]/self.microstepsPerMicrons,
+                    position[1]/self.microstepsPerMicrons,
+                    position[2]/self.microstepsPerMicrons)
+        else:
+            return (None, None, None)
+
+    def moveTo(self, position):
+        """ Move to a position in microns """
+        x,y,z  = position
+        positionInMicrosteps = (x*self.microstepsPerMicrons, 
+                                y*self.microstepsPerMicrons,
+                                z*self.microstepsPerMicrons)
+        self.moveInMicrostepsTo(positionInMicrosteps)
+
+    def moveBy(self, delta) -> bool:
+        #Move by a delta displacement (dx, dy, dz) from current position in microns
+        dx,dy,dz  = delta
+        position = self.position()
+        if position is not None:
+            x,y,z = position
+            self.moveTo((x+dx, y+dy, z+dz))
+
+    def home(self):
+        commandBytes = pack('<cc', b'H', b'\r')
+ 
+        self.sendCommand(commandBytes)
+        
+    def work(self):
+        self.home()
+        commandBytes = pack('<cc', b'Y', b'\r')
+        
+        self.sendCommand(commandBytes)
+
 
 class SutterDebugSerialPort(CommunicationPort):
     def __init__(self):
