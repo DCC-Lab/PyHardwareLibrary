@@ -1,6 +1,7 @@
 from struct import *
 import time
 import serial
+from motion import sutterDevice
 
 # class SutterDevice:
 #     def __init__(self):
@@ -109,14 +110,8 @@ if __name__ == "__main__":
 
     for i in range(nbDonnees+1):
         if i == 0:
-            #Move to home position before moving to work position
-            commandBytes = pack('<cc', b'H', b'\r')
-            device.port.writeData(commandBytes)
-            device.port.readData(1)
-            #move to work position
-            commandBytes = pack('<cc', b'Y', b'\r')
-            device.port.writeData(commandBytes)
-            device.port.readData(1)
+            #device.home()
+            device.work()
             print(device.position())
             time.sleep(1)
         if i % 2 == 0:
