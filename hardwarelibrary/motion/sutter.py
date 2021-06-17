@@ -123,6 +123,5 @@ if __name__ == "__main__":
                 device.moveBy((dist*fac, 0, 0))
             else:
                 device.moveBy((0, dist, 0))
-            device.port.readData(1)
             print(device.position())
             time.sleep(1)
