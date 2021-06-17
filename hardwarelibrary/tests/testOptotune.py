@@ -1,5 +1,6 @@
 import unittest
-from communicationport import SerialPort
+import env
+from hardwarelibrary.communication import SerialPort
 
 class TestOptotune(unittest.TestCase):
     idVendor = 0x03eb

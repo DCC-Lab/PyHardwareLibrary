@@ -10,8 +10,8 @@ root = os.path.dirname(
         )
 
 # append module root directory to sys.path
-sys.path.insert(0, "{0}/hardwarelibrary/communication".format(root))
-sys.path.insert(0, "{0}/hardwarelibrary/spectrometers".format(root))
-sys.path.insert(0, "{0}/hardwarelibrary/lasersources".format(root))
-sys.path.insert(0, "{0}/hardwarelibrary".format(root))
 sys.path.insert(0, root)
+# sys.path.insert(0, "{0}/hardwarelibrary/communication".format(root))
+# sys.path.insert(0, "{0}/hardwarelibrary/spectrometers".format(root))
+# sys.path.insert(0, "{0}/hardwarelibrary/lasersources".format(root))
+# sys.path.insert(0, "{0}/hardwarelibrary".format(root))
