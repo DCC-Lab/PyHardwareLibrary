@@ -8,31 +8,31 @@ class TestOptotune(unittest.TestCase):
     idProduct = 0x2018
     port = None
 
-    # def test01SerialPort(self):
-    #     self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
-    #     self.assertIsNotNone(self.port)
-    #     self.port = None
+    def test01SerialPort(self):
+        self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
+        self.assertIsNotNone(self.port)
+        self.port = None
 
-    # def test02OpenPort(self):
-    #     self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
-    #     self.port.open(baudRate=115200)
-    #     self.assertTrue(self.port.isOpen)
-    #     self.port.close()
-    #     self.assertFalse(self.port.isOpen)
-    #     self.port = None
+    def test02OpenPort(self):
+        self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
+        self.port.open(baudRate=115200)
+        self.assertTrue(self.port.isOpen)
+        self.port.close()
+        self.assertFalse(self.port.isOpen)
+        self.port = None
 
-    # def test03WriteStartCommandToPort(self):
-    #     self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
-    #     self.port.open(baudRate=115200)
-    #     self.assertTrue(self.port.isOpen)
+    def test03WriteStartCommandToPort(self):
+        self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
+        self.port.open(baudRate=115200)
+        self.assertTrue(self.port.isOpen)
 
-    #     command = 'Start'
-    #     self.port.writeString(command)
-    #     reply = self.port.readString()
-    #     self.assertTrue(reply == 'Ready\r\n')
+        command = 'Start'
+        self.port.writeString(command)
+        reply = self.port.readString()
+        self.assertTrue(reply == 'Ready\r\n')
 
-    #     self.port.close()
-    #     self.port = None
+        self.port.close()
+        self.port = None
 
     def createCRCTable(self):
         # Create table, translated from C from https://static1.squarespace.com/static/5d9dde8d550f0a5f20b60b6a/t/601bc9aa063cc13aef894231/1612433909005/Optotune+Lens+Driver+4+manual.pdf
@@ -84,22 +84,36 @@ class TestOptotune(unittest.TestCase):
         self.assertEqual(crc[0], 0x26)
         self.assertEqual(crc[1], 0x93)
 
-    # def test04WriteSetCurrent(self):
-    #     self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
-    #     self.port.open(baudRate=115200)
-    #     self.assertTrue(self.port.isOpen)
+    def test04WriteSetCurrent(self):
+        self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
+        self.port.open(baudRate=115200)
+        self.assertTrue(self.port.isOpen)
 
-    #     dataSetCurrent = bytearray(b'Aw\x02\xbb')
-    #     crc16 = self.calculateCRC16bit(dataSetCurrent)
-    #     dataSetCurrent.extend(crc16)
-    #     self.port.writeData(dataSetCurrent)
-    #     error = self.port.readString()
-    #     self.assertTrue(error[0] == 'E')
-    #     self.assertTrue(error[1] == '1')
-    #     self.assertTrue(len(error) >= 5)
-    #     self.port.close()
-    #     self.port = None
+        dataSetCurrent = bytearray(b'Aw\x02\xbb')
+        crc16 = self.calculateCRC16bit(dataSetCurrent)
+        dataSetCurrent.extend(crc16)
+        self.port.writeData(dataSetCurrent)
+        self.port.close()
+        self.port = None
 
+    def test05WriteSetCurrent(self):
+        self.port = SerialPort(bsdPath='/dev/tty.usbmodem144201')
+        self.port.open(baudRate=115200)
+        self.assertTrue(self.port.isOpen)
+
+        dataSetCurrent = bytearray(b'CrMA\x00\x00')
+        crc16 = self.calculateCRC16bit(dataSetCurrent)
+        dataSetCurrent.extend(crc16)
+        self.port.writeData(dataSetCurrent)
+        
+        reply  = self.port.readData(length=9)
+        print(reply)
+        print(len(reply))
+        unpackReply = struct.unpack('!ccchHcc', reply)
+        self.assertTrue(len(reply) == 9)
+        print(unpackReply)
+        self.port.close()
+        self.port = None
 
 if __name__ == '__main__':
     unittest.main()
