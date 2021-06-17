@@ -72,7 +72,6 @@ class SutterDevice(PhysicalDevice):
                 self.initializeDevice()
             
             self.port.writeData(commandBytes)
-            reply = self.readReply(1)
 
         except Exception as err:
             print('Error when sending command: {0}'.format(err))
@@ -106,22 +105,26 @@ class SutterDevice(PhysicalDevice):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        return self.readReply(size=13, format='<lllc')
+        return self.readReply(size=14, format='<clllc')
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """
         x,y,z  = position
         commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
         self.sendCommand(commandBytes)
+        replyBytes = self.readReply(1)
+        reply = unpack('<c', replyBytes)
+        if reply != '\r':
+            raise Exception(f"Expected carriage return, but got {reply} instead.")
     
     def position(self) -> (float, float, float):
         """ Returns the position in microns """
 
         position = self.positionInMicrosteps()
         if position is not None:
-            return (position[0]/self.microstepsPerMicrons,
-                    position[1]/self.microstepsPerMicrons,
-                    position[2]/self.microstepsPerMicrons)
+            return (position[1]/self.microstepsPerMicrons,
+                    position[2]/self.microstepsPerMicrons,
+                    position[3]/self.microstepsPerMicrons)
         else:
             return (None, None, None)
 
