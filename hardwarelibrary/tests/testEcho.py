@@ -6,7 +6,6 @@ import random
 import array
 import os
 
-from serial import *
 from hardwarelibrary.communication import *
 
 import usb.util as util
@@ -330,8 +329,8 @@ class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
             self.assertIsNotNone(self.port)
             self.port.open()
             self.port.flush()
-        except:
-            raise unittest.SkipTest("No ECHO device connected")
+        except Exception as err:
+            raise unittest.SkipTest("No ECHO device connected {0}".format(err))
 
     def tearDown(self):
         self.port.flush()
