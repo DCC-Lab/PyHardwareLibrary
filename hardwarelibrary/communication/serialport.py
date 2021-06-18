@@ -6,6 +6,9 @@ import re
 class UnableToOpenSerialPort(serial.SerialException):
     pass
 
+class MoreThanOneMatch(serial.SerialException):
+    pass
+
 class SerialPort(CommunicationPort):
     """
     An implementation of CommunicationPort using BSD-style serial port
@@ -15,15 +18,13 @@ class SerialPort(CommunicationPort):
     2. with an instance of pyserial.Serial() that will support the same
        functions as pyserial.Serial() (open, close, read, write, readline)
     """
-    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, bsdPath=None, portPath=None, port=None):
+    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None):
         CommunicationPort.__init__(self)
 
         if idVendor is not None:
-            portPath = SerialPort.matchSinglePort(idVendor, idProduct, serialNumber)
+            portPath = SerialPort.matchAnyPort(idVendor, idProduct, serialNumber)
 
-        if bsdPath is not None:
-            self.portPath = bsdPath
-        elif portPath is not None:
+        if portPath is not None:
             self.portPath = portPath
         else:
             self.portPath = None
@@ -33,13 +34,17 @@ class SerialPort(CommunicationPort):
             
         self.port = None # direct port, must be closed.
 
-        self.portLock = RLock()
-        self.transactionLock = RLock()
-
     @classmethod
     def matchSinglePort(cls, idVendor=None, idProduct=None, serialNumber=None):
         ports = cls.matchPorts(idVendor, idProduct, serialNumber)
         if len(ports) == 1:
+            return ports[0]
+        return None
+
+    @classmethod
+    def matchAnyPort(cls, idVendor=None, idProduct=None, serialNumber=None):
+        ports = cls.matchPorts(idVendor, idProduct, serialNumber)
+        if len(ports) >= 1:
             return ports[0]
         return None
 
@@ -92,10 +97,10 @@ class SerialPort(CommunicationPort):
         if self.isOpen:
             # When an FTDI chip is used, this short sleep delay appears necessary
             # If not, the flush does not occur.
-            time.sleep(0.05)
+            time.sleep(0.02)
             self.port.flushInput()
             self.port.flushOutput()
-            time.sleep(0.05)
+            time.sleep(0.02)
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
