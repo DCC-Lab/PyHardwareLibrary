@@ -12,8 +12,6 @@ try:
     import random
     from pathlib import *
 
-    from .base import *
-    from .viewer import *
 
     import usb.core
     import usb.util
@@ -28,6 +26,9 @@ try:
 except Exception as err:
     print('** Error importing modules. {0}'.format(err))
     print('We will attempt to continue and hope for the best.')
+
+from hardwarelibrary.spectrometers.base import *
+from hardwarelibrary.spectrometers.viewer import *
     
 """
 This is a simple script to use an Ocean Insight USB2000 spectrometer. You can

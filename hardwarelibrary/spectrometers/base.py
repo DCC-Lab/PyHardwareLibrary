@@ -15,7 +15,7 @@ import usb.util
 import usb.backend.libusb1
 
 from pathlib import *
-from viewer import *
+from hardwarelibrary.spectrometers.viewer import *
 
 class NoSpectrometerConnected(RuntimeError):
     pass
