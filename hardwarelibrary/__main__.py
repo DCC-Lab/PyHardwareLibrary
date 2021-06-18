@@ -21,7 +21,7 @@ if decrypt == True:
     zipFile =spectrometersDirectory.joinpath('stellarnet.zip')
 
     if platform.system() == 'Windows':
-        subprocess.run(["start", zipFile]) #hope for the best
+        os.startfile(zipFile)
     elif platform.system() == 'Darwin':
         completedProcess = subprocess.run(["unzip", zipFile, "-d", spectrometersDirectory])
         if completedProcess.returncode != 0:
