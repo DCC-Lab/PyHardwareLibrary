@@ -27,6 +27,8 @@ class SpectrumRequestTimeoutError(RuntimeError):
     pass
 
 class Spectrometer:
+    idVendor = None
+    idProduct = None
     def __init__(self, serialNumber=None):
         self.model = ""
         self.wavelength = np.linspace(400,1000,1024)
