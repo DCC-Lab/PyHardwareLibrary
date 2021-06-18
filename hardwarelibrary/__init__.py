@@ -8,6 +8,5 @@ from hardwarelibrary.communication import *
 
 import hardwarelibrary.spectrometers
 import hardwarelibrary.motion
-import hardwarelibrary.powermeters
 
 #import sources #TODO: Not much to see here yet
