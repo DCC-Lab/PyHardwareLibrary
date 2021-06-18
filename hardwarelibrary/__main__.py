@@ -21,8 +21,10 @@ if decrypt == True:
     zipFile =spectrometersDirectory.joinpath('stellarnet.zip')
 
     if platform.system() == 'Windows':
-        subprocess.run(["start", zipFile])
+        subprocess.run(["start", zipFile]) #hope for the best
     elif platform.system() == 'Darwin':
-        subprocess.run(["unzip", zipFile, "-d", spectrometersDirectory])
+        completedProcess = subprocess.run(["unzip", zipFile, "-d", spectrometersDirectory])
+        if completedProcess.returncode != 0:
+            print("There was an error when unzipping and decrypting the stellarnet.zip file")
     else:
         print('Cannot unzip stellarnet file')
