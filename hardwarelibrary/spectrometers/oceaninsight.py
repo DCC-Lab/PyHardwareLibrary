@@ -12,6 +12,9 @@ try:
     import random
     from pathlib import *
 
+    from .base import *
+    from .viewer import *
+
     import usb.core
     import usb.util
     import usb.backend.libusb1
@@ -21,7 +24,7 @@ try:
     import matplotlib.animation as animation
     from matplotlib.widgets import Button, TextBox
 
-    import base
+
 except Exception as err:
     print('** Error importing modules. {0}'.format(err))
     print('We will attempt to continue and hope for the best.')
