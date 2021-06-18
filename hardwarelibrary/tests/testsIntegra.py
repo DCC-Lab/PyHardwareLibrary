@@ -54,7 +54,7 @@ class TestIntegraPort(unittest.TestCase):
         ]
 
         for command in commands:
-            self.assertFalse(command.send(port=self.port),command.exceptions)
+            self.assertFalse(command.send(port=self.port),msg=command.exceptions)
 
             with self.assertRaises(Exception):
                 leftover = self.port.readString()
