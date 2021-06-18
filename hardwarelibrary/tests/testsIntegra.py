@@ -9,6 +9,11 @@ class TestIntegraPort(unittest.TestCase):
     port = None
     def setUp(self):
         self.port = USBPort(idVendor=0x1ad5, idProduct=0x0300, interfaceNumber=0, defaultEndPoints=(1,2))
+        try:
+            self.port.open()
+        except:
+            self.fail("No devices connected")
+
     def tearDown(self):
         self.port.close()
 
