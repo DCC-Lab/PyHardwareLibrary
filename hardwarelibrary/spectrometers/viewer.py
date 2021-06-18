@@ -70,6 +70,7 @@ class SpectraViewer:
         fig, axes = plt.subplots()
         fig.set_size_inches(10, 6, forward=True)
         serialNumber = self.spectrometer.getSerialNumber()
+        model = self.spectrometer.model
         fig.canvas.manager.set_window_title('Spectrometer [serial # {0}, model {1}]'.format(serialNumber, model))
         axes.set_xlabel("Wavelength [nm]")
         axes.set_ylabel("Intensity [arb.u]")

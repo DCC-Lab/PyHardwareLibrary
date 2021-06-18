@@ -139,3 +139,5 @@ cython_debug/
 
 # macOS
 .DS_Store
+hardwarelibrary/spectrometers/stellarnet.py
+hardwarelibrary/spectrometers/stellarnet.hex
