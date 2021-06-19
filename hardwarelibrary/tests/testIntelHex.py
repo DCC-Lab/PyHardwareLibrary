@@ -1,26 +1,27 @@
 import unittest
-from intelhexreader import *
+from hardwarelibrary.spectrometers.intelhexreader import *
 
 class TestIntelHexReader(unittest.TestCase):
+    hexFile = "../spectrometers/stellarnet.hex"
     def testCreateReader(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         self.assertIsNotNone(reader)
 
     def testGetLines(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         self.assertTrue(len(reader.records) > 0)
 
     def testEnums(self):
         self.assertIsNotNone(RecordType(1))
 
     def testLinesAreAllAddressTypeExceptLastLine(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         self.assertTrue(len(reader.records) > 0)
         for record in reader.records[:-1]:
             self.assertTrue(record.type == RecordType.data)
 
     def testLastLineEOF(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         self.assertTrue(len(reader.records) > 0)
         record = reader.records
         self.assertTrue(record[-1].type == RecordType.endOfFile)
@@ -34,12 +35,12 @@ class TestIntelHexReader(unittest.TestCase):
             reader = IntelHexReader("testIntelHex.py")        
 
     def testInvalidLine(self):
-        reader = IntelHexReader("stellarnet.hex")        
+        reader = IntelHexReader(self.hexFile)        
         with self.assertRaises(InvalidStartCode):
             reader.convertLineToRecord("daniel cote")
         
     def testInvalidByteCount(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         #line =          ":0A0FA000000102020303040405052A"
         wrongByteCount = ":FF0FA000000102020303040405052A"
         
@@ -47,7 +48,7 @@ class TestIntelHexReader(unittest.TestCase):
             reader.convertLineToRecord(wrongByteCount)
 
     def testInvalidChecksum(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         #line =         ":0A0FA000000102020303040405052A"
         wrongChecksum = ":0A0FA00000010202030304040505FF"
         
@@ -55,7 +56,7 @@ class TestIntelHexReader(unittest.TestCase):
             reader.convertLineToRecord(wrongChecksum)
 
     def testEmptyLine(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         #line =    ":0A0FA000000102020303040405052A"
         tooShort = ""
         
@@ -63,7 +64,7 @@ class TestIntelHexReader(unittest.TestCase):
             reader.convertLineToRecord(tooShort)
 
     def testLineTooShort(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         #line =    ":0A0FA000000102020303040405052A"
         tooShort = ":0A0FA000"
         
@@ -71,7 +72,7 @@ class TestIntelHexReader(unittest.TestCase):
             reader.convertLineToRecord(tooShort)
 
     def testNewlineOrCarriageReturnOrBoth(self):
-        reader = IntelHexReader("stellarnet.hex")
+        reader = IntelHexReader(self.hexFile)
         line =      ":0A0FA000000102020303040405052A"
         lineCRNL =  ":0A0FA000000102020303040405052A\r\n"
         lineCR =    ":0A0FA000000102020303040405052A\r"
