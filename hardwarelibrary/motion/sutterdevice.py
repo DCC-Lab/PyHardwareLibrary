@@ -1,6 +1,7 @@
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.motion.linearmotiondevice import *
 from hardwarelibrary.communication.communicationport import *
+from hardwarelibrary.communication.usbport import USBPort
 from hardwarelibrary.communication.commands import DataCommand
 
 import numpy as np
@@ -52,7 +53,7 @@ class SutterDevice(PhysicalDevice):
                 raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
             self.port.open(baudRate=128000, timeout=10)
-            self.doGetPosition()
+            self.positionInMicrosteps()
 
         except Exception as error:
             if self.port is not None:
@@ -75,35 +76,30 @@ class SutterDevice(PhysicalDevice):
             if self.port is None:
                 self.initializeDevice()
             
-            self.port.writeData(commandBytes)
+            nBytesWritten = self.port.writeData(commandBytes)
+            if nBytesWritten != len(commandBytes):
+                raise Exception(f"Unable to send command {commandBytes} to device.")
 
         except Exception as err:
             print('Error when sending command: {0}'.format(err))
             self.shutdownDevice()
 
-    def readReply(self, size, format=None) -> tuple:
+    def readReply(self, size, format) -> tuple:
         """ The function to read a reply from the endpoint. It will initialize the device 
         if it is not already initialized. On failure, it will warn and shutdown. 
         It will unpack the reply into a tuple.
         """
-        try:
-            if self.port is None:
-                self.initializeDevice()
+        if format is None:
+            raise Exception("You must provide a format for unpacking in readReply")
 
-            replyBytes = self.port.readData(size)
-            if len(replyBytes) == size:
-                if format is not None:
-                    theTuple = unpack(format, replyBytes)
-                    return theTuple
-                else:
-                    return (None, None, None)
-            else:
-                raise Exception("Not enough bytes read")
+        if self.port is None:
+            self.initializeDevice()
 
-        except Exception as err:
-            print('Error when reading reply: {0}'.format(err))
-            self.shutdownDevice()
-            return None
+        replyBytes = self.port.readData(size)
+        if len(replyBytes) != size:
+            raise Exception(f"Not enough bytes read in readReply {replyBytes}")
+
+        return unpack(format, replyBytes)
 
     def positionInMicrosteps(self) -> (int,int,int):
         """ Returns the position in microsteps """
@@ -116,14 +112,10 @@ class SutterDevice(PhysicalDevice):
         x,y,z  = position
         commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
         self.sendCommand(commandBytes)
-        replyBytes = self.readReply(1)
+        reply = self.readReply(size=1, format='<c')
 
-        if replyBytes is not None:
-            reply = unpack('<c', replyBytes)
-            if reply != '\r':
-                raise Exception(f"Expected carriage return, but got {reply} instead.")
-        else:
-            raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if reply != '\r':
+            raise Exception(f"Expected carriage return, but got '{reply}' instead.")
 
     def position(self) -> (float, float, float):
         """ Returns the position in microns """
@@ -147,10 +139,11 @@ class SutterDevice(PhysicalDevice):
     def moveBy(self, delta) -> bool:
         #Move by a delta displacement (dx, dy, dz) from current position in microns
         dx,dy,dz  = delta
-        position = self.position()
-        if position is not None:
-            x,y,z = position
+        x,y,z = self.position()
+        if x is not None:
             self.moveTo((x+dx, y+dy, z+dz))
+        else:
+            raise Exception("Unable to read position from device")
 
     def home(self):
         commandBytes = pack('<cc', b'H', b'\r')
