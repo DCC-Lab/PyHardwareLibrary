@@ -10,14 +10,15 @@ import usb.core
 import usb.util
 
 class TestUSBDevices(unittest.TestCase):
-    idVendor = 0x1532
-    idProduct = 0x005c
+    idVendor = 4930
+    idProduct = 1
 
     def testList(self):
         USBPort.allDevices()
 
     def testDevice(self):
         dev = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
+        print(dev)
         self.assertIsNotNone(dev)
         dev.set_configuration()
         cfg = dev.get_active_configuration()
