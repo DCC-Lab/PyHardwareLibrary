@@ -2,6 +2,7 @@ from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.motion.linearmotiondevice import *
 from hardwarelibrary.communication.communicationport import *
 from hardwarelibrary.communication.usbport import USBPort
+from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
 
 import numpy as np
@@ -43,23 +44,19 @@ class SutterDevice(PhysicalDevice):
             if self.portPath == "debug":
                 self.port = SutterDebugSerialPort()
             else:
-                try:   
-                    self.port = USBPort(idVendor=4930, idProduct=0x0001, defaultEndPoints=(1, 0))
-                except:
-                    raise NotImplentedError("Cannot use USBPort")
-                    # self.port = SerialPort(idVendor=4930, idProduct=0x0001)
+                self.port = SerialPort(idVendor=4930, idProduct=0x0001)
+                self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
                 raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
-            self.port.open(baudRate=128000, timeout=10)
             self.positionInMicrosteps()
 
         except Exception as error:
             if self.port is not None:
                 if self.port.isOpen:
                     self.port.close()
-            raise PhysicalDeviceUnableToInitialize()
+            raise PhysicalDeviceUnableToInitialize(error)
         except PhysicalDeviceUnableToInitialize as error:
             raise error
         
@@ -72,17 +69,12 @@ class SutterDevice(PhysicalDevice):
     def sendCommand(self, commandBytes):
         """ The function to write a command to the endpoint. It will initialize the device 
         if it is not alread initialized. On failure, it will warn and shutdown."""
-        try:
-            if self.port is None:
-                self.initializeDevice()
-            
-            nBytesWritten = self.port.writeData(commandBytes)
-            if nBytesWritten != len(commandBytes):
-                raise Exception(f"Unable to send command {commandBytes} to device.")
-
-        except Exception as err:
-            print('Error when sending command: {0}'.format(err))
-            self.shutdownDevice()
+        if self.port is None:
+            self.initializeDevice()
+        
+        nBytesWritten = self.port.writeData(commandBytes)
+        if nBytesWritten != len(commandBytes):
+            raise Exception(f"Unable to send command {commandBytes} to device.")
 
     def readReply(self, size, format) -> tuple:
         """ The function to read a reply from the endpoint. It will initialize the device 
@@ -99,13 +91,16 @@ class SutterDevice(PhysicalDevice):
         if len(replyBytes) != size:
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
 
+        print(replyBytes, format)
         return unpack(format, replyBytes)
 
     def positionInMicrosteps(self) -> (int,int,int):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        return self.readReply(size=14, format='<clllc')
+        (x,y,z) = self.readReply(size=14, format='<clllc')
+
+        return (x,y,z)
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """

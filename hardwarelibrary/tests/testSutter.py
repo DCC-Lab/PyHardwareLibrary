@@ -75,6 +75,10 @@ class TestSutterDevice(unittest.TestCase):
         self.device = SutterDevice()
         self.assertIsNotNone(self.device)
 
+    def tearDown(self):
+        self.device.doShutdownDevice()
+        self.device = None
+
     def testDevicePosition(self):
         self.device.home()
 
