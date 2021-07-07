@@ -83,13 +83,13 @@ class TestSutterDevice(unittest.TestCase):
         self.device.home()
 
     def testDevicePosition(self):
-        (x,y,z) = self.device.positionInMicrosteps()
+        (x, y, z) = self.device.positionInMicrosteps()
         self.assertIsNotNone(x)
         self.assertIsNotNone(y)
         self.assertIsNotNone(z)
-        self.assertTrue(x>0)
-        self.assertTrue(y>0)
-        self.assertTrue(z>0)
+        self.assertTrue(x>=0)
+        self.assertTrue(y>=0)
+        self.assertTrue(z>=0)
     def testDeviceMove(self):
         destination = (1,2,3)
         self.device.moveTo( destination )

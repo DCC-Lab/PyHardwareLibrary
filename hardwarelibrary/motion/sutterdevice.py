@@ -94,9 +94,9 @@ class SutterDevice(PhysicalDevice):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        (x,y,z) = self.readReply(size=14, format='<xlllx')
+        (x, y, z) = self.readReply(size=14, format='<xlllx')
 
-        return (x,y,z)
+        return (x, y, z)
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """
@@ -183,6 +183,8 @@ class SutterDebugSerialPort(CommunicationPort):
             replyData.extend(b'\r')
             return replyData
 
+"""
 if __name__ == "__main__":
     device = SutterDevice()
     device.moveTo((0, 0, 0))
+"""
