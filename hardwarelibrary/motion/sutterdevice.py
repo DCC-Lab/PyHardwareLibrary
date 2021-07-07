@@ -14,14 +14,7 @@ class SutterDevice(PhysicalDevice):
 
     def __init__(self, serialNumber: str = None):
 
-        if bsdPath is not None:
-            self.portPath = bsdPath
-        elif portPath is not None:
-            self.portPath = portPath
-        else:
-            self.portPath = None
-
-        PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
+        PhysicalDevice.__init__(self, serialNumber, vendorId=4930, productId=1)
         self.port = None
         self.xMinLimit = 0
         self.yMinLimit = 0
@@ -30,6 +23,8 @@ class SutterDevice(PhysicalDevice):
         self.yMaxLimit = 25000
         self.zMaxLimit = 25000
         self.microstepsPerMicrons = 16
+
+        self.doInitializeDevice()
 
     def __del__(self):
         try:
@@ -40,10 +35,11 @@ class SutterDevice(PhysicalDevice):
 
     def doInitializeDevice(self): 
         try:
-            if self.portPath == "debug":
+            if self.serialNumber == "debug":
                 self.port = SutterDebugSerialPort()
             else:
-                self.port = SerialPort(idVendor=4930, idProduct=0x0001)
+
+                self.port = SerialPort(idVendor=4930, idProduct=1, portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
@@ -91,13 +87,14 @@ class SutterDevice(PhysicalDevice):
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
 
         print(replyBytes, format)
+        print(unpack(format, replyBytes))
         return unpack(format, replyBytes)
 
     def positionInMicrosteps(self) -> (int,int,int):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        (x,y,z) = self.readReply(size=14, format='<clllc')
+        (x,y,z) = self.readReply(size=14, format='<xlllx')
 
         return (x,y,z)
 

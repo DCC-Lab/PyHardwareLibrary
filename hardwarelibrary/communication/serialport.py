@@ -65,7 +65,8 @@ class SerialPort(CommunicationPort):
         # or              idVendor and idProduct
         # or              idVendor
         ports = []
-        for port in comports():
+        
+        for port in comports(): # obtain all regular PySerial ports
             if idProduct is None:
                 if port.vid == idVendor:
                     ports.append(port.device)
@@ -76,6 +77,7 @@ class SerialPort(CommunicationPort):
                 if port.vid == idVendor and port.pid == idProduct:
                     if re.match(serialNumber, port.serial_number, re.IGNORECASE):
                         ports.append(port.device)
+
         return ports
 
     @property
