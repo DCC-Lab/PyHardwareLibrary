@@ -139,26 +139,22 @@ class SutterDevice(PhysicalDevice):
     def home(self):
         commandBytes = pack('<cc', b'H', b'\r')
         self.sendCommand(commandBytes)
-        replyBytes = self.readReply(1)
-        if replyBytes is not None:
-            reply = unpack('<c', replyBytes)
-            if reply != '\r':
-                raise Exception(f"Expected carriage return, but got {reply} instead.")
-        else:
+        replyBytes = self.readReply(1, '<c')
+        if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if replyBytes[0] != '\r':
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
         
         
     def work(self):
         self.home()
         commandBytes = pack('<cc', b'Y', b'\r')
         self.sendCommand(commandBytes)
-        replyBytes = self.readReply(1)
-        if replyBytes is not None:
-            reply = unpack('<c', replyBytes)
-            if reply != '\r':
-                raise Exception(f"Expected carriage return, but got {reply} instead.")
-        else:
+        replyBytes = self.readReply(1, '<c')
+        if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if replyBytes[0] != '\r':
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
 
 
 class SutterDebugSerialPort(CommunicationPort):
