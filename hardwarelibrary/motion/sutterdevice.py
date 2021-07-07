@@ -12,17 +12,9 @@ from struct import *
 
 class SutterDevice(PhysicalDevice):
 
-    def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
-                 productId: np.uint32 = None, vendorId: np.uint32 = None):
+    def __init__(self, serialNumber: str = None):
 
-        if bsdPath is not None:
-            self.portPath = bsdPath
-        elif portPath is not None:
-            self.portPath = portPath
-        else:
-            self.portPath = None
-
-        PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
+        PhysicalDevice.__init__(self, serialNumber, vendorId=4930, productId=1)
         self.port = None
         self.xMinLimit = 0
         self.yMinLimit = 0
@@ -31,6 +23,8 @@ class SutterDevice(PhysicalDevice):
         self.yMaxLimit = 25000
         self.zMaxLimit = 25000
         self.microstepsPerMicrons = 16
+
+        self.doInitializeDevice()
 
     def __del__(self):
         try:
@@ -41,10 +35,11 @@ class SutterDevice(PhysicalDevice):
 
     def doInitializeDevice(self): 
         try:
-            if self.portPath == "debug":
+            if self.serialNumber == "debug":
                 self.port = SutterDebugSerialPort()
             else:
-                self.port = SerialPort(idVendor=4930, idProduct=0x0001)
+
+                self.port = SerialPort(idVendor=4930, idProduct=1, portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
@@ -70,7 +65,7 @@ class SutterDevice(PhysicalDevice):
         """ The function to write a command to the endpoint. It will initialize the device 
         if it is not alread initialized. On failure, it will warn and shutdown."""
         if self.port is None:
-            self.initializeDevice()
+            self.doInitializeDevice()
         
         nBytesWritten = self.port.writeData(commandBytes)
         if nBytesWritten != len(commandBytes):
@@ -92,15 +87,16 @@ class SutterDevice(PhysicalDevice):
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
 
         print(replyBytes, format)
+        print(unpack(format, replyBytes))
         return unpack(format, replyBytes)
 
     def positionInMicrosteps(self) -> (int,int,int):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
-        (x,y,z) = self.readReply(size=14, format='<clllc')
+        (x, y, z) = self.readReply(size=14, format='<xlllx')
 
-        return (x,y,z)
+        return (x, y, z)
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """
@@ -143,26 +139,22 @@ class SutterDevice(PhysicalDevice):
     def home(self):
         commandBytes = pack('<cc', b'H', b'\r')
         self.sendCommand(commandBytes)
-        replyByte = self.readReply(1)
-        if replyBytes is not None:
-            reply = unpack('<c', replyBytes)
-            if reply != '\r':
-                raise Exception(f"Expected carriage return, but got {reply} instead.")
-        else:
+        replyBytes = self.readReply(1, '<c')
+        if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if replyBytes[0] != '\r':
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
         
         
     def work(self):
         self.home()
         commandBytes = pack('<cc', b'Y', b'\r')
         self.sendCommand(commandBytes)
-        replyBytes = self.readReply(1)
-        if replyBytes is not None:
-            reply = unpack('<c', replyBytes)
-            if reply != '\r':
-                raise Exception(f"Expected carriage return, but got {reply} instead.")
-        else:
+        replyBytes = self.readReply(1, '<c')
+        if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if replyBytes[0] != '\r':
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
 
 
 class SutterDebugSerialPort(CommunicationPort):
@@ -190,3 +182,9 @@ class SutterDebugSerialPort(CommunicationPort):
             replyData.extend(bytearray(pack("<l", self.z)))
             replyData.extend(b'\r')
             return replyData
+
+"""
+if __name__ == "__main__":
+    device = SutterDevice()
+    device.moveTo((0, 0, 0))
+"""

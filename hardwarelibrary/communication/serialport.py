@@ -2,6 +2,8 @@ from .communicationport import *
 import time
 from serial.tools.list_ports import comports
 import re
+import pyftdi.serialext
+import pyftdi.ftdi 
 
 class UnableToOpenSerialPort(serial.SerialException):
     pass
@@ -14,14 +16,23 @@ class SerialPort(CommunicationPort):
     An implementation of CommunicationPort using BSD-style serial port
     
     Two strategies to initialize the SerialPort:
-    1. with a bsdPath/port name (i.e. "COM1" or "/dev/cu.serial")
+    1. with a portPath/port name (i.e. "COM1" or "/dev/cu.serial")
     2. with an instance of pyserial.Serial() that will support the same
        functions as pyserial.Serial() (open, close, read, write, readline)
+    3. with a URL for support through pyftdi to access the chip directly. Use portPath 'ftdi://ftdi:2232h/2'
+       or the find_url.py script from the distribution. More info: https://eblot.github.io/pyftdi/api/usbtools.html
+       You have to add any custom VID/PID when using tools (but they are added here in SerialPort) @line 30.
     """
     def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None):
         CommunicationPort.__init__(self)
 
-        if idVendor is not None:
+        try:
+            pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
+        except ValueError as err:
+            # It is not an error: it is already registered
+            pass
+
+        if idVendor is not None and portPath is None:
             portPath = SerialPort.matchAnyPort(idVendor, idProduct, serialNumber)
 
         if portPath is not None:
@@ -54,7 +65,8 @@ class SerialPort(CommunicationPort):
         # or              idVendor and idProduct
         # or              idVendor
         ports = []
-        for port in comports():
+        
+        for port in comports(): # obtain all regular PySerial ports
             if idProduct is None:
                 if port.vid == idVendor:
                     ports.append(port.device)
@@ -65,6 +77,7 @@ class SerialPort(CommunicationPort):
                 if port.vid == idVendor and port.pid == idProduct:
                     if re.match(serialNumber, port.serial_number, re.IGNORECASE):
                         ports.append(port.device)
+
         return ports
 
     @property
@@ -74,9 +87,23 @@ class SerialPort(CommunicationPort):
         else:
             return self.port.is_open    
 
+    @property
+    def portPathIsURL(self):
+        if self.portPath is None:
+            return False
+        else:
+            if re.match("ftdi://", self.portPath, re.IGNORECASE):
+                return True
+        return False
+
     def open(self, baudRate=57600, timeout=0.3):
         if self.port is None:
-            self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)
+            if self.portPathIsURL:
+                # See https://eblot.github.io/pyftdi/api/uart.html
+                # self.portPath = re.match(r"^ftdi://0x1342:0x1/1")
+                self.port = pyftdi.serialext.serial_for_url(self.portPath, baudrate=baudRate, timeout=timeout)
+            else:
+                self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)
         else:
             self.port.open()
 

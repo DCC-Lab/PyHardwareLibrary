@@ -7,12 +7,8 @@ rootHardwareLibrary = Path(os.path.abspath(__file__)).parents[1]
 stellarEncrypted = rootHardwareLibrary.joinpath('spectrometers/stellarnet.zip')
 stellarDecrypted = rootHardwareLibrary.joinpath('spectrometers/stellarnet.py')
 
-if os.path.exists(stellarEncrypted) and not os.path.exists(stellarDecrypted):
-    print("The StellarNet software requires a password. Please contact StellarNet if you would like to use it.")
-    print("Then, run `python3 -m hardwarelibrary --stellar` and enter the password when prompted.")
-    print("Make sure you extract the files in the spectrometers/ directory of hardwarelibrary, where the zip file is.")
-
 if not os.path.exists(stellarDecrypted):
+    # We only warn the user if they try to use the StellarNet class
     class StellarNet:
         def __init__(self):
             print("The StellarNet module must be licenced and decrypted by StellarNet. Please contact them for info.")
