@@ -87,14 +87,18 @@ class SerialPort(CommunicationPort):
 
     @property
     def portPathIsURL(self):
-        if re.match(r"^ftdi://", self.portPath, re.IGNORECASE):
-            return True
+        if self.portPath is None:
+            return False
+        else:
+            if re.match("ftdi://", self.portPath, re.IGNORECASE):
+                return True
         return False
 
     def open(self, baudRate=57600, timeout=0.3):
         if self.port is None:
             if self.portPathIsURL:
                 # See https://eblot.github.io/pyftdi/api/uart.html
+                # self.portPath = re.match(r"^ftdi://0x1342:0x1/1")
                 self.port = pyftdi.serialext.serial_for_url(self.portPath, baudrate=baudRate, timeout=timeout)
             else:
                 self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)

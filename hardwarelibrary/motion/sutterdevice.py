@@ -12,8 +12,7 @@ from struct import *
 
 class SutterDevice(PhysicalDevice):
 
-    def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
-                 productId: np.uint32 = None, vendorId: np.uint32 = None):
+    def __init__(self, serialNumber: str = None):
 
         if bsdPath is not None:
             self.portPath = bsdPath
@@ -70,7 +69,7 @@ class SutterDevice(PhysicalDevice):
         """ The function to write a command to the endpoint. It will initialize the device 
         if it is not alread initialized. On failure, it will warn and shutdown."""
         if self.port is None:
-            self.initializeDevice()
+            self.doInitializeDevice()
         
         nBytesWritten = self.port.writeData(commandBytes)
         if nBytesWritten != len(commandBytes):
@@ -143,7 +142,7 @@ class SutterDevice(PhysicalDevice):
     def home(self):
         commandBytes = pack('<cc', b'H', b'\r')
         self.sendCommand(commandBytes)
-        replyByte = self.readReply(1)
+        replyBytes = self.readReply(1)
         if replyBytes is not None:
             reply = unpack('<c', replyBytes)
             if reply != '\r':
@@ -190,3 +189,7 @@ class SutterDebugSerialPort(CommunicationPort):
             replyData.extend(bytearray(pack("<l", self.z)))
             replyData.extend(b'\r')
             return replyData
+
+if __name__ == "__main__":
+    device = SutterDevice()
+    device.moveTo((0, 0, 0))
