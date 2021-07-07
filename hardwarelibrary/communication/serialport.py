@@ -32,7 +32,7 @@ class SerialPort(CommunicationPort):
             # It is not an error: it is already registered
             pass
 
-        if idVendor is not None:
+        if idVendor is not None and portPath is None:
             portPath = SerialPort.matchAnyPort(idVendor, idProduct, serialNumber)
 
         if portPath is not None:
