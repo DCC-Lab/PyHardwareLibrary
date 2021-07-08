@@ -1,9 +1,12 @@
 from .communicationport import *
 import time
 from serial.tools.list_ports import comports
+from serial.tools.list_ports_common import ListPortInfo
 import re
 import pyftdi.serialext
 import pyftdi.ftdi 
+from pyftdi.ftdi import Ftdi
+from io import StringIO
 
 class UnableToOpenSerialPort(serial.SerialException):
     pass
@@ -25,12 +28,6 @@ class SerialPort(CommunicationPort):
     """
     def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None):
         CommunicationPort.__init__(self)
-
-        try:
-            pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
-        except ValueError as err:
-            # It is not an error: it is already registered
-            pass
 
         if idVendor is not None and portPath is None:
             portPath = SerialPort.matchAnyPort(idVendor, idProduct, serialNumber)
@@ -64,21 +61,69 @@ class SerialPort(CommunicationPort):
         # We must provide idVendor, idProduct and serialNumber
         # or              idVendor and idProduct
         # or              idVendor
-        ports = []
-        
-        for port in comports(): # obtain all regular PySerial ports
+
+        # We must add custom vendors when rewquired
+        try:
+            if idVendor is not None and idProduct is not None:
+                pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
+            elif idVendor is not None :
+                pyftdi.ftdi.Ftdi.add_custom_vendor(vid=idVendor, vidname='VID {0}'.format(idVendor))
+
+        except ValueError as err:
+            # It is not an error: it is already registered
+            pass
+
+
+        # It sometimes happens on macOS that the ports are "doubled" because two user-space DriverExtension 
+        # prepare a port (FTDI and Apple's for instance).  If that is the case, then we try to remove duplicates
+
+        portObjects = []
+        allPorts = comports()            # From PySerial
+        allPorts.extend(cls.ftdiPorts()) # From pyftdi
+
+        for port in allPorts:
             if idProduct is None:
                 if port.vid == idVendor:
-                    ports.append(port.device)
+                    portObjects.append(port)
             elif serialNumber is None:
                 if port.vid == idVendor and port.pid == idProduct:
-                    ports.append(port.device)
+                    portObjects.append(port)
             else:
                 if port.vid == idVendor and port.pid == idProduct:
                     if re.match(serialNumber, port.serial_number, re.IGNORECASE):
-                        ports.append(port.device)
+                        portObjects.append(port)
+
+
+        ports = []
+        portsAlreadyAdded = []
+        for port in portObjects:
+            uniqueIdentifier = (port.vid, port.pid, port.serial_number)
+            if not (uniqueIdentifier in portsAlreadyAdded):                
+                ports.append(port.device)
+                portsAlreadyAdded.append(uniqueIdentifier)
 
         return ports
+
+    @classmethod
+    def ftdiPorts(cls):
+        portList = StringIO()
+        Ftdi.show_devices(out=portList)
+        everything = portList.getvalue()
+
+        urls = []
+        for someText in everything.split():
+            match = re.match("ftdi://(.+):(.+):(.+)/",someText,re.IGNORECASE)
+            if match is not None:
+                groups = match.groups()
+                thePort = ListPortInfo(device="")
+                thePort.vid = groups[0]
+                thePort.pid = groups[1]
+                thePort.serial_number = groups[2]
+                thePort.device = someText
+
+                urls.append(thePort)
+
+        return urls
 
     @property
     def isOpen(self):
