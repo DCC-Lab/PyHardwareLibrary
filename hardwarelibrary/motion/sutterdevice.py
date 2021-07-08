@@ -182,8 +182,7 @@ class SutterDebugSerialPort(CommunicationPort):
             replyData.extend(b'\r')
             return replyData
 
-"""
+
 if __name__ == "__main__":
     device = SutterDevice()
-    device.moveTo((0, 0, 0))
-"""
+    device.moveTo((0, 0, 10))

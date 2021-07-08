@@ -44,7 +44,7 @@ class SerialPort(CommunicationPort):
 
         if port is not None and port.is_open:
             port.close()
-            
+
         self.port = None # direct port, must be closed.
 
     @classmethod
