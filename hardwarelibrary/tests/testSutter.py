@@ -4,8 +4,13 @@ import time
 from threading import Thread, Lock
 from struct import *
 
+import pyftdi.serialext
+import pyftdi.ftdi 
+from pyftdi.ftdi import Ftdi
+
 from hardwarelibrary.motion.sutterdevice import SutterDevice, SutterDebugSerialPort 
 from hardwarelibrary.communication.serialport import SerialPort
+
 
 # class TestSutterSerialPortBase:
 #     port = None
@@ -72,12 +77,28 @@ from hardwarelibrary.communication.serialport import SerialPort
 
 class TestSutterDevice(unittest.TestCase):
     def setUp(self):
+            # pyftdi.ftdi.Ftdi.add_custom_product(vid=4930, pid=1, pidname='Sutter')
         self.device = SutterDevice()
         self.assertIsNotNone(self.device)
+        self.device.doInitializeDevice()
 
     def tearDown(self):
         self.device.doShutdownDevice()
         self.device = None
+
+    # def testFTDIPortsAddCustomManully(self):
+        
+    #     ports = SerialPort.ftdiPorts()
+    #     print(ports)
+
+    # def testFTDIPorts(self):
+
+    #     ports = SerialPort.matchPorts()
+    #     print(ports)
+
+    # def testSutterSerial(self):
+    #     port = SerialPort.matchAnyPort(idVendor=4930, idProduct=1, serialNumber=None)
+    #     print(port)
 
     def testDevicePosition(self):
         self.device.home()
