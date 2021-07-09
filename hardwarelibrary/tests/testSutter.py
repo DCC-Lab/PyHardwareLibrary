@@ -112,7 +112,7 @@ class TestSutterDevice(unittest.TestCase):
         self.assertTrue(y>=0)
         self.assertTrue(z>=0)
     def testDeviceMove(self):
-        destination = (1,2,3)
+        destination = (400, 500, 600)
         self.device.moveTo( destination )
 
         (x,y,z) = self.device.position()

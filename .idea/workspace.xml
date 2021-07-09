@@ -5,8 +5,8 @@
       <change beforePath="$PROJECT_DIR$/.idea/PyHardwareLibrary.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PyHardwareLibrary.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testSutter.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testSutter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -137,7 +137,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Unittests for testsIntegra.TestIntegraPort.testCommandWithParameter" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+    <configuration name="Unittests for testSutter.TestSutterDevice.testDevicePosition" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -146,9 +146,8 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;testsIntegra.TestIntegraPort.testCommandWithParameter&quot;" />
+      <option name="_new_target" value="&quot;testSutter.TestSutterDevice.testDevicePosition&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
@@ -157,15 +156,15 @@
       <item itemvalue="Python.testEcho" />
       <item itemvalue="Python.testSerial" />
       <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMove" />
-      <item itemvalue="Python tests.Unittests for testsIntegra.TestIntegraPort.testCommandWithParameter" />
+      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDevicePosition" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.sutterdevice" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMove" />
+        <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDevicePosition" />
         <item itemvalue="Python.testEcho" />
         <item itemvalue="Python.testSerial" />
-        <item itemvalue="Python tests.Unittests for testsIntegra.TestIntegraPort.testCommandWithParameter" />
       </list>
     </recent_temporary>
   </component>

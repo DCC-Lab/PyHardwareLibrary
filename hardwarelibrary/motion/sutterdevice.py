@@ -99,7 +99,7 @@ class SutterDevice(PhysicalDevice):
 
     def moveInMicrostepsTo(self, position):
         """ Move to a position in microsteps """
-        x,y,z  = position
+        x, y, z = position
         commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
         self.sendCommand(commandBytes)
         reply = self.readReply(size=1, format='<c')
