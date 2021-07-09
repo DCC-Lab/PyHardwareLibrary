@@ -126,9 +126,9 @@ class TestSutterDevice(unittest.TestCase):
         self.device.moveBy( (10,20,30) )
 
         (x,y,z) = self.device.position()
-        self.assertTrue(x-x0 == 10)
-        self.assertTrue(y-y0 == 20)
-        self.assertTrue(z-z0 == 30)
+        self.assertTrue(x-xo == 10)
+        self.assertTrue(y-yo == 20)
+        self.assertTrue(z-zo == 30)
 
 if __name__ == '__main__':
     unittest.main()

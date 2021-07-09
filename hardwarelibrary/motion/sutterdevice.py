@@ -104,7 +104,7 @@ class SutterDevice(PhysicalDevice):
         self.sendCommand(commandBytes)
         reply = self.readReply(size=1, format='<c')
 
-        if reply != '\r':
+        if reply != (b'\r',):
             raise Exception(f"Expected carriage return, but got '{reply}' instead.")
 
     def position(self) -> (float, float, float):
@@ -112,9 +112,9 @@ class SutterDevice(PhysicalDevice):
 
         position = self.positionInMicrosteps()
         if position is not None:
-            return (position[1]/self.microstepsPerMicrons,
-                    position[2]/self.microstepsPerMicrons,
-                    position[3]/self.microstepsPerMicrons)
+            return (position[0]/self.microstepsPerMicrons,
+                    position[1]/self.microstepsPerMicrons,
+                    position[2]/self.microstepsPerMicrons)
         else:
             return (None, None, None)
 
