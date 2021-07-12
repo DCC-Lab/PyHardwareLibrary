@@ -85,8 +85,8 @@ class SutterDevice(PhysicalDevice):
         if len(replyBytes) != size:
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
 
-        print(replyBytes, format)
-        print(unpack(format, replyBytes))
+        # print(replyBytes, format)
+        # print(unpack(format, replyBytes))
         return unpack(format, replyBytes)
 
     def positionInMicrosteps(self) -> (int,int,int):
@@ -116,11 +116,12 @@ class SutterDevice(PhysicalDevice):
                     position[1]/self.microstepsPerMicrons,
                     position[2]/self.microstepsPerMicrons)
         else:
+            print('whaaaaaaat')
             return (None, None, None)
 
     def moveTo(self, position):
         """ Move to a position in microns """
-        x,y,z  = position
+        x, y, z  = position
         positionInMicrosteps = (x*self.microstepsPerMicrons, 
                                 y*self.microstepsPerMicrons,
                                 z*self.microstepsPerMicrons)
@@ -141,7 +142,7 @@ class SutterDevice(PhysicalDevice):
         replyBytes = self.readReply(1, '<c')
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
-        if replyBytes[0] != '\r':
+        if replyBytes != (b'\r',):
             raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
         
         
@@ -152,7 +153,7 @@ class SutterDevice(PhysicalDevice):
         replyBytes = self.readReply(1, '<c')
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
-        if replyBytes[0] != '\r':
+        if replyBytes != (b'\r',):
             raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
 
 
@@ -182,7 +183,8 @@ class SutterDebugSerialPort(CommunicationPort):
             replyData.extend(b'\r')
             return replyData
 
-
+"""
 if __name__ == "__main__":
     device = SutterDevice()
     device.moveTo((0, 0, 10))
+"""

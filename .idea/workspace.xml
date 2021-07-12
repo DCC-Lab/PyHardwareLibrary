@@ -57,70 +57,19 @@
     <property name="restartRequiresConfirmation" value="false" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python.sutterdevice">
-    <configuration name="sutterdevice" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python tests.Unittests for testSutter.TestSutterDevice.testPosition">
+    <configuration name="Unittests for testSutter.TestSutterDevice.testDeviceHome" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="$PROJECT_DIR$/../testPythonUI/venv/bin/python" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/motion" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="testEcho" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="PyHardwareLibrary" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hardwarelibrary/tests/testEcho.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="true" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="testSerial" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="PyHardwareLibrary" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/hardwarelibrary/tests/testSerial.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="true" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;testSutter.TestSutterDevice.testDeviceHome&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
     <configuration name="Unittests for testSutter.TestSutterDevice.testDeviceMove" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
@@ -134,6 +83,20 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
       <option name="_new_target" value="&quot;testSutter.TestSutterDevice.testDeviceMove&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Unittests for testSutter.TestSutterDevice.testDeviceMoveBy" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+      <module name="PyHardwareLibrary" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;testSutter.TestSutterDevice.testDeviceMoveBy&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
@@ -151,20 +114,34 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
+    <configuration name="Unittests for testSutter.TestSutterDevice.testPosition" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+      <module name="PyHardwareLibrary" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;testSutter.TestSutterDevice.testPosition&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
     <list>
-      <item itemvalue="Python.sutterdevice" />
-      <item itemvalue="Python.testEcho" />
-      <item itemvalue="Python.testSerial" />
       <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMove" />
       <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDevicePosition" />
+      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMoveBy" />
+      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceHome" />
+      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testPosition" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.sutterdevice" />
+        <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testPosition" />
+        <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMoveBy" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMove" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDevicePosition" />
-        <item itemvalue="Python.testEcho" />
-        <item itemvalue="Python.testSerial" />
+        <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceHome" />
       </list>
     </recent_temporary>
   </component>
