@@ -8,6 +8,7 @@ class LinearMotionDevice(PhysicalDevice):
         self.x = None
         self.y = None
         self.z = None
+        self.nativeStepsPerMicrons = 1
         self.xMinLimit = None
         self.yMinLimit = None
         self.zMinLimit = None
@@ -15,41 +16,42 @@ class LinearMotionDevice(PhysicalDevice):
         self.yMaxLimit = None
         self.zMaxLimit = None
 
+    def moveTo(self, position):
+        self.doMoveTo(position)
 
-    def moveTo(self, x=None, y=None, z=None):
-        self.doMoveTo(x, y, z)
+    def moveBy(self, displacement):
+        self.doMoveBy(displacement)
 
     def position(self) -> ():
         return self.doGetPosition()
 
-    def move1DTo(self, x):
-        self.doMoveTo(x)
+    # def moveInMicronsTo(self, position):
+    #     self.doMoveTo(position)
 
-    def move2DTo(self, x, y):
-        self.doMoveTo(x, y)
+    # def moveInMicronsBy(self, displacement):
+    #     self.doMoveBy(displacement)
 
-    def move3DTo(self, x, y, z):
-        self.doMoveTo(x, y, z)
-
-    def position1D(self) -> (float):
-        return self.doGetPosition()
-
-    def position3D(self) -> (float, float):
-        return self.doGetPosition()
-
-    def position3D(self) -> (float, float, float):
-        return self.doGetPosition()
+    # def positionInMicrons(self) -> ():
+    #     return self.doGetPosition()
 
 class DebugLinearMotionDevice(LinearMotionDevice):
 
     def __init__(self):
         super().__init__("debug", 0xffff, 0xfffd)
+        (self.x, self.y, self.z) = (0,0,0)
 
     def doGetPosition(self) -> (float, float, float):
         return (self.x, self.y, self.z)
 
-    def doMoveTo(self, x, y, z):
+    def doMoveTo(self, position):
+        x, y, z = position
         (self.x, self.y, self.z) = (x,y,z)
+
+    def doMoveBy(self, displacement):
+        dx, dy, dz = displacement
+        self.x += dx
+        self.y += dy 
+        self.z += dz
 
     def doInitializeDevice(self):
         pass
