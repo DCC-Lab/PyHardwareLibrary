@@ -5,180 +5,103 @@ import os
 from struct import *
 
 from hardwarelibrary.communication import *
+from hardwarelibrary.motion.sutterdevice import SutterDevice
+
 import serial
 
-class TestSutterBasicCommands(unittest.TestCase):
+class TestSutterDevice(unittest.TestCase):
     def setUp(self):
-        self.port = None
-        self.portPath = None
-
-        ports = serial.tools.list_ports.comports()
-        for port in ports:
-            if port.vid == 4930 and port.pid == 1: # Sutter Instruments
-                self.portPath = port.device
-
-        if self.portPath is None:
-            self.fail("No Sutter connected. Giving up.")
+            # pyftdi.ftdi.Ftdi.add_custom_product(vid=4930, pid=1, pidname='Sutter')
+        self.device = SutterDevice("debug")
+        self.assertIsNotNone(self.device)
+        self.device.doInitializeDevice()
 
     def tearDown(self):
-        if self.port is not None:
-            self.port.close()
+        self.device.doShutdownDevice()
+        self.device = None
 
-    def testPySerialPortNotNoneWhenEmpty(self):
-        port = serial.Serial()
-        self.assertIsNotNone(port)
+    def testDeviceHome(self):
+        self.device.home()
 
-    def testPySerialPortCannotOpenWhenEmpty(self):
-        port = serial.Serial()
-        self.assertIsNotNone(port)
-        with self.assertRaises(Exception):
-            port.open()
+    def testDevicePosition(self):
+        (x, y, z) = self.device.positionInMicrosteps()
+        self.assertIsNotNone(x)
+        self.assertIsNotNone(y)
+        self.assertIsNotNone(z)
+        self.assertTrue(x >= 0)
+        self.assertTrue(y >= 0)
+        self.assertTrue(z >= 0)
 
-    def testPySerialPortSutter(self):
-        self.port = serial.Serial(self.portPath)
-        self.assertIsNotNone(self.port)
-        with self.assertRaises(Exception):
-            # ALready open will raise exception
-            self.port.open()
-        self.port.close()
+    def testPosition(self):
+        (x, y, z) = self.device.position()
+        self.assertIsNotNone(x)
+        self.assertIsNotNone(y)
+        self.assertIsNotNone(z)
+        self.assertTrue(x >= 0)
+        self.assertTrue(y >= 0)
+        self.assertTrue(z >= 0)
 
-    def testPortClosesProperly(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
-        self.port.close()
-        self.assertFalse(self.port.is_open)
+    def testDeviceMove(self):
+        destination = (4000, 5000, 6000)
+        self.device.moveTo(destination)
 
-    def testPortCanSteTimeoutLater(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
-        self.port.timeout = 1
+        (x,y,z) = self.device.position()
+        self.assertTrue(x == destination[0])
+        self.assertTrue(y == destination[1])
+        self.assertTrue(z == destination[2])
 
-        self.assertEqual(self.port.timeout, 1)
+    def testDeviceMoveBy(self):
+        (xo, yo, zo) = self.device.position()
 
-    def testPySerialPortSutterReadCommand(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
+        self.device.moveBy((-1000, -2000, -3000))
 
-        x,y,z  = 100000,0,0 
-        commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
-        nBytes = self.port.write(commandBytes)
-        self.assertTrue(nBytes == len(commandBytes))
-
-        replyBytes = self.port.read(1)
-        self.assertTrue(replyBytes == b"\r")
-
-
-    def testSutterLongMoveCommandReturnZerosIfNotEnoughTime(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
-
-        x,y,z  = 400000,400000,400000 
-        commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
-        nBytes = self.port.write(commandBytes)
-        self.assertTrue(nBytes == len(commandBytes))
-
-        replyBytes = self.port.read(1)
-        self.assertTrue(replyBytes == b"\r")
-
-        x,y,z  = 0,0,0 
-        commandBytes = pack('<clllc', b'M', x, y, z, b'\r')
-        nBytes = self.port.write(commandBytes)
-        self.assertTrue(nBytes == len(commandBytes))
-
-        replyBytes = self.port.read(1)
-        self.assertTrue(replyBytes == b"\r")
-
-        # Buffer must be empty
-        self.port.timeout = 0.1
-        replyBytes = self.port.read(1)
-        self.assertTrue(len(replyBytes) == 0)
+        (x, y, z) = self.device.position()
+        self.assertTrue(x-xo == -1000)
+        self.assertTrue(y-yo == -2000)
+        self.assertTrue(z-zo == -3000)
 
 
-    def testSutterReadPositionOnce(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
-        
-        commandBytes = pack('<cc', b'C', b'\r')
-        nBytes = self.port.write(commandBytes)
-        self.assertTrue(nBytes == len(commandBytes))
-
-        replyBytes = self.port.read(14)
-        info = unpack("<clllc", replyBytes)
-        self.assertTrue(len(replyBytes) == 14)
-        self.assertTrue(info[0] == b'\x01')
-
-        # Buffer must be empty
-        self.port.timeout = 0.1
-        replyBytes = self.port.read(1)
-        self.assertTrue(len(replyBytes) == 0)
 
 
-    def testSutterReadPositionManyTimes(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
+# class TestSutterIntegration(unittest.TestCase):
+#     def setUp(self):
+#         self.port = None
+#         self.portPath = None
 
-        for i in range(6):        
-            commandBytes = pack('<cc', b'C', b'\r')
-            nBytes = self.port.write(commandBytes)
-            self.assertTrue(nBytes == len(commandBytes))
+#         ports = serial.tools.list_ports.comports()
+#         for port in ports:
+#             if port.vid == 4930 and port.pid == 1: # Sutter Instruments
+#                 self.portPath = port.device
 
-            replyBytes = self.port.read(14)
-            self.assertTrue(len(replyBytes) == 14)
-            info = unpack("<clllc", replyBytes)
+#         if self.portPath is None:
+#             self.fail("No Sutter connected. Giving up.")
 
-            # Buffer must be empty
-            self.port.timeout = 0.1
-            replyBytes = self.port.read(1)
-            self.assertTrue(len(replyBytes) == 0)
+#     def tearDown(self):
+#         if self.port is not None:
+#             self.port.close()
 
-    def testSutterReadPositionManyTimesWith13BytesOnly(self):
-        self.port = serial.Serial(self.portPath, timeout=10, baudrate=128000)
+#     def move(self, x,y,z):
+#         # Write this or copy/paste from above...
+#         self.assertTrue(False)
 
-        with self.assertRaises(Exception):
-            for i in range(6):        
-                commandBytes = pack('<cc', b'C', b'\r')
-                nBytes = self.port.write(commandBytes)
-                self.assertTrue(nBytes == len(commandBytes))
+#     def getPosition(self):
+#         # Write this or copy/paste from above...
+#         self.assertTrue(False)
 
-                replyBytes = self.port.read(13)
-                info = unpack("<clll", replyBytes)
-                self.assertTrue(len(replyBytes) == 13)
-                self.assertTrue(info[0] == b'\x01') # will fail on 2nd attempt
+#     def testMove(self):
+#         self.assertTrue(False)
 
+#     def testMoveAndConfirmPosition(self):
+#         self.assertTrue(False)
 
-class TestSutterIntegration(unittest.TestCase):
-    def setUp(self):
-        self.port = None
-        self.portPath = None
+#     def testMoveSeveralTimes(self):
+#         self.assertTrue(False)
 
-        ports = serial.tools.list_ports.comports()
-        for port in ports:
-            if port.vid == 4930 and port.pid == 1: # Sutter Instruments
-                self.portPath = port.device
+#     def testReadPosition(self):
+#         self.assertTrue(False)
 
-        if self.portPath is None:
-            self.fail("No Sutter connected. Giving up.")
-
-    def tearDown(self):
-        if self.port is not None:
-            self.port.close()
-
-    def move(self, x,y,z):
-        # Write this or copy/paste from above...
-        self.assertTrue(False)
-
-    def getPosition(self):
-        # Write this or copy/paste from above...
-        self.assertTrue(False)
-
-    def testMove(self):
-        self.assertTrue(False)
-
-    def testMoveAndConfirmPosition(self):
-        self.assertTrue(False)
-
-    def testMoveSeveralTimes(self):
-        self.assertTrue(False)
-
-    def testReadPosition(self):
-        self.assertTrue(False)
-
-    def testReadPositionSeveralTimes(self):
-        self.assertTrue(False)
+#     def testReadPositionSeveralTimes(self):
+#         self.assertTrue(False)
 
 
 if __name__ == '__main__':

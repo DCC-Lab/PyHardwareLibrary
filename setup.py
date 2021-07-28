@@ -22,7 +22,7 @@ setuptools.setup(
     license='MIT',
     keywords='hardware devices usb communication app control spectrometer powermeter',
     packages=setuptools.find_packages(),
-    install_requires=['numpy','matplotlib','PySerial','PyUSB'],
+    install_requires=['numpy','matplotlib','PySerial','PyUSB','pyftdi'],
     python_requires='>=3.7',
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
