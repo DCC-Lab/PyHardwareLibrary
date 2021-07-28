@@ -14,8 +14,7 @@ from struct import *
 class SutterDevice(PhysicalDevice):
 
     def __init__(self, serialNumber: str = None):
-
-        PhysicalDevice.__init__(self, serialNumber=serialNumber, vendorId=4930, productId=1)
+        super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
         self.port = None
         self.xMinLimit = 0
         self.yMinLimit = 0
