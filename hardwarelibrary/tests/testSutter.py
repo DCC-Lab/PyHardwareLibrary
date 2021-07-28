@@ -46,6 +46,7 @@ class TestSutterSerialPortBase:
         self.assertIsNotNone(self.port)
         payload = bytearray('m',encoding='utf-8')
         payload.extend(pack("<lll",1,2,3))
+        payload.extend(bytearray('\r',encoding='utf-8'))
         self.port.writeData(payload)
         self.assertTrue(self.port.bytesAvailable() == 1)
         self.assertTrue(self.port.readData(length=1) == b'\r')
@@ -54,6 +55,7 @@ class TestSutterSerialPortBase:
         self.assertIsNotNone(self.port)
         payload = bytearray('m',encoding='utf-8')
         payload.extend(pack("<lll",1,2,3))
+        payload.extend(bytearray('\r',encoding='utf-8'))
         self.port.writeData(payload)
         self.assertTrue(self.port.readData(length=1) == b'\r')
 

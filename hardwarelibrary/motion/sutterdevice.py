@@ -169,7 +169,7 @@ class SutterDebugSerialPort(DebugPort):
         inputBytes = self.inputBuffers[endPointIndex]
 
         if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:
-            x,y,z = unpack("<xlll", inputBytes)
+            x,y,z = unpack("<xlllx", inputBytes)
             self.xSteps = x
             self.ySteps = y
             self.zSteps = z

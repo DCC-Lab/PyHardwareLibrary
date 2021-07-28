@@ -8,8 +8,6 @@ class TestConnectSutter(unittest.TestCase):
     def testConnectDebugSutter(self):
         sutter = sd.SutterDevice(serialNumber="debug")
         # The port is not open until initializeDevice()
-        self.assertIsNone(sutter.port)
-
         sutter.doInitializeDevice()
         
         position = sutter.position()
@@ -18,14 +16,15 @@ class TestConnectSutter(unittest.TestCase):
         self.assertIsNotNone(position[1])
         self.assertIsNotNone(position[2])
 
-    # def testMoveToWithDebugSutter(self):
-    #     sutter = sd.SutterDevice("debug")
-    #     self.assertIsNotNone(sutter.port)
-    #     sutter.moveTo((0, 100, 4000))
-    #     position = sutter.position()
-    #     self.assertTrue(position[0] == 0)
-    #     self.assertTrue(position[1] == 100)
-    #     self.assertTrue(position[2] == 4000)
+    def testMoveToWithDebugSutter(self):
+        sutter = sd.SutterDevice("debug")
+        sutter.doInitializeDevice()
+
+        sutter.moveTo((0, 100, 4000))
+        position = sutter.position()
+        self.assertTrue(position[0] == 0)
+        self.assertTrue(position[1] == 100)
+        self.assertTrue(position[2] == 4000)
 
     # def testListStageDevices(self):
     #     sp = s_ports.SerialPort()
