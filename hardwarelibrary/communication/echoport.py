@@ -55,7 +55,12 @@ class DebugPort(CommunicationPort):
         with self.portLock:
             self.buffers[endPointIndex].extend(data)
 
+        self.processBuffers()
+
         return len(data)
+
+    def processBuffers(self):
+        pass
 
 class DebugEchoPort(DebugPort):
     def __init__(self, delay=0):

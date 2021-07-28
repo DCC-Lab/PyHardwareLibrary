@@ -200,3 +200,28 @@ class SerialPort(CommunicationPort):
             self.port.flush()
 
         return nBytesWritten
+
+
+class SerialPortDebug(SerialPort):
+    def __init__(self):
+        super(SerialPortDebug,self).__init__()
+        self.commands = []
+        # move = DataCommand(name='move', replyHexRegex='6d(.{8})(.{8})(.{8})')
+        # position = DataCommand(name='position', replyHexRegex='63')
+        # self.commands.append(move)
+        # self.commands.append(position)
+
+    def processCommand(self, command, groups, inputData) -> bytearray:
+        if command.name == 'move':
+            self.x = unpack('<l',groups[0])[0]
+            self.y = unpack('<l',groups[1])[0]
+            self.z = unpack('<l',groups[2])[0]
+            return b'\r'
+        elif command.name == 'position':
+            replyData = bytearray()
+            replyData.extend(bytearray(pack("<l", self.x)))
+            replyData.extend(bytearray(pack("<l", self.y)))
+            replyData.extend(bytearray(pack("<l", self.z)))
+            replyData.extend(b'\r')
+            return replyData
+

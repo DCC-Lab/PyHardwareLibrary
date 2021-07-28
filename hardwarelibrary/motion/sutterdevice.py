@@ -37,7 +37,6 @@ class SutterDevice(PhysicalDevice):
                 self.port = SutterDebugSerialPort()
             else:
                 self.port = SerialPort(portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
-                print(self.port)
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
@@ -164,10 +163,10 @@ class SutterDebugSerialPort(CommunicationPort):
         self.ySteps = 0
         self.zSteps = 0
 
-        move = DataCommand(name='move', hexPattern='6d(.{8})(.{8})(.{8})')
-        position = DataCommand(name='position', hexPattern='63')
-        self.commands.append(move)
-        self.commands.append(position)
+        # move = DataCommand(name='move', replyHexRegex='6d(.{8})(.{8})(.{8})')
+        # position = DataCommand(name='position', replyHexRegex='63')
+        # self.commands.append(move)
+        # self.commands.append(position)
 
     def processCommand(self, command, groups, inputData) -> bytearray:
         if command.name == 'move':
