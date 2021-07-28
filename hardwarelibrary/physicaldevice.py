@@ -23,14 +23,14 @@ class PhysicalDevice:
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
-                NotificationCenter().postNotification("willInitializeDevice", object=self)
+                NotificationCenter().postNotification("willInitializeDevice", notifyingObject=self)
                 self.doInitializeDevice()
                 self.state = DeviceState.Ready
-                NotificationCenter().postNotification("didInitializeDevice", object=self)                
+                NotificationCenter().postNotification("didInitializeDevice", notifyingObject=self)                
             except Exception as error:
                 self.state = DeviceState.Unrecognized
-                NotificationCenter().postNotification("didInitializeDevice", object=self, userInfo=error)
-                raise error
+                NotificationCenter().postNotification("didInitializeDevice", notifyingObject=self, userInfo=error)
+                raise PhysicalDeviceUnableToInitialize(error)
 
     def doInitializeDevice(self):
         raise NotImplementedError("Base class must override doInitializeDevice()")
@@ -38,12 +38,11 @@ class PhysicalDevice:
     def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
-                NotificationCenter().postNotification("willShutdownDevice", object=self)
+                NotificationCenter().postNotification("willShutdownDevice", notifyingObject=self)
                 self.doShutdownDevice()
-                NotificationCenter().postNotification("didShutdownDevice", object=self)
+                NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self)
             except Exception as error:
-                NotificationCenter().postNotification("didShutdownDevice", object=self, userInfo=error)
-                raise error
+                NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self, userInfo=error)
             finally:
                 self.state = DeviceState.Recognized
 
