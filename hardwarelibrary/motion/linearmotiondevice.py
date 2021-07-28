@@ -1,4 +1,5 @@
 from hardwarelibrary.physicaldevice import *
+from hardwarelibrary.notificationcenter import NotificationCenter
 import numpy as np
 
 class LinearMotionDevice(PhysicalDevice):
@@ -17,13 +18,24 @@ class LinearMotionDevice(PhysicalDevice):
         self.zMaxLimit = None
 
     def moveTo(self, position):
+        NotificationCenter().postNotification("willMoveTo", notifyingObject=self, userInfo=position)
         self.doMoveTo(position)
+        NotificationCenter().postNotification("didMoveTo", notifyingObject=self, userInfo=position)
 
     def moveBy(self, displacement):
+        NotificationCenter().postNotification("willMoveBy", notifyingObject=self, userInfo=displacement)
         self.doMoveBy(displacement)
+        NotificationCenter().postNotification("didMoveBy", notifyingObject=self, userInfo=displacement)
 
     def position(self) -> ():
-        return self.doGetPosition()
+        position = self.doGetPosition()
+        NotificationCenter().postNotification("didGetNativePosition", notifyingObject=self, userInfo=position)
+        return position
+
+    def home(self) -> ():
+        NotificationCenter().postNotification("willHome", notifyingObject=self)
+        self.doHome()
+        NotificationCenter().postNotification("didHome", notifyingObject=self)
 
     def moveInMicronsTo(self, position):
         nativePosition = [ x * self.nativeStepsPerMicrons for x in position]
@@ -33,7 +45,7 @@ class LinearMotionDevice(PhysicalDevice):
         nativeDisplacement = [ dx * self.nativeStepsPerMicrons for dx in displacement]
         self.moveTo(nativeDisplacement)
 
-    def positionInMicrons(self) -> ():
+    def positionInMicrons(self):
         position = self.position()
         positionInMicrons = [ x / self.nativeStepsPerMicrons for x in position]
         return positionInMicrons
@@ -57,6 +69,9 @@ class DebugLinearMotionDevice(LinearMotionDevice):
         self.x += dx
         self.y += dy 
         self.z += dz
+
+    def doHome(self):
+        (self.x, self.y, self.z) = (0,0,0)
 
     def doInitializeDevice(self):
         pass

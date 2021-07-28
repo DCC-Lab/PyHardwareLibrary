@@ -1,19 +1,13 @@
 import env # modifies path
 import unittest
-import time
-import os
-from struct import *
 
 from hardwarelibrary.communication import *
 from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 
-import serial
-
 class TestLinearMotionDevice(unittest.TestCase):
     def setUp(self):
         self.device = DebugLinearMotionDevice()
-
 
     def testDevicePosition(self):
         (x, y, z) = self.device.position()
@@ -48,9 +42,9 @@ class TestLinearMotionDevice(unittest.TestCase):
         self.device.moveBy((-1000, -2000, -3000))
 
         (x, y, z) = self.device.position()
-        self.assertTrue(x-xo == -1000)
-        self.assertTrue(y-yo == -2000)
-        self.assertTrue(z-zo == -3000)
+        self.assertEqual(x-xo , -1000)
+        self.assertEqual(y-yo , -2000)
+        self.assertEqual(z-zo , -3000)
 
 
     def testPositionInMicrons(self):
@@ -67,9 +61,9 @@ class TestLinearMotionDevice(unittest.TestCase):
         self.device.moveInMicronsTo(destination)
 
         (x,y,z) = self.device.positionInMicrons()
-        self.assertTrue(x == destination[0])
-        self.assertTrue(y == destination[1])
-        self.assertTrue(z == destination[2])
+        self.assertEqual(x, destination[0])
+        self.assertEqual(y, destination[1])
+        self.assertEqual(z, destination[2])
 
     def testDeviceMoveByInMicrons(self):
         (xo, yo, zo) = self.device.positionInMicrons()
@@ -77,10 +71,16 @@ class TestLinearMotionDevice(unittest.TestCase):
         self.device.moveInMicronsBy((-1000, -2000, -3000))
 
         (x, y, z) = self.device.positionInMicrons()
-        self.assertTrue(x-xo == -1000)
-        self.assertTrue(y-yo == -2000)
-        self.assertTrue(z-zo == -3000)
+        self.assertEqual(x-xo, -1000)
+        self.assertEqual(y-yo, -2000)
+        self.assertEqual(z-zo, -3000)
 
+    def testDeviceHome(self):
+        self.device.home()
+        (x, y, z) = self.device.position()
+        self.assertEqual(x, 0)
+        self.assertEqual(y, 0)
+        self.assertEqual(z, 0)
 
 
 # class TestSutterIntegration(unittest.TestCase):
