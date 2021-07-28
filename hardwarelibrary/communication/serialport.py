@@ -162,7 +162,7 @@ class SerialPort(CommunicationPort):
         else:
             self.port.open()
 
-        timeoutTime = time.time() + 0.5
+        timeoutTime = time.time() + timeout
         while not self.isOpen:
             time.sleep(0.05)
             if time.time() > timeoutTime:

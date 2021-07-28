@@ -174,11 +174,16 @@ class SutterDebugSerialPort(DebugPort):
             self.ySteps = y
             self.zSteps = z
             self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
+        elif inputBytes[0] == b'h'[0] or inputBytes[0] == b'H'[0]:
+            self.xSteps = 0
+            self.ySteps = 0
+            self.zSteps = 0
+            self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
         elif inputBytes[0] == b'c'[0] or inputBytes[0] == b'C'[0]:
             data = pack('<clllc', b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
             self.writeToOutputBuffer(data, endPointIndex)
         else:
-            print("Unrecognized {0}".format(inputBytes))
+            print("Unrecognized command (not everything is implemented): {0}".format(inputBytes))
 
         self.inputBuffers[endPointIndex] = bytearray()
 """
