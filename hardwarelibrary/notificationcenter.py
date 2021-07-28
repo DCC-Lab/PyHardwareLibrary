@@ -31,23 +31,40 @@
 
 """
 Python implementation of Cocoa NSNotificationCenter
+Modified by D. C. Cote 2021
 """
 
-class NotificationCenter(object):
+class Notification:
+    def __init__(self, name, object=None, userInfo=None):
+        self.name = name
+        self.object = object
+        self.userInfo = userInfo
 
+class NotificationCenter:
+    _instance = None
     def __init__(self):
-        self.notifications = {}
-        self.observerKeys = {}
+        if not hasattr(self, 'notifications'):
+            self.notifications = {}
+        if not hasattr(self, 'observerKeys'):
+            self.observerKeys = {}
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = object.__new__(cls, *args, **kwargs)
+        return cls._instance
 
     def addObserver(self, observer, method, notificationName, observedObject=None):
-        if notificationName not in self.notifications:
+        if notificationName not in self.notifications.keys():
             self.notifications[notificationName] = {}
+
         notificationDict = self.notifications[notificationName] 
-        if observedObject not in notificationDict:
+        if observedObject not in notificationDict.keys():
             notificationDict[observedObject] = {}
+
         notificationDict[observedObject][observer] = method
         if observer not in self.observerKeys:
             self.observerKeys[observer] = []
+
         self.observerKeys[observer].append((notificationName,observedObject))
 
     def removeObserver(self, observer, notificationName=None, observedObject=None):
@@ -79,11 +96,9 @@ class NotificationCenter(object):
                 methodsDict = notificationDict[key]
             except KeyError:
                 continue
+            notification = Notification(notificationName, notifyingObject, userInfo)
             for observer in methodsDict:
-                if not userInfo:
-                    methodsDict[observer](notifyingObject)
-                else:
-                    methodsDict[observer](notifyingObject,userInfo)
+                methodsDict[observer](notification)
 
 
 if __name__ == '__main__':
