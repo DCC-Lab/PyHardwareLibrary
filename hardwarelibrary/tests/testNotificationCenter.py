@@ -10,8 +10,8 @@ class TestNotificationCenter(unittest.TestCase):
     def testSingleton(self):
         self.assertIsNotNone(NotificationCenter())
 
-    # def testSingletonCanPost(self):
-    #     NotificationCenter().postNotification("testNotification", self)
+    def testSingletonCanPost(self):
+        NotificationCenter().postNotification("testNotification", self)
 
     def testAddObserver(self):
         nc = NotificationCenter()
@@ -35,14 +35,14 @@ class TestNotificationCenter(unittest.TestCase):
         NotificationCenter().addObserver(self, self.handle, "testNotification", None)
         NotificationCenter().postNotification(notificationName="testNotification", notifyingObject=self, userInfo="1234")
         self.assertTrue(self.notificationReceived)
-
+        self.assertEqual(self.postedUserInfo, "1234")
         NotificationCenter().removeObserver(self)
 
     def testAddObserverWrongNotification(self):
         NotificationCenter().addObserver(self, self.handle, "testWrong", None)
         NotificationCenter().postNotification(notificationName="testNotification", notifyingObject=self, userInfo="1234")
         self.assertFalse(self.notificationReceived)
-
+        self.assertNotEqual(self.postedUserInfo, "1234")
         NotificationCenter().removeObserver(self)
 
     def testAddObserverWrongSender(self):
@@ -50,13 +50,13 @@ class TestNotificationCenter(unittest.TestCase):
         NotificationCenter().addObserver(self, self.handle, "testNotification", someObject)
         NotificationCenter().postNotification(notificationName="testNotification", notifyingObject=self, userInfo="1234")
         self.assertFalse(self.notificationReceived)
-
+        self.assertNotEqual(self.postedUserInfo, "1234")
         NotificationCenter().removeObserver(self)
 
     def handle(self, notification):
         self.notificationReceived = True
-        print("Received '{1}' from: {0}  with : {2}".format(notification.object, notification.name, notification.userInfo))
-        self.postedUserInfo = None
+        # print("Received '{1}' from: {0}  with : {2}".format(notification.object, notification.name, notification.userInfo))
+        self.postedUserInfo = notification.userInfo
 
 if __name__ == '__main__':
     unittest.main()

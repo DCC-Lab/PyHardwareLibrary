@@ -33,6 +33,7 @@
 Python implementation of Cocoa NSNotificationCenter
 Modified by D. C. Cote 2021
 """
+from typing import NamedTuple
 
 class Notification:
     def __init__(self, name, object=None, userInfo=None):
@@ -40,13 +41,16 @@ class Notification:
         self.object = object
         self.userInfo = userInfo
 
+class ObserverInfo(NamedTuple):
+    observer:object = None
+    method:object = None
+    observedObject:object = None
+
 class NotificationCenter:
     _instance = None
     def __init__(self):
-        if not hasattr(self, 'notifications'):
-            self.notifications = {}
-        if not hasattr(self, 'observerKeys'):
-            self.observerKeys = {}
+        if not hasattr(self, 'observers'):
+            self.observers = {}
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -54,100 +58,27 @@ class NotificationCenter:
         return cls._instance
 
     def addObserver(self, observer, method, notificationName, observedObject=None):
-        if notificationName not in self.notifications.keys():
-            self.notifications[notificationName] = {}
+        observerInfo = ObserverInfo(observer, method, observedObject)
 
-        notificationDict = self.notifications[notificationName] 
-        if observedObject not in notificationDict.keys():
-            notificationDict[observedObject] = {}
+        if notificationName not in self.observers:
+            self.observers[notificationName] = []
 
-        notificationDict[observedObject][observer] = method
-        if observer not in self.observerKeys:
-            self.observerKeys[observer] = []
-
-        self.observerKeys[observer].append((notificationName,observedObject))
+        if observerInfo not in self.observers.values():
+            self.observers[notificationName].append(observerInfo)
 
     def removeObserver(self, observer, notificationName=None, observedObject=None):
-        try:
-            observerKeys = self.observerKeys.pop(observer)
-        except KeyError:
+        if notificationName not in self.observers.keys():
             return
-        for observerKey in observerKeys:
-            if notificationName and observerKey[0] != notificationName:
-                continue
-            if observedObject and observerKey[1] != observedObject:
-                continue
-            try:
-                self.notifications[observerKey[0]][observerKey[1]].pop(observer)
-            except KeyError:
-                return
-            if len(self.notifications[observerKey[0]][observerKey[1]]) == 0:
-                self.notifications[observerKey[0]].pop(observerKey[1])
-                if len(self.notifications[observerKey[0]]) == 0:
-                    self.notifications.pop(observerKey[0])
+
+        savedObservers = []
+        for observerInfo in self.observers[notificationName]:
+            if observerInfo.observer != observer or observerInfo.observedObject != observedObject:
+                savedObservers.append(observerInfo)
+        self.observers = savedObservers
 
     def postNotification(self, notificationName, notifyingObject, userInfo=None):
-        try:
-            notificationDict = self.notifications[notificationName]
-        except KeyError:
-            return
-        for key in (notifyingObject,None):
-            try:
-                methodsDict = notificationDict[key]
-            except KeyError:
-                continue
+        if notificationName in self.observers.keys():
             notification = Notification(notificationName, notifyingObject, userInfo)
-            for observer in methodsDict:
-                methodsDict[observer](notification)
-
-
-if __name__ == '__main__':
-
-    class A(object):
-        def foo(self,notifyingObject,userInfo=None):
-            print("foo")
-            if userInfo:
-                try:
-                    print(userInfo['bar'])
-                except KeyError:
-                    pass
-    
-    class B(object):
-        pass
-
-    notificationCenter = NotificationCenter()
-
-    a = A()
-    b1 = B()
-    b2 = B()
-
-    print("Adding observer for notification 'notifyFoo' from b1")
-    notificationCenter.addObserver(a,a.foo,"notifyFoo",b1)
-
-    print("Posting from b1")
-    notificationCenter.postNotification("notifyFoo",b1)
-    print("Posting from b2")
-    notificationCenter.postNotification("notifyFoo",b2)
-    print("Done posting")
-
-    userInfo = {"bar":"content of userInfo"}
-
-    print("Posting from b1 with userInfo")
-    notificationCenter.postNotification("notifyFoo",b1,userInfo)
-    print("Posting from b2 with userInfo")
-    notificationCenter.postNotification("notifyFoo",b2,userInfo)
-    print("Done posting")
-
-    print("Removing observer")
-    notificationCenter.removeObserver(a,"notifyFoo")
-
-    print("Adding observer for notification 'notifyFoo' from anyone")
-    notificationCenter.addObserver(a,a.foo,"notifyFoo")
-
-    print("Posting from b1")
-    notificationCenter.postNotification("notifyFoo",b1)
-    print("Posting from b2")
-    notificationCenter.postNotification("notifyFoo",b2)
-    print("Done posting")
-
-    notificationCenter.removeObserver(a,"notifyFoo")
+            for observerInfo in self.observers[notificationName]:
+                if observerInfo.observedObject is None or observerInfo.observedObject == notifyingObject:
+                    observerInfo.method(notification)
