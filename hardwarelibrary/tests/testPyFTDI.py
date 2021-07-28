@@ -8,6 +8,13 @@ from serial.tools.list_ports import comports
 import re
 
 class TestPyFTDIModule(unittest.TestCase):
+    def setUp(self):
+        portList = StringIO()
+        Ftdi.show_devices(out=portList)
+        self.assertIsNotNone(portList)
+        if len(portList.getvalue()) == 0:
+            raise(unittest.SkipTest("No FTDI connected. Skipping."))
+
     def testShowDevicesReturnsNothing(self):
         portList = StringIO()
         a = Ftdi.show_devices(out=portList)

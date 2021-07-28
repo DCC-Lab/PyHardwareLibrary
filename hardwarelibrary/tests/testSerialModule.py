@@ -11,6 +11,9 @@ from hardwarelibrary.communication.serialport import SerialPort
 from serial.tools.list_ports import comports
 
 class TestSerialModule(unittest.TestCase):
+    def setUp(self):
+        raise(unittest.SkipTest("Uncomment this to run tests with FTDI devices connected. Skipping."))
+
     @unittest.skip
     def testListPorts(self):
         for c in comports():

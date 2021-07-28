@@ -14,8 +14,7 @@ from struct import *
 class SutterDevice(PhysicalDevice):
 
     def __init__(self, serialNumber: str = None):
-
-        PhysicalDevice.__init__(self, serialNumber=serialNumber, vendorId=4930, productId=1)
+        super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
         self.port = None
         self.xMinLimit = 0
         self.yMinLimit = 0
@@ -35,13 +34,13 @@ class SutterDevice(PhysicalDevice):
     def doInitializeDevice(self): 
         try:
             if self.serialNumber == "debug":
-                self.port = SutterDebugSerialPort()
+                self.port = self.DebugSerialPort()
             else:
                 self.port = SerialPort(portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
-                raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
+                raise PhysicalDevice.UnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
             self.positionInMicrosteps()
 
@@ -49,15 +48,12 @@ class SutterDevice(PhysicalDevice):
             if self.port is not None:
                 if self.port.isOpen:
                     self.port.close()
-            raise PhysicalDeviceUnableToInitialize(error)
-        except PhysicalDeviceUnableToInitialize as error:
-            raise error
+            raise PhysicalDevice.UnableToInitialize(error)
         
 
     def doShutdownDevice(self):
         self.port.close()
         self.port = None
-        return
 
     def sendCommand(self, commandBytes):
         """ The function to write a command to the endpoint. It will initialize the device 
@@ -156,38 +152,33 @@ class SutterDevice(PhysicalDevice):
             raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
 
 
-class SutterDebugSerialPort(DebugPort):
-    def __init__(self):
-        super(SutterDebugSerialPort,self).__init__()
-        self.xSteps = 0
-        self.ySteps = 0
-        self.zSteps = 0
-
-    def processInputBuffers(self, endPointIndex):
-        # We default to ECHO for simplicity
-
-        inputBytes = self.inputBuffers[endPointIndex]
-
-        if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:
-            x,y,z = unpack("<xlllx", inputBytes)
-            self.xSteps = x
-            self.ySteps = y
-            self.zSteps = z
-            self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
-        elif inputBytes[0] == b'h'[0] or inputBytes[0] == b'H'[0]:
+    class DebugSerialPort(DebugPort):
+        def __init__(self):
+            super().__init__()
             self.xSteps = 0
             self.ySteps = 0
             self.zSteps = 0
-            self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
-        elif inputBytes[0] == b'c'[0] or inputBytes[0] == b'C'[0]:
-            data = pack('<clllc', b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
-            self.writeToOutputBuffer(data, endPointIndex)
-        else:
-            print("Unrecognized command (not everything is implemented): {0}".format(inputBytes))
 
-        self.inputBuffers[endPointIndex] = bytearray()
-"""
-if __name__ == "__main__":
-    device = SutterDevice()
-    device.moveTo((0, 0, 10))
-"""
+        def processInputBuffers(self, endPointIndex):
+            # We default to ECHO for simplicity
+
+            inputBytes = self.inputBuffers[endPointIndex]
+
+            if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:
+                x,y,z = unpack("<xlllx", inputBytes)
+                self.xSteps = x
+                self.ySteps = y
+                self.zSteps = z
+                self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
+            elif inputBytes[0] == b'h'[0] or inputBytes[0] == b'H'[0]:
+                self.xSteps = 0
+                self.ySteps = 0
+                self.zSteps = 0
+                self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
+            elif inputBytes[0] == b'c'[0] or inputBytes[0] == b'C'[0]:
+                data = pack('<clllc', b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
+                self.writeToOutputBuffer(data, endPointIndex)
+            else:
+                print("Unrecognized command (not everything is implemented): {0}".format(inputBytes))
+
+            self.inputBuffers[endPointIndex] = bytearray()

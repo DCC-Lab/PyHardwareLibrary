@@ -1,3 +1,4 @@
+import env
 import usb.core
 import usb.util
 import unittest
