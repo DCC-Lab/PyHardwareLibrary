@@ -11,6 +11,8 @@ class DeviceState(Enum):
 
 class PhysicalDeviceUnableToInitialize(Exception):
     pass
+class PhysicalDeviceUnableToShutdown(Exception):
+    pass
 
 class PhysicalDevice:
 
@@ -43,6 +45,7 @@ class PhysicalDevice:
                 NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self)
             except Exception as error:
                 NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self, userInfo=error)
+                raise PhysicalDeviceUnableToShutdown(error)
             finally:
                 self.state = DeviceState.Recognized
 

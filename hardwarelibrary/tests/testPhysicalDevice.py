@@ -9,19 +9,29 @@ class DebugPhysicalDevice(PhysicalDevice):
     def __init__(self):
         super().__init__("debug", 0xffff, 0xfffe)
         self.errorInitialize = False
+        self.errorShutdown = False
 
     def doInitializeDevice(self):
         if self.errorInitialize:
             raise RuntimeError()
 
     def doShutdownDevice(self):
-        pass
+        if self.errorShutdown:
+            raise RuntimeError()
 
 class BaseTestCases:
     class TestPhysicalDeviceBase(unittest.TestCase):
+
+        def forClass(self, classType):
+            self.deviceClass = classType
+
         def setUp(self):
             self.device = None
+            self.deviceClass = None
             self.isRunning = False
+
+        def testIsRunning(self):
+            self.assertFalse(self.isRunning)
 
         def testBaseInit(self):
             self.assertTrue(len(self.device.serialNumber) > 0)
@@ -53,7 +63,7 @@ class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         super().setUp()
         self.device = DebugPhysicalDevice()
 
-    def testConfiguredStateSequenceToShutdownWithError(self):
+    def testConfiguredStateSequenceToShutdownWithInitError(self):
         self.device.errorInitialize = True
         self.assertTrue(self.device.state == DeviceState.Unconfigured)
         with self.assertRaises(Exception):
@@ -61,6 +71,15 @@ class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.assertTrue(self.device.state == DeviceState.Unrecognized)
         self.device.shutdownDevice()
         self.assertTrue(self.device.state == DeviceState.Unrecognized)
+
+    def testConfiguredStateSequenceToShutdownWithShutError(self):
+        self.device.errorShutdown = True
+        self.assertTrue(self.device.state == DeviceState.Unconfigured)
+        self.device.initializeDevice()
+        self.assertTrue(self.device.state == DeviceState.Ready)
+        with self.assertRaises(Exception):
+            self.device.shutdownDevice()
+        self.assertTrue(self.device.state == DeviceState.Recognized)
 
 if __name__ == '__main__':
     unittest.main()
