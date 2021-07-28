@@ -9,12 +9,12 @@ class DeviceState(IntEnum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
-class PhysicalDeviceUnableToInitialize(Exception):
-    pass
-class PhysicalDeviceUnableToShutdown(Exception):
-    pass
 
 class PhysicalDevice:
+    class UnableToInitialize(Exception):
+        pass
+    class UnableToShutdown(Exception):
+        pass
 
     def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
         self.vendorId = vendorId
@@ -32,7 +32,7 @@ class PhysicalDevice:
             except Exception as error:
                 self.state = DeviceState.Unrecognized
                 NotificationCenter().postNotification("didInitializeDevice", notifyingObject=self, userInfo=error)
-                raise PhysicalDeviceUnableToInitialize(error)
+                raise PhysicalDevice.UnableToInitialize(error)
 
     def doInitializeDevice(self):
         raise NotImplementedError("Base class must override doInitializeDevice()")
@@ -45,7 +45,7 @@ class PhysicalDevice:
                 NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self)
             except Exception as error:
                 NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self, userInfo=error)
-                raise PhysicalDeviceUnableToShutdown(error)
+                raise PhysicalDevice.UnableToShutdown(error)
             finally:
                 self.state = DeviceState.Recognized
 

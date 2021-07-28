@@ -1,6 +1,10 @@
-class LinearMotionDevice:
+from hardwarelibrary.physicaldevice import *
+import numpy as np
 
-    def __init__():
+class LinearMotionDevice(PhysicalDevice):
+
+    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+        super().__init__(serialNumber, productId, vendorId)
         self.x = None
         self.y = None
         self.z = None
@@ -35,3 +39,20 @@ class LinearMotionDevice:
 
     def position3D(self) -> (float, float, float):
         return self.doGetPosition()
+
+class DebugLinearMotionDevice(LinearMotionDevice):
+
+    def __init__(self):
+        super().__init__("debug", 0xffff, 0xfffd)
+
+    def doGetPosition(self) -> (float, float, float):
+        return (self.x, self.y, self.z)
+
+    def doMoveTo(self, x, y, z):
+        (self.x, self.y, self.z) = (x,y,z)
+
+    def doInitializeDevice(self):
+        pass
+
+    def doShutdownDevice(self):
+        pass

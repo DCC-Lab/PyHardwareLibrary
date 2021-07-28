@@ -4,6 +4,7 @@ import time
 from threading import Thread, Lock
 import numpy as np
 from physicaldevice import PhysicalDevice, DeviceState
+from hardwarelibrary.motion import DebugLinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
 
 class DebugPhysicalDevice(PhysicalDevice):
@@ -22,13 +23,8 @@ class DebugPhysicalDevice(PhysicalDevice):
 
 class BaseTestCases:
     class TestPhysicalDeviceBase(unittest.TestCase):
-
-        def forClass(self, classType):
-            self.deviceClass = classType
-
         def setUp(self):
             self.device = None
-            self.deviceClass = None
             self.isRunning = False
 
         def testIsRunning(self):
@@ -43,7 +39,6 @@ class BaseTestCases:
             self.assertTrue(self.device.state == DeviceState.Unconfigured)
 
         def testConfiguredStateAfterInitialize(self):
-            print(self.device.state, self)
             self.assertEqual(self.device.state, DeviceState.Unconfigured)
             self.device.initializeDevice()
             self.assertEqual(self.device.state, DeviceState.Ready)
@@ -82,6 +77,11 @@ class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         with self.assertRaises(Exception):
             self.device.shutdownDevice()
         self.assertTrue(self.device.state == DeviceState.Recognized)
+
+class TestLinearMotionPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        self.device = DebugLinearMotionDevice()
 
 class TestSutterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
