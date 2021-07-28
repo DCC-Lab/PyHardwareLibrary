@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import Enum, IntEnum
 import typing
 import numpy as np
 from hardwarelibrary.notificationcenter import NotificationCenter
 
-class DeviceState(Enum):
+class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
     Ready = 1        # Connected and initialized
     Recognized = 2   # Initialization has succeeded, but currently shutdown
