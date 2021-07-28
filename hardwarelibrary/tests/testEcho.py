@@ -46,6 +46,7 @@ class BaseTestCases:
 
         def testWriteDataBytesAvailable(self):
             nBytes = self.port.writeData(payloadData)
+            self.assertEqual(nBytes, len(payloadData))
             # We are testing an echo, there may be a delay.
             time.sleep(0.1)
             self.assertEqual(nBytes, self.port.bytesAvailable())
@@ -242,10 +243,23 @@ def threadReadWrite(port, index):
 
 
 
-class TestDebugEchoPort(BaseTestCases.TestEchoPort):
+# class TestDebugEchoPort(BaseTestCases.TestEchoPort):
+
+#     def setUp(self):
+#         self.port = DebugEchoPort()
+#         self.assertIsNotNone(self.port)
+#         self.port.open()
+#         self.assertTrue(self.port.isOpen)
+#         self.port.flush()
+
+#     def tearDown(self):
+#         self.port.close()
+#         self.assertFalse(self.port.isOpen)
+
+class TestDebugPortDefaultsToECho(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = DebugEchoPort()
+        self.port = DebugPort()
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
@@ -300,7 +314,6 @@ class TestFTDIAdaptor(unittest.TestCase):
         epOut.write(text)
         epOut.write(text)
         epOut.write(text)
-        time.sleep(1)
         data = util.create_buffer(maxPacket)
         nBytes = epIn.read(size_or_buffer=data, timeout=1000)
         print(nBytes,data[:nBytes])
@@ -321,20 +334,20 @@ class TestFTDIAdaptor(unittest.TestCase):
 #         self.port.close()
 
 
-class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
+# class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
 
-    def setUp(self):
-        try:
-            self.port = SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="FTDXIKC4")
-            self.assertIsNotNone(self.port)
-            self.port.open()
-            self.port.flush()
-        except Exception as err:
-            raise unittest.SkipTest("No ECHO device connected {0}".format(err))
+#     def setUp(self):
+#         try:
+#             self.port = SerialPort(idVendor=0x0403, idProduct=0x6001, serialNumber="FTDXIKC4")
+#             self.assertIsNotNone(self.port)
+#             self.port.open()
+#             self.port.flush()
+#         except Exception as err:
+#             raise unittest.SkipTest("No ECHO device connected {0}".format(err))
 
-    def tearDown(self):
-        self.port.flush()
-        self.port.close()
+#     def tearDown(self):
+#         self.port.flush()
+#         self.port.close()
 
 
 if __name__ == '__main__':

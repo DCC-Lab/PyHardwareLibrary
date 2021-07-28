@@ -4,6 +4,7 @@ from hardwarelibrary.communication.communicationport import *
 from hardwarelibrary.communication.usbport import USBPort
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
+from hardwarelibrary.communication.debugport import DebugPort
 
 import numpy as np
 import re
@@ -156,32 +157,31 @@ class SutterDevice(PhysicalDevice):
             raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
 
 
-class SutterDebugSerialPort(CommunicationPort):
+class SutterDebugSerialPort(DebugPort):
     def __init__(self):
         super(SutterDebugSerialPort,self).__init__()
         self.xSteps = 0
         self.ySteps = 0
         self.zSteps = 0
 
-        # move = DataCommand(name='move', replyHexRegex='6d(.{8})(.{8})(.{8})')
-        # position = DataCommand(name='position', replyHexRegex='63')
-        # self.commands.append(move)
-        # self.commands.append(position)
+    def processInputBuffers(self, endPointIndex):
+        # We default to ECHO for simplicity
 
-    def processCommand(self, command, groups, inputData) -> bytearray:
-        if command.name == 'move':
-            self.x = unpack('<l',groups[0])[0]
-            self.y = unpack('<l',groups[1])[0]
-            self.z = unpack('<l',groups[2])[0]
-            return b'\r'
-        elif command.name == 'position':
-            replyData = bytearray()
-            replyData.extend(bytearray(pack("<l", self.x)))
-            replyData.extend(bytearray(pack("<l", self.y)))
-            replyData.extend(bytearray(pack("<l", self.z)))
-            replyData.extend(b'\r')
-            return replyData
+        inputBytes = self.inputBuffers[endPointIndex]
 
+        if inputBytes[0] == b'm'[0]:
+            x,y,z = unpack("<xlll", inputBytes)
+            self.xSteps = x
+            self.ySteps = y
+            self.zSteps = z
+            self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
+        elif inputBytes[0] == bytearray(b'c')[0]:
+            data = pack('<lllc', self.xSteps, self.ySteps, self.zSteps, b'\r')
+            self.writeToOutputBuffer(data, endPointIndex)
+        else:
+            print("Unrecognized {0}".format(inputBytes))
+
+        self.inputBuffers[endPointIndex] = bytearray()
 """
 if __name__ == "__main__":
     device = SutterDevice()

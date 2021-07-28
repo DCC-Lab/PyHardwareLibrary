@@ -70,10 +70,10 @@ class SerialPort(CommunicationPort):
         # We must add custom vendors when rewquired
         try:
             if idVendor is not None and idProduct is not None:
-                print("Adding custom product")
+                # print("Adding custom product")
                 pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
             elif idVendor is not None :
-                print("Adding custom vendor")
+                # print("Adding custom vendor")
                 pyftdi.ftdi.Ftdi.add_custom_vendor(vid=idVendor, vidname='VID {0}'.format(idVendor))
 
         except ValueError as err:
@@ -87,7 +87,7 @@ class SerialPort(CommunicationPort):
         portObjects = []
         allPorts = comports()            # From PySerial
         ftdiPorts = cls.ftdiPorts()
-        print(ftdiPorts)
+        # print(ftdiPorts)
         allPorts.extend(ftdiPorts) # From pyftdi
 
         for port in allPorts:
@@ -118,7 +118,7 @@ class SerialPort(CommunicationPort):
         portList = StringIO()
         Ftdi.show_devices()
         everything = portList.getvalue()
-        print(everything)
+        # print(everything)
         urls = []
         for someText in everything.split():
             match = re.match("ftdi://(.+):(.+):(.+)/",someText,re.IGNORECASE)
@@ -155,7 +155,7 @@ class SerialPort(CommunicationPort):
             if self.portPathIsURL:
                 # See https://eblot.github.io/pyftdi/api/uart.html
                 # self.portPath = re.match(r"^ftdi://0x1342:0x1/1")
-                print(self.portPath)
+                # print(self.portPath)
                 self.port = pyftdi.serialext.serial_for_url(self.portPath, baudrate=baudRate, timeout=timeout)
             else:
                 self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)
@@ -200,28 +200,3 @@ class SerialPort(CommunicationPort):
             self.port.flush()
 
         return nBytesWritten
-
-
-class SerialPortDebug(SerialPort):
-    def __init__(self):
-        super(SerialPortDebug,self).__init__()
-        self.commands = []
-        # move = DataCommand(name='move', replyHexRegex='6d(.{8})(.{8})(.{8})')
-        # position = DataCommand(name='position', replyHexRegex='63')
-        # self.commands.append(move)
-        # self.commands.append(position)
-
-    def processCommand(self, command, groups, inputData) -> bytearray:
-        if command.name == 'move':
-            self.x = unpack('<l',groups[0])[0]
-            self.y = unpack('<l',groups[1])[0]
-            self.z = unpack('<l',groups[2])[0]
-            return b'\r'
-        elif command.name == 'position':
-            replyData = bytearray()
-            replyData.extend(bytearray(pack("<l", self.x)))
-            replyData.extend(bytearray(pack("<l", self.y)))
-            replyData.extend(bytearray(pack("<l", self.z)))
-            replyData.extend(b'\r')
-            return replyData
-
