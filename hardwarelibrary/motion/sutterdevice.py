@@ -120,8 +120,7 @@ class SutterDevice(LinearMotionDevice):
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
         if replyBytes != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
-        
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")     
         
     def work(self):
         self.home()
