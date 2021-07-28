@@ -25,20 +25,25 @@ class LinearMotionDevice(PhysicalDevice):
     def position(self) -> ():
         return self.doGetPosition()
 
-    # def moveInMicronsTo(self, position):
-    #     self.doMoveTo(position)
+    def moveInMicronsTo(self, position):
+        nativePosition = [ x * self.nativeStepsPerMicrons for x in position]
+        self.moveTo(nativePosition)
 
-    # def moveInMicronsBy(self, displacement):
-    #     self.doMoveBy(displacement)
+    def moveInMicronsBy(self, displacement):
+        nativeDisplacement = [ dx * self.nativeStepsPerMicrons for dx in displacement]
+        self.moveTo(nativeDisplacement)
 
-    # def positionInMicrons(self) -> ():
-    #     return self.doGetPosition()
+    def positionInMicrons(self) -> ():
+        position = self.position()
+        positionInMicrons = [ x / self.nativeStepsPerMicrons for x in position]
+        return positionInMicrons
 
 class DebugLinearMotionDevice(LinearMotionDevice):
 
     def __init__(self):
         super().__init__("debug", 0xffff, 0xfffd)
         (self.x, self.y, self.z) = (0,0,0)
+        self.nativeStepsPerMicrons = 16
 
     def doGetPosition(self) -> (float, float, float):
         return (self.x, self.y, self.z)

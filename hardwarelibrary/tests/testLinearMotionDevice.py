@@ -14,8 +14,6 @@ class TestLinearMotionDevice(unittest.TestCase):
     def setUp(self):
         self.device = DebugLinearMotionDevice()
 
-    # def testDeviceHome(self):
-    #     self.device.home()
 
     def testDevicePosition(self):
         (x, y, z) = self.device.position()
@@ -54,6 +52,34 @@ class TestLinearMotionDevice(unittest.TestCase):
         self.assertTrue(y-yo == -2000)
         self.assertTrue(z-zo == -3000)
 
+
+    def testPositionInMicrons(self):
+        (x, y, z) = self.device.positionInMicrons()
+        self.assertIsNotNone(x)
+        self.assertIsNotNone(y)
+        self.assertIsNotNone(z)
+        self.assertTrue(x >= 0)
+        self.assertTrue(y >= 0)
+        self.assertTrue(z >= 0)
+
+    def testDeviceMoveInMicrons(self):
+        destination = (4000, 5000, 6000)
+        self.device.moveInMicronsTo(destination)
+
+        (x,y,z) = self.device.positionInMicrons()
+        self.assertTrue(x == destination[0])
+        self.assertTrue(y == destination[1])
+        self.assertTrue(z == destination[2])
+
+    def testDeviceMoveByInMicrons(self):
+        (xo, yo, zo) = self.device.positionInMicrons()
+
+        self.device.moveInMicronsBy((-1000, -2000, -3000))
+
+        (x, y, z) = self.device.positionInMicrons()
+        self.assertTrue(x-xo == -1000)
+        self.assertTrue(y-yo == -2000)
+        self.assertTrue(z-zo == -3000)
 
 
 
