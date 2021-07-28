@@ -1,10 +1,11 @@
-__version__ = "0.9.4"
+__version__ = "0.9.5"
 __author__ = "Daniel Cote <dccote@cervo.ulaval.ca>"
 
 __all__ = ["communication", "spectrometers"]
 
 # We want the modules at the top level
 from hardwarelibrary.physicaldevice import *
+from hardwarelibrary.notificationcenter import *
 from hardwarelibrary.communication import *
 
 # We want these modules in their namespace
