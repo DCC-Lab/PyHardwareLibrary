@@ -4,10 +4,13 @@ import unittest
 from hardwarelibrary.communication import *
 from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice
 from hardwarelibrary.motion.sutterdevice import SutterDevice
+from hardwarelibrary.notificationcenter import NotificationCenter
 
 class TestLinearMotionDevice(unittest.TestCase):
     def setUp(self):
         self.device = DebugLinearMotionDevice()
+        self.willNotificationReceived = False
+        self.didNotificationReceived = False
 
     def testDevicePosition(self):
         (x, y, z) = self.device.position()
@@ -83,46 +86,70 @@ class TestLinearMotionDevice(unittest.TestCase):
         self.assertEqual(z, 0)
 
 
-# class TestSutterIntegration(unittest.TestCase):
-#     def setUp(self):
-#         self.port = None
-#         self.portPath = None
+    def testDevicePosition(self):
+        (x, y, z) = self.device.position()
+        self.assertIsNotNone(x)
+        self.assertIsNotNone(y)
+        self.assertIsNotNone(z)
+        self.assertTrue(x >= 0)
+        self.assertTrue(y >= 0)
+        self.assertTrue(z >= 0)
 
-#         ports = serial.tools.list_ports.comports()
-#         for port in ports:
-#             if port.vid == 4930 and port.pid == 1: # Sutter Instruments
-#                 self.portPath = port.device
+    def handleWill(self, notification):
+        self.willNotificationReceived = True
 
-#         if self.portPath is None:
-#             self.fail("No Sutter connected. Giving up.")
+    def handleDid(self, notification):
+        self.didNotificationReceived = True
 
-#     def tearDown(self):
-#         if self.port is not None:
-#             self.port.close()
+    def testPositionNotifications(self):
+        NotificationCenter().addObserver(self, method=self.handleDid, notificationName="didGetPosition")
+        (x, y, z) = self.device.position()
+        self.assertTrue(self.didNotificationReceived)        
+        NotificationCenter().removeObserver(self)
 
-#     def move(self, x,y,z):
-#         # Write this or copy/paste from above...
-#         self.assertTrue(False)
+    def testDeviceMoveNotifications(self):
+        NotificationCenter().addObserver(self, method=self.handleWill, notificationName="willMove")
+        NotificationCenter().addObserver(self, method=self.handleDid, notificationName="didMove")
 
-#     def getPosition(self):
-#         # Write this or copy/paste from above...
-#         self.assertTrue(False)
+        self.assertFalse(self.willNotificationReceived)
+        self.assertFalse(self.didNotificationReceived)
 
-#     def testMove(self):
-#         self.assertTrue(False)
+        destination = (4000, 5000, 6000)
+        self.device.moveTo(destination)
 
-#     def testMoveAndConfirmPosition(self):
-#         self.assertTrue(False)
+        self.assertTrue(self.willNotificationReceived)
+        self.assertTrue(self.didNotificationReceived)
 
-#     def testMoveSeveralTimes(self):
-#         self.assertTrue(False)
+        NotificationCenter().removeObserver(self)
 
-#     def testReadPosition(self):
-#         self.assertTrue(False)
+    def testDeviceMoveByNotifications(self):
+        NotificationCenter().addObserver(self, method=self.handleWill, notificationName="willMove")
+        NotificationCenter().addObserver(self, method=self.handleDid, notificationName="didMove")
 
-#     def testReadPositionSeveralTimes(self):
-#         self.assertTrue(False)
+        self.assertFalse(self.willNotificationReceived)
+        self.assertFalse(self.didNotificationReceived)
 
+        self.device.moveBy((-1000, -2000, -3000))
+
+        self.assertTrue(self.willNotificationReceived)
+        self.assertTrue(self.didNotificationReceived)
+
+        NotificationCenter().removeObserver(self)
+
+    def testDeviceHomeNotifications(self):
+
+        NotificationCenter().addObserver(self, method=self.handleWill, notificationName="willMove")
+        NotificationCenter().addObserver(self, method=self.handleDid, notificationName="didMove")
+
+        self.assertFalse(self.willNotificationReceived)
+        self.assertFalse(self.didNotificationReceived)
+
+        self.device.home()
+
+        self.assertTrue(self.willNotificationReceived)
+        self.assertTrue(self.didNotificationReceived)
+
+        NotificationCenter().removeObserver(self)
 
 if __name__ == '__main__':
     unittest.main()

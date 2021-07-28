@@ -18,24 +18,24 @@ class LinearMotionDevice(PhysicalDevice):
         self.zMaxLimit = None
 
     def moveTo(self, position):
-        NotificationCenter().postNotification("willMoveTo", notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification("willMove", notifyingObject=self, userInfo=position)
         self.doMoveTo(position)
-        NotificationCenter().postNotification("didMoveTo", notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification("didMove", notifyingObject=self, userInfo=position)
 
     def moveBy(self, displacement):
-        NotificationCenter().postNotification("willMoveBy", notifyingObject=self, userInfo=displacement)
+        NotificationCenter().postNotification("willMove", notifyingObject=self, userInfo=displacement)
         self.doMoveBy(displacement)
-        NotificationCenter().postNotification("didMoveBy", notifyingObject=self, userInfo=displacement)
+        NotificationCenter().postNotification("didMove", notifyingObject=self, userInfo=displacement)
 
     def position(self) -> ():
         position = self.doGetPosition()
-        NotificationCenter().postNotification("didGetNativePosition", notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification("didGetPosition", notifyingObject=self, userInfo=position)
         return position
 
     def home(self) -> ():
-        NotificationCenter().postNotification("willHome", notifyingObject=self)
+        NotificationCenter().postNotification("willMove", notifyingObject=self)
         self.doHome()
-        NotificationCenter().postNotification("didHome", notifyingObject=self)
+        NotificationCenter().postNotification("didMove", notifyingObject=self)
 
     def moveInMicronsTo(self, position):
         nativePosition = [ x * self.nativeStepsPerMicrons for x in position]
