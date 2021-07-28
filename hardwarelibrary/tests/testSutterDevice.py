@@ -37,7 +37,6 @@ class TestSutterDevice(unittest.TestCase):
         self.assertIsNotNone(x)
         self.assertIsNotNone(y)
         self.assertIsNotNone(z)
-        print((x, y, z))
         self.assertTrue(x >= 0)
         self.assertTrue(y >= 0)
         self.assertTrue(z >= 0)

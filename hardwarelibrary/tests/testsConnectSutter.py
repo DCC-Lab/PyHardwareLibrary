@@ -1,23 +1,23 @@
 import env
 import unittest
-import hardwarelibrary.motion.sutterdevice as sd
+from hardwarelibrary.motion.sutterdevice import SutterDevice
 import hardwarelibrary.communication.serialport as s_ports
 
 
 class TestConnectSutter(unittest.TestCase):
     def testConnectDebugSutter(self):
-        sutter = sd.SutterDevice(serialNumber="debug")
+        sutter = SutterDevice(serialNumber="debug")
         # The port is not open until initializeDevice()
         sutter.doInitializeDevice()
         
         position = sutter.position()
-        print(position)
+
         self.assertIsNotNone(position[0])
         self.assertIsNotNone(position[1])
         self.assertIsNotNone(position[2])
 
     def testMoveToWithDebugSutter(self):
-        sutter = sd.SutterDevice("debug")
+        sutter = SutterDevice("debug")
         sutter.doInitializeDevice()
 
         sutter.moveTo((0, 100, 4000))
@@ -39,7 +39,7 @@ class TestConnectSutter(unittest.TestCase):
         sp.close()
 
     def testConnectRealSutterWithSutterDeviceClass(self):
-        sutter = sd.SutterDevice()
+        sutter = SutterDevice()
         sp = s_ports.SerialPort()
         ports = sp.matchPorts(idVendor=4930, idProduct=1)
         portPath = ports[0]
