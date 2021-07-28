@@ -56,8 +56,8 @@ class ObserverInfo:
             return False
         return True
 
-    # def __eq__(self, rhs):
-    #     return self.matches(rhs)
+    def __eq__(self, rhs):
+        return self.matches(rhs)
 
 class NotificationCenter:
     _instance = None
@@ -74,10 +74,10 @@ class NotificationCenter:
         observerInfo = ObserverInfo(observer=observer, method=method, notificationName=notificationName, observedObject=observedObject)
 
         if notificationName not in self.observers.keys():
-            self.observers[notificationName] = []
-
-        if observerInfo not in self.observers.values():
-            self.observers[notificationName].append(observerInfo)
+            self.observers[notificationName] = [observerInfo]
+        else:
+            if observerInfo not in self.observers[notificationName]:
+                self.observers[notificationName].append(observerInfo)
 
     def removeObserver(self, observer, notificationName=None, observedObject=None):
         observerToRemove = ObserverInfo(observer=observer, notificationName=notificationName, observedObject=observedObject)

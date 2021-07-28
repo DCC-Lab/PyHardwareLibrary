@@ -95,11 +95,24 @@ class TestNotificationCenter(unittest.TestCase):
         NotificationCenter().addObserver(self, self.handle, "testNotification", None)
         self.assertEqual(nc.observersCount(), 1)
 
+    def testAddObserverNoDuplicates2(self):
+        nc = NotificationCenter()
+        NotificationCenter().addObserver(self, self.handle, "testNotification", None)
+        NotificationCenter().addObserver(self, self.handle, "testNotification2", None)
+        self.assertEqual(nc.observersCount(), 2)
+
+    def testAddObserverNoDuplicates3(self):
+        nc = NotificationCenter()
+        NotificationCenter().addObserver(self, self.handle, "testNotification", None)
+        NotificationCenter().addObserver(self, self.handle, "testNotification", nc)
+        self.assertEqual(nc.observersCount(), 1)
+
     def testRemoveIncorrectObject(self):
         nc = NotificationCenter()
         someObject = NotificationCenter()
         NotificationCenter().addObserver(self, self.handle, "testNotification", someObject)
         NotificationCenter().removeObserver(someObject)
+        self.assertEqual(nc.observersCount(), 1)
 
     def handle(self, notification):
         self.notificationReceived = True
