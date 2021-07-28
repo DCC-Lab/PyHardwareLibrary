@@ -59,8 +59,8 @@ class TestSutterSerialPortBase:
 
         payload = bytearray('c',encoding='utf-8')
         self.port.writeData(payload)
-        data = self.port.readData(length=4*3)
-        (x,y,z) = unpack("<lll", data)
+        data = self.port.readData(length=1 + 4*3 + 1)
+        (x,y,z) = unpack("<xlllx", data)
         self.assertTrue( x == 1)
         self.assertTrue( y == 2)
         self.assertTrue( z == 3)

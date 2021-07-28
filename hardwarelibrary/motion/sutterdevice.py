@@ -49,7 +49,6 @@ class SutterDevice(PhysicalDevice):
             if self.port is not None:
                 if self.port.isOpen:
                     self.port.close()
-            print(error)
             raise PhysicalDeviceUnableToInitialize(error)
         except PhysicalDeviceUnableToInitialize as error:
             raise error
@@ -169,14 +168,14 @@ class SutterDebugSerialPort(DebugPort):
 
         inputBytes = self.inputBuffers[endPointIndex]
 
-        if inputBytes[0] == b'm'[0]:
+        if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:
             x,y,z = unpack("<xlll", inputBytes)
             self.xSteps = x
             self.ySteps = y
             self.zSteps = z
             self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
-        elif inputBytes[0] == bytearray(b'c')[0]:
-            data = pack('<lllc', self.xSteps, self.ySteps, self.zSteps, b'\r')
+        elif inputBytes[0] == b'c'[0] or inputBytes[0] == b'C'[0]:
+            data = pack('<clllc', b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
             self.writeToOutputBuffer(data, endPointIndex)
         else:
             print("Unrecognized {0}".format(inputBytes))
