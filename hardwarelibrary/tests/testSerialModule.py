@@ -5,20 +5,23 @@ from threading import Thread, Lock
 import random
 import array
 import os
+from pyftdi.ftdi import Ftdi
 
 from hardwarelibrary.communication.serialport import SerialPort
 from serial.tools.list_ports import comports
 
 class TestSerialModule(unittest.TestCase):
+    @unittest.skip
     def testListPorts(self):
         for c in comports():
             if c.vid is not None and c.pid is not None:
                 print("0x{0:04x} 0x{1:04x} {2}".format(c.vid, c.pid, c.device))
-            print(c.serial_number)
+            # print(c.serial_number)
             
     def testMatchPort(self):
         ports = SerialPort.matchPorts(idVendor=0x0403)
         self.assertTrue(len(ports) != 0)
+        self.assertTrue(len(ports) == 1)
 
     def testMatchUniquePort(self):
         port = SerialPort.matchSinglePort(idVendor=0x0403)
