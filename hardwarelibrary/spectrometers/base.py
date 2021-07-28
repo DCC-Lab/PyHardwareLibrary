@@ -15,6 +15,7 @@ import usb.util
 import usb.backend.libusb1
 
 from pathlib import *
+from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.spectrometers.viewer import *
 
 class NoSpectrometerConnected(RuntimeError):
@@ -26,7 +27,7 @@ class UnableToCommunicate(RuntimeError):
 class SpectrumRequestTimeoutError(RuntimeError):
     pass
 
-class Spectrometer:
+class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
     def __init__(self, serialNumber=None):
