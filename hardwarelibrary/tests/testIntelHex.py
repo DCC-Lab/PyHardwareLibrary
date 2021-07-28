@@ -1,8 +1,15 @@
+import env
 import unittest
+import os
 from hardwarelibrary.spectrometers.intelhexreader import *
 
 class TestIntelHexReader(unittest.TestCase):
     hexFile = "../spectrometers/stellarnet.hex"
+
+    def setUp(self):
+        if not os.path.exists(self.hexFile):
+            raise(unittest.SkipTest("Hex file for testing not found."))
+
     def testCreateReader(self):
         reader = IntelHexReader(self.hexFile)
         self.assertIsNotNone(reader)

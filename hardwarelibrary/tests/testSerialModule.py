@@ -11,6 +11,7 @@ from hardwarelibrary.communication.serialport import SerialPort
 from serial.tools.list_ports import comports
 
 class TestSerialModule(unittest.TestCase):
+
     @unittest.skip
     def testListPorts(self):
         for c in comports():

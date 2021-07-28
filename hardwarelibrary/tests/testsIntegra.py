@@ -12,7 +12,7 @@ class TestIntegraPort(unittest.TestCase):
         try:
             self.port.open()
         except:
-            self.fail("No devices connected")
+            raise (unittest.SkipTest("No devices connected"))
 
     def tearDown(self):
         self.port.close()

@@ -1,13 +1,21 @@
+import env
 import usb.core
 import usb.util
 import unittest
-from usbport import *
-from communicationport import SerialPort
+from hardwarelibrary.communication.serialport import SerialPort
+from hardwarelibrary.communication.usbport import *
 import time
+import os
+
+hardcodedPath = '/dev/tty.usbmodem143101'
 
 class TestOptotune(unittest.TestCase):
     idVendor = 0x03eb
     idProduct = 0x2018
+
+    def setUp(self):
+        if not os.path.exists(hardcodedPath):
+            raise(unittest.SkipTest("No OptoTune connected. Skipping."))
 
     # def asString(self, bytesRead):
     #     return bytes(bytesRead[:-2]).decode()
@@ -51,7 +59,7 @@ class TestOptotune(unittest.TestCase):
     #     # print(intf0[0].read(size_or_buffer=7, timeout=5000))
     #     usb.util.dispose_resources(dev)
     def testSerialPort(self):
-        port = SerialPort(bsdPath='/dev/tty.usbmodem143101')
+        port = SerialPort(portPath='/dev/tty.usbmodem143101')
         self.assertIsNotNone(port)
         port.open()
         self.assertTrue(port.isOpen)

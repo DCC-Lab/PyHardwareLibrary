@@ -8,7 +8,7 @@ import pyftdi.serialext
 import pyftdi.ftdi 
 from pyftdi.ftdi import Ftdi
 
-from hardwarelibrary.motion.sutterdevice import SutterDevice, SutterDebugSerialPort 
+from hardwarelibrary.motion.sutterdevice import SutterDevice
 from hardwarelibrary.communication.serialport import *
 
 
@@ -70,7 +70,7 @@ class TestSutterSerialPortBase:
 class TestSutterDebugSerialPort(TestSutterSerialPortBase, unittest.TestCase):
 
     def setUp(self):
-        self.port = SutterDebugSerialPort()
+        self.port = SutterDevice.DebugSerialPort()
         self.assertIsNotNone(self.port)
         self.port.open()
 
