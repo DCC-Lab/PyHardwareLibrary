@@ -157,10 +157,10 @@ class TestDebugLinearMotionDeviceBase(BaseTestCases.TestLinearMotionDevice):
         super().setUp()
         self.device = DebugLinearMotionDevice()
 
-# class TestDebugSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
-#     def setUp(self):
-#         super().setUp()
-#         self.device = SutterDevice("debug")
+class TestDebugSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
+    def setUp(self):
+        super().setUp()
+        self.device = SutterDevice("debug")
 
 
 if __name__ == '__main__':
