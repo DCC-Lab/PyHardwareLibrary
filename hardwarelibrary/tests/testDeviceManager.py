@@ -4,7 +4,7 @@ import numpy as np
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
-
+import re
 
 class DeviceManager:
     _instance = None
@@ -25,7 +25,9 @@ class DeviceManager:
         for device in self.devices:
             if issubclass(type(device), deviceClass):
                 if serialNumber is not None:
-                    if device.serialNumber == serialNumber:
+                    regexSerialNumber = serialNumber
+                    regMatch = re.match(regexSerialNumber, device.serialNumber)
+                    if regMatch is not None:
                         matched.append(device)
                 else:
                     matched.append(device)
@@ -79,6 +81,18 @@ class TestDeviceManager(unittest.TestCase):
         matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice)
         self.assertTrue(len(matched) == 2)
 
+    def testMatchingWithSerial(self):
+        dm = DeviceManager()
+        device1 = DebugLinearMotionDevice()
+        device2 = DebugLinearMotionDevice()
+        dm.addDevice(device1)
+        dm.addDevice(device2)
+
+        matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice, serialNumber="debug")
+        self.assertTrue(len(matched) == 2)
+
+        matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice, serialNumber="debu")
+        self.assertTrue(len(matched) == 2)
 
 
 if __name__ == '__main__':
