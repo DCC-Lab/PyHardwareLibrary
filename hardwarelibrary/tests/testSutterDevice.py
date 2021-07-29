@@ -12,13 +12,31 @@ import serial
 class TestSutterDevice(unittest.TestCase):
     def setUp(self):
             # pyftdi.ftdi.Ftdi.add_custom_product(vid=4930, pid=1, pidname='Sutter')
-        self.device = SutterDevice("debug")
+        try: 
+            self.device = SutterDevice()
+            self.device.initializeDevice()
+        except:
+            self.device = SutterDevice("debug")
+            self.device.initializeDevice()
+            #print("Using Debug Sutter device for tests")
+        
         self.assertIsNotNone(self.device)
-        self.device.doInitializeDevice()
+        # raise(unittest.SkipTest("No FTDI connected. Skipping."))
 
     def tearDown(self):
-        self.device.doShutdownDevice()
+        self.device.shutdownDevice()
         self.device = None
+
+    def testNativeUnits(self):
+        self.assertEqual(self.device.nativeStepsPerMicrons, 16)
+
+    def testLimits(self):
+        self.assertEqual(self.device.xMinLimit, 0)
+        self.assertEqual(self.device.yMinLimit, 0)
+        self.assertEqual(self.device.zMinLimit, 0)
+        self.assertEqual(self.device.xMaxLimit, 25000*16)
+        self.assertEqual(self.device.yMaxLimit, 25000*16)
+        self.assertEqual(self.device.zMaxLimit, 25000*16)
 
     def testDeviceHome(self):
         self.device.home()

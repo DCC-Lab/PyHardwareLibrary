@@ -11,18 +11,20 @@ import re
 import time
 from struct import *
 
-class SutterDevice(PhysicalDevice):
+class SutterDevice(LinearMotionDevice):
 
     def __init__(self, serialNumber: str = None):
         super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
         self.port = None
+        self.nativeStepsPerMicrons = 16
+
+        # All values are in native units (i.e. microsteps)
         self.xMinLimit = 0
         self.yMinLimit = 0
         self.zMinLimit = 0
-        self.xMaxLimit = 25000
-        self.yMaxLimit = 25000
-        self.zMaxLimit = 25000
-        self.microstepsPerMicrons = 16
+        self.xMaxLimit = 25000*16
+        self.yMaxLimit = 25000*16
+        self.zMaxLimit = 25000*16
 
     def __del__(self):
         try:
@@ -84,7 +86,10 @@ class SutterDevice(PhysicalDevice):
         # print(unpack(format, replyBytes))
         return unpack(format, replyBytes)
 
-    def positionInMicrosteps(self) -> (int,int,int):
+    def positionInMicrosteps(self) -> (int,int,int): # for compatibility
+        return self.doGetPosition()
+
+    def doGetPosition(self) -> (int,int,int):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
@@ -92,7 +97,7 @@ class SutterDevice(PhysicalDevice):
 
         return (x, y, z)
 
-    def moveInMicrostepsTo(self, position):
+    def doMoveTo(self, position):
         """ Move to a position in microsteps """
         x, y, z = position
         commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
@@ -102,44 +107,22 @@ class SutterDevice(PhysicalDevice):
         if reply != (b'\r',):
             raise Exception(f"Expected carriage return, but got '{reply}' instead.")
 
-    def position(self) -> (float, float, float):
-        """ Returns the position in microns """
-
-        position = self.positionInMicrosteps()
-        if position is not None:
-            return (position[0]/self.microstepsPerMicrons,
-                    position[1]/self.microstepsPerMicrons,
-                    position[2]/self.microstepsPerMicrons)
-        else:
-            print('whaaaaaaat')
-            return (None, None, None)
-
-    def moveTo(self, position):
-        """ Move to a position in microns """
-        x, y, z  = position
-        positionInMicrosteps = (x*self.microstepsPerMicrons, 
-                                y*self.microstepsPerMicrons,
-                                z*self.microstepsPerMicrons)
-        self.moveInMicrostepsTo(positionInMicrosteps)
-
-    def moveBy(self, delta) -> bool:
-        #Move by a delta displacement (dx, dy, dz) from current position in microns
-        dx,dy,dz  = delta
-        x,y,z = self.position()
+    def doMoveBy(self, displacement):
+        dx,dy,dz  = displacement
+        x,y,z = self.doGetPosition()
         if x is not None:
-            self.moveTo((x+dx, y+dy, z+dz))
+            self.doMoveTo((x+dx, y+dy, z+dz))
         else:
             raise Exception("Unable to read position from device")
 
-    def home(self):
+    def doHome(self):
         commandBytes = pack('<cc', b'H', b'\r')
         self.sendCommand(commandBytes)
         replyBytes = self.readReply(1, '<c')
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
         if replyBytes != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
-        
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")     
         
     def work(self):
         self.home()
