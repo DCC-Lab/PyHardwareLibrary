@@ -1,7 +1,5 @@
 import env # modifies path
 import unittest
-import time
-from threading import Thread, Lock
 import numpy as np
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
@@ -20,14 +18,18 @@ class DeviceManager:
         return cls._instance
 
     def addDevice(self, device):
-    	self.devices.append(device)
+        self.devices.append(device)
 
-    def matchPhysicalDevicesOfType(self, deviceClass):
-    	matched = []
-    	for device in self.devices:
-    		if issubclass(type(device), deviceClass):
-    			matched.append(device)
-    	return matched
+    def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
+        matched = []
+        for device in self.devices:
+            if issubclass(type(device), deviceClass):
+                if serialNumber is not None:
+                    if device.serialNumber == serialNumber:
+                        matched.append(device)
+                else:
+                    matched.append(device)
+        return matched
 
 
 class TestDeviceManager(unittest.TestCase):
@@ -53,7 +55,13 @@ class TestDeviceManager(unittest.TestCase):
         self.assertTrue( issubclass(type(device), PhysicalDevice))
         # self.assertTrue( issubclass( type(device), LinearMotionDevice ))
 
-    def testMatching(self):
+    def setUp(self):
+        # DeviceManager().devices = []
+        dm = DeviceManager()
+        DeviceManager._instance = None
+        del(dm)
+
+    def testMatching1(self):
         dm = DeviceManager()
         device = DebugLinearMotionDevice()
         dm.addDevice(device)
@@ -61,8 +69,17 @@ class TestDeviceManager(unittest.TestCase):
         matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice)
         self.assertTrue(len(matched) > 0)
 
+    def testMatching2(self):
+        dm = DeviceManager()
+        device1 = DebugLinearMotionDevice()
+        device2 = DebugLinearMotionDevice()
+        dm.addDevice(device1)
+        dm.addDevice(device2)
+
+        matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice)
+        self.assertTrue(len(matched) == 2)
 
 
 
 if __name__ == '__main__':
-	unittest.main()
+    unittest.main()
