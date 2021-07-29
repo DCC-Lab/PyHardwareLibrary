@@ -16,13 +16,15 @@ class SutterDevice(LinearMotionDevice):
     def __init__(self, serialNumber: str = None):
         super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
         self.port = None
+        self.nativeStepsPerMicrons = 16
+
+        # All values are in native units (i.e. microsteps)
         self.xMinLimit = 0
         self.yMinLimit = 0
         self.zMinLimit = 0
-        self.xMaxLimit = 25000
-        self.yMaxLimit = 25000
-        self.zMaxLimit = 25000
-        self.microstepsPerMicrons = 16
+        self.xMaxLimit = 25000*16
+        self.yMaxLimit = 25000*16
+        self.zMaxLimit = 25000*16
 
     def __del__(self):
         try:
