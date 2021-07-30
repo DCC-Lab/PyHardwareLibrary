@@ -46,10 +46,16 @@ class DeviceManager:
             # Later, I will add various things here.
             # check usb ports, etc...
             # print("(Monitoring)")
+            currentDevices = []
+            with self.lock:
+                currentDevices.extend(self.devices)
+
+            NotificationCenter().postNotification("status", notifyingObject=self, userInfo=currentDevices)
+
             with self.lock:
                 if self.quitMonitoring:
                      break
-            time.sleep(0.1)
+            time.sleep(0.2)
         NotificationCenter().postNotification("didStopMonitoring", notifyingObject=self)
 
     @property
@@ -70,6 +76,10 @@ class DeviceManager:
     def addDevice(self, device):
         with self.lock:
             self.devices.add(device)
+
+    def removeDevice(self, device):
+        with self.lock:
+            self.devices.remove(device)
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
         currentDevices = []
@@ -188,13 +198,13 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.2
+        expectedMaxEndTime = startTime + 0.3
         dm.startMonitoring()
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.2
+        expectedMaxEndTime = startTime + 0.3
         dm.startMonitoring()
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
@@ -218,6 +228,7 @@ class TestDeviceManager(unittest.TestCase):
         nc.addObserver(self, self.handle, "didStartMonitoring")
         nc.addObserver(self, self.handle, "willStopMonitoring")
         nc.addObserver(self, self.handle, "didStopMonitoring")
+        nc.addObserver(self, self.handleStatus, "status")
         self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
 
         dm.startMonitoring()
@@ -227,10 +238,44 @@ class TestDeviceManager(unittest.TestCase):
         self.assertTrue(len(self.notificationsToReceive) == 0)        
         nc.removeObserver(self)
 
-    def handle(self, notification):
+    def testNotificationReceivedWhileAddingDevices(self):
+        dm = DeviceManager()
+        nc = NotificationCenter()
+        nc.addObserver(self, self.handle, "willStartMonitoring")
+        nc.addObserver(self, self.handle, "didStartMonitoring")
+        nc.addObserver(self, self.handle, "willStopMonitoring")
+        nc.addObserver(self, self.handle, "didStopMonitoring")
+        nc.addObserver(self, self.handleStatus, "status")
+        self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
 
+        dm.startMonitoring()
+        time.sleep(0.5)
+        self.addRemoveManyDevices()
+        time.sleep(0.5)
+        dm.stopMonitoring()
+
+        self.assertTrue(len(self.notificationsToReceive) == 0)        
+        nc.removeObserver(self)
+
+    def addRemoveManyDevices(self):
+        dm = DeviceManager()
+        devices = []
+        for i in range(1000):
+            device = DebugLinearMotionDevice()
+            dm.addDevice(device)
+            devices.append(device)
+
+        for device in devices:
+            dm.removeDevice(device)
+
+    def handle(self, notification):
         self.assertEqual(notification.name, self.notificationsToReceive[0])
         self.notificationsToReceive.pop(0)
+
+    def handleStatus(self, notification):
+        devices = notification.userInfo
+        # if len(devices) != 0:
+        #     self.assertTrue(isinstance(devices[0], DebugLinearMotionDevice))
 
 if __name__ == '__main__':
     unittest.main()
