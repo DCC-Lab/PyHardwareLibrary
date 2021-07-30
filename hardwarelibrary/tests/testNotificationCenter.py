@@ -115,6 +115,26 @@ class TestNotificationCenter(unittest.TestCase):
         nc.removeObserver(someObject)
         self.assertEqual(nc.observersCount(), 1)
 
+    def testRemoveManyObservers(self):
+        nc = NotificationCenter()
+        someObject = NotificationCenter()
+        nc.addObserver(self, self.handle, "testNotification", someObject)
+        nc.addObserver(self, self.handle, "testNotification2", someObject)
+        nc.addObserver(self, self.handle, "testNotification3", someObject)
+        nc.addObserver(self, self.handle, "testNotification4", None)
+        nc.removeObserver(self)
+        self.assertEqual(nc.observersCount(), 0)
+
+    def testRemoveManyObservers2(self):
+        nc = NotificationCenter()
+        someObject = NotificationCenter()
+        nc.addObserver(self, self.handle, "testNotification", someObject)
+        nc.addObserver(self, self.handle, "testNotification2", someObject)
+        nc.addObserver(self, self.handle, "testNotification3", someObject)
+        nc.addObserver(self, self.handle, "testNotification4", None)
+        nc.removeObserver(self, observedObject=someObject)
+        self.assertEqual(nc.observersCount(), 0)
+
     def handle(self, notification):
         self.notificationReceived = True
         self.postedUserInfo = notification.userInfo

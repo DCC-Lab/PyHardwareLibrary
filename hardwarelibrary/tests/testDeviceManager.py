@@ -136,6 +136,8 @@ class TestDeviceManager(unittest.TestCase):
         DeviceManager._instance = None
         del(dm)
         self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
+        self.assertEqual(NotificationCenter().observersCount(), 0)
+
 
     def testMatching1(self):
         dm = DeviceManager()
@@ -245,6 +247,7 @@ class TestDeviceManager(unittest.TestCase):
 
         self.assertTrue(len(self.notificationsToReceive) == 0)        
         nc.removeObserver(self)
+        self.assertEqual(nc.observersCount(), 0)
 
     def testNotificationReceivedWhileAddingDevices(self):
         dm = DeviceManager()
@@ -265,10 +268,30 @@ class TestDeviceManager(unittest.TestCase):
         self.assertTrue(len(self.notificationsToReceive) == 0)        
         nc.removeObserver(self)
 
-    def addRemoveManyDevices(self):
+    def testNotificationReceivedFromAddingDevices(self):
+        dm = DeviceManager()
+        nc = NotificationCenter()
+        nc.addObserver(self, self.handle, "willAddDevice")
+        nc.addObserver(self, self.handle, "didAddDevice")
+        nc.addObserver(self, self.handle, "willRemoveDevice")
+        nc.addObserver(self, self.handle, "didRemoveDevice")
+        self.notificationsToReceive = ["willAddDevice","didAddDevice"]*1000
+        self.notificationsToReceive.extend(["willRemoveDevice","didRemoveDevice"]*1000)
+
+
+        dm.startMonitoring()
+        time.sleep(0.5)
+        self.addRemoveManyDevices(1000)
+        time.sleep(0.5)
+        dm.stopMonitoring()
+
+        self.assertTrue(len(self.notificationsToReceive) == 0)        
+        nc.removeObserver(self)
+
+    def addRemoveManyDevices(self, N=1000):
         dm = DeviceManager()
         devices = []
-        for i in range(1000):
+        for i in range(N):
             device = DebugLinearMotionDevice()
             dm.addDevice(device)
             devices.append(device)
@@ -277,6 +300,7 @@ class TestDeviceManager(unittest.TestCase):
             dm.removeDevice(device)
 
     def handle(self, notification):
+        print(notification.name)
         self.assertEqual(notification.name, self.notificationsToReceive[0])
         self.notificationsToReceive.pop(0)
 
