@@ -2,12 +2,12 @@ import env # modifies path
 import unittest
 import numpy as np
 import time
+import re
+from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
-import re
-from multiprocessing import Process, Value, Array
-from threading import Thread, Lock
+from threading import Thread, RLock
 
 class DeviceManager:
     _instance = None
@@ -18,7 +18,7 @@ class DeviceManager:
         if not hasattr(self, 'quitMonitoring'):
             self.quitMonitoring = False
         if not hasattr(self, 'lock'):
-            self.lock = Lock()
+            self.lock = RLock()
         if not hasattr(self, 'monitoring'):
             self.monitoring = None
 
@@ -29,9 +29,10 @@ class DeviceManager:
 
     def startMonitoring(self):
         with self.lock:
-            if self.monitoring is None:
-                self.monitoring = Thread(target=self.monitoringLoop, name="DeviceManager-RunLoop")
+            if not self.isMonitoring:
                 self.quitMonitoring = False
+                self.monitoring = Thread(target=self.monitoringLoop, name="DeviceManager-RunLoop")
+                NotificationCenter().postNotification(notificationName="willStartMonitoring", notifyingObject=self)
                 self.monitoring.start()
             else:
                 raise RuntimeError("Monitoring loop already running")
@@ -39,20 +40,32 @@ class DeviceManager:
     def monitoringLoop(self):        
         startTime = time.time()
         endTime = startTime + 5.0
+        NotificationCenter().postNotification("didStartMonitoring", notifyingObject=self)
         while time.time() < endTime :
-            time.sleep(0.3)
+
+            # Later, I will add various things here.
+            # check usb ports, etc...
+            # print("(Monitoring)")
             with self.lock:
                 if self.quitMonitoring:
                      break
+            time.sleep(0.1)
+        NotificationCenter().postNotification("didStopMonitoring", notifyingObject=self)
 
-    def stopMonitoring(self):
+    @property
+    def isMonitoring(self):
         with self.lock:
-            if self.monitoring is not None:
+            return self.monitoring is not None
+    
+    def stopMonitoring(self):
+        if self.isMonitoring:
+            NotificationCenter().postNotification("willStopMonitoring", notifyingObject=self)
+            with self.lock:
                 self.quitMonitoring = True
-            else:
-                raise RuntimeError("No monitoring loop running")
-                
-        self.monitoring.join()
+            self.monitoring.join()
+            self.monitoring = None
+        else:
+            raise RuntimeError("No monitoring loop running")
 
     def addDevice(self, device):
         with self.lock:
@@ -104,6 +117,7 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         DeviceManager._instance = None
         del(dm)
+        self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
 
     def testMatching1(self):
         dm = DeviceManager()
@@ -124,7 +138,7 @@ class TestDeviceManager(unittest.TestCase):
         matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice)
         self.assertTrue(len(matched) == 2)
 
-    def testMatchingWithSerial(self):
+    def testMatching3WithSerial(self):
         dm = DeviceManager()
         device1 = DebugLinearMotionDevice()
         device2 = DebugLinearMotionDevice()
@@ -165,10 +179,58 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         dm.startMonitoring()
         startTime = time.time()
-        expectedMaxEndTime = startTime + 1.5
-        time.sleep(1)
+        expectedMaxEndTime = startTime + 0.7
+        time.sleep(0.5)
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
+
+    def testRestartRunLoop(self):
+        dm = DeviceManager()
+
+        startTime = time.time()
+        expectedMaxEndTime = startTime + 0.2
+        dm.startMonitoring()
+        dm.stopMonitoring()
+        self.assertTrue(expectedMaxEndTime > time.time() )
+
+        startTime = time.time()
+        expectedMaxEndTime = startTime + 0.2
+        dm.startMonitoring()
+        dm.stopMonitoring()
+        self.assertTrue(expectedMaxEndTime > time.time() )
+
+    def testStartRunLoopTwice(self):
+        dm = DeviceManager()
+        dm.startMonitoring()
+        with self.assertRaises(Exception):
+            dm.startMonitoring()
+        dm.stopMonitoring()
+
+    def testStopRunLoopTwice(self):
+        dm = DeviceManager()
+        with self.assertRaises(Exception):
+            dm.stopMonitoring()
+
+    def testNotificationReceived(self):
+        dm = DeviceManager()
+        nc = NotificationCenter()
+        nc.addObserver(self, self.handle, "willStartMonitoring")
+        nc.addObserver(self, self.handle, "didStartMonitoring")
+        nc.addObserver(self, self.handle, "willStopMonitoring")
+        nc.addObserver(self, self.handle, "didStopMonitoring")
+        self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
+
+        dm.startMonitoring()
+        time.sleep(0.5)
+        dm.stopMonitoring()
+
+        self.assertTrue(len(self.notificationsToReceive) == 0)        
+        nc.removeObserver(self)
+
+    def handle(self, notification):
+
+        self.assertEqual(notification.name, self.notificationsToReceive[0])
+        self.notificationsToReceive.pop(0)
 
 if __name__ == '__main__':
     unittest.main()
