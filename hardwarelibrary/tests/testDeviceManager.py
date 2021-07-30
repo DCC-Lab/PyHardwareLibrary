@@ -10,6 +10,20 @@ from hardwarelibrary.motion import SutterDevice
 from threading import Thread, RLock
 from hardwarelibrary.communication.diagnostics import *
 
+class DebugPhysicalDevice(PhysicalDevice):
+    def __init__(self):
+        super().__init__("debug", 0xffff, 0xfffe)
+        self.errorInitialize = False
+        self.errorShutdown = False
+
+    def doInitializeDevice(self):
+        if self.errorInitialize:
+            raise RuntimeError()
+
+    def doShutdownDevice(self):
+        if self.errorShutdown:
+            raise RuntimeError()
+
 class DeviceManager:
     _instance = None
 
@@ -23,7 +37,7 @@ class DeviceManager:
         if not hasattr(self, 'monitoring'):
             self.monitoring = None
         if not hasattr(self, 'usbDevices'):
-            self.usbDevices = None
+            self.usbDevices = []
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -45,8 +59,8 @@ class DeviceManager:
         endTime = startTime + 5.0
         NotificationCenter().postNotification("didStartMonitoring", notifyingObject=self)
         while time.time() < endTime :
-            self.lookForNewlyConnectedDevices()
-            self.lookForNewlyDisconnectedDevices()
+            # self.lookForNewlyConnectedDevices()
+            # self.lookForNewlyDisconnectedDevices()
 
             currentDevices = []
             with self.lock:
@@ -60,12 +74,22 @@ class DeviceManager:
             time.sleep(0.2)
         NotificationCenter().postNotification("didStopMonitoring", notifyingObject=self)
 
-    def lookForNewlyConnectedDevices(self):
-        #TODO : look on USB ports for new devices
-        devices = connectedUSBDevices()
-    def lookForNewlyDisconnectedDevices(self):
-        #TODO : look on USB ports for disconnected devices
-        pass
+    def newlyConnectedUSBDevices(self):
+        currentlyConnectedDevices = connectedUSBDevices()
+        newlyConnected = [ usbDevice for usbDevice in currentlyConnectedDevices if usbDevice not in self.usbDevices]
+        self.usbDevices = currentlyConnectedDevices
+
+        return newlyConnected
+
+    def newlyDisconnectedUSBDevices(self):
+        currentlyConnectedDevices = connectedUSBDevices()
+        newlyDisconnected = [ usbDevice for usbDevice in self.usbDevices if usbDevice not in currentlyConnectedDevices]
+        self.usbDevices = currentlyConnectedDevices
+
+        return newlyDisconnected
+
+    def matchUSBDeviceWithPhysicalDevice(self, usbDevice):
+        return DebugPhysicalDevice()
 
     @property
     def isMonitoring(self):
@@ -293,6 +317,11 @@ class TestDeviceManager(unittest.TestCase):
         with self.lock:
             self.assertTrue(len(self.notificationsToReceive) == 0)        
         nc.removeObserver(self)
+
+    def testNewlyConnectedDevices(self):
+        dm = DeviceManager()
+        self.assertTrue(len(dm.newlyConnectedUSBDevices()) > 4)
+
 
     def addRemoveManyDevices(self, N=1000):
         dm = DeviceManager()
