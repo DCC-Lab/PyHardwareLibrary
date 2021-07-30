@@ -300,7 +300,6 @@ class TestDeviceManager(unittest.TestCase):
             dm.removeDevice(device)
 
     def handle(self, notification):
-        print(notification.name)
         self.assertEqual(notification.name, self.notificationsToReceive[0])
         self.notificationsToReceive.pop(0)
 
