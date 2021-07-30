@@ -42,12 +42,8 @@ class DeviceManager:
         endTime = startTime + 5.0
         NotificationCenter().postNotification("didStartMonitoring", notifyingObject=self)
         while time.time() < endTime :
-
-            # Later, I will add various things here.
-            # check usb ports, etc...
-            # print("(Monitoring)")
-
-            self.lookForNewDevices()
+            self.lookForNewlyConnectedDevices()
+            self.lookForNewlyDisconnectedDevices()
 
             currentDevices = []
             with self.lock:
@@ -61,8 +57,12 @@ class DeviceManager:
             time.sleep(0.2)
         NotificationCenter().postNotification("didStopMonitoring", notifyingObject=self)
 
-    def lookForNewDevices(self):
+    def lookForNewlyConnectedDevices(self):
         #TODO : look on USB ports for new devices
+        pass
+
+    def lookForNewlyDisconnectedDevices(self):
+        #TODO : look on USB ports for disconnected devices
         pass
 
     @property
