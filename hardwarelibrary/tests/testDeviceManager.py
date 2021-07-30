@@ -46,6 +46,9 @@ class DeviceManager:
             # Later, I will add various things here.
             # check usb ports, etc...
             # print("(Monitoring)")
+
+            self.lookForNewDevices()
+
             currentDevices = []
             with self.lock:
                 currentDevices.extend(self.devices)
@@ -57,6 +60,10 @@ class DeviceManager:
                      break
             time.sleep(0.2)
         NotificationCenter().postNotification("didStopMonitoring", notifyingObject=self)
+
+    def lookForNewDevices(self):
+        #TODO : look on USB ports for new devices
+        pass
 
     @property
     def isMonitoring(self):
@@ -74,12 +81,16 @@ class DeviceManager:
             raise RuntimeError("No monitoring loop running")
 
     def addDevice(self, device):
+        NotificationCenter().postNotification("willAddDevice", notifyingObject=(self, device))
         with self.lock:
             self.devices.add(device)
+        NotificationCenter().postNotification("didAddDevice", notifyingObject=(self, device))
 
     def removeDevice(self, device):
+        NotificationCenter().postNotification("willRemoveDevice", notifyingObject=(self, device))
         with self.lock:
             self.devices.remove(device)
+        NotificationCenter().postNotification("didRemoveDevice", notifyingObject=(self, device))
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
         currentDevices = []
