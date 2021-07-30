@@ -93,21 +93,18 @@ class DeviceManager:
         NotificationCenter().postNotification("didRemoveDevice", notifyingObject=self, userInfo=device)
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
-        currentDevices = []
         with self.lock:
-            currentDevices.extend(self.devices)
-
-        matched = []
-        for device in currentDevices:
-            if issubclass(type(device), deviceClass):
-                if serialNumber is not None:
-                    regexSerialNumber = serialNumber
-                    regMatch = re.match(regexSerialNumber, device.serialNumber)
-                    if regMatch is not None:
+            matched = []
+            for device in self.devices:
+                if issubclass(type(device), deviceClass):
+                    if serialNumber is not None:
+                        regexSerialNumber = serialNumber
+                        regMatch = re.match(regexSerialNumber, device.serialNumber)
+                        if regMatch is not None:
+                            matched.append(device)
+                    else:
                         matched.append(device)
-                else:
-                    matched.append(device)
-        return matched
+            return matched
 
 class TestDeviceManager(unittest.TestCase):
 
