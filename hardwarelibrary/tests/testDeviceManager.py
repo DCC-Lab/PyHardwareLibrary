@@ -8,6 +8,7 @@ from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
 from threading import Thread, RLock
+from hardwarelibrary.communication.diagnostics import *
 
 class DeviceManager:
     _instance = None
@@ -21,6 +22,8 @@ class DeviceManager:
             self.lock = RLock()
         if not hasattr(self, 'monitoring'):
             self.monitoring = None
+        if not hasattr(self, 'usbDevices'):
+            self.usbDevices = None
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -59,8 +62,7 @@ class DeviceManager:
 
     def lookForNewlyConnectedDevices(self):
         #TODO : look on USB ports for new devices
-        pass
-
+        devices = connectedUSBDevices()
     def lookForNewlyDisconnectedDevices(self):
         #TODO : look on USB ports for disconnected devices
         pass

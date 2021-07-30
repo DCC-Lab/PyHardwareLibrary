@@ -357,8 +357,8 @@ def tellMeMore(idVendor=None, idProduct=None):
         print(device)
 
 def connectedUSBDevices(idVendor=None, idProduct=None, serialNumber=None):
-    """ Return a list of USB devices from Ocean Insight that are currently
-    connected (idVendor = 0x2457). If idProduct is provided, match only these
+    """ Return a list of USB devices that are currently
+    connected. If idProduct is provided, match only these
     products. If a serial number is provided, return the matching device otherwise
     return  an empty list. If no serial number is provided, return all devices.
 
