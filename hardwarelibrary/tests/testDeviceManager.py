@@ -135,9 +135,12 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         DeviceManager._instance = None
         del(dm)
-        self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
+        self.lock = RLock()
+        self.notificationsToReceive = []
         self.assertEqual(NotificationCenter().observersCount(), 0)
 
+    def tearDown(self):
+        self.assertEqual(NotificationCenter().observersCount(), 0)
 
     def testMatching1(self):
         dm = DeviceManager()
@@ -285,7 +288,8 @@ class TestDeviceManager(unittest.TestCase):
         time.sleep(0.5)
         dm.stopMonitoring()
 
-        self.assertTrue(len(self.notificationsToReceive) == 0)        
+        with self.lock:
+            self.assertTrue(len(self.notificationsToReceive) == 0)        
         nc.removeObserver(self)
 
     def addRemoveManyDevices(self, N=1000):
@@ -300,11 +304,13 @@ class TestDeviceManager(unittest.TestCase):
             dm.removeDevice(device)
 
     def handle(self, notification):
-        self.assertEqual(notification.name, self.notificationsToReceive[0])
-        self.notificationsToReceive.pop(0)
+        with self.lock:
+            self.assertEqual(notification.name, self.notificationsToReceive[0])
+            self.notificationsToReceive.pop(0)
 
     def handleStatus(self, notification):
-        devices = notification.userInfo
+        with self.lock:
+            devices = notification.userInfo
         # if len(devices) != 0:
         #     self.assertTrue(isinstance(devices[0], DebugLinearMotionDevice))
 
