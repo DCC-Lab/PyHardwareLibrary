@@ -81,16 +81,16 @@ class DeviceManager:
             raise RuntimeError("No monitoring loop running")
 
     def addDevice(self, device):
-        NotificationCenter().postNotification("willAddDevice", notifyingObject=(self, device))
+        NotificationCenter().postNotification("willAddDevice", notifyingObject=self, userInfo=device)
         with self.lock:
             self.devices.add(device)
-        NotificationCenter().postNotification("didAddDevice", notifyingObject=(self, device))
+        NotificationCenter().postNotification("didAddDevice", notifyingObject=self, userInfo=device)
 
     def removeDevice(self, device):
-        NotificationCenter().postNotification("willRemoveDevice", notifyingObject=(self, device))
+        NotificationCenter().postNotification("willRemoveDevice", notifyingObject=self, userInfo=device)
         with self.lock:
             self.devices.remove(device)
-        NotificationCenter().postNotification("didRemoveDevice", notifyingObject=(self, device))
+        NotificationCenter().postNotification("didRemoveDevice", notifyingObject=self, userInfo=device)
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
         currentDevices = []
