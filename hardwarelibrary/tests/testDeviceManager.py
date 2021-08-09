@@ -59,7 +59,7 @@ class DeviceManager:
         endTime = startTime + 5.0
         NotificationCenter().postNotification("didStartMonitoring", notifyingObject=self)
         while time.time() < endTime :
-            # self.lookForNewlyConnectedDevices()
+            self.lookForNewlyConnectedDevices()
             # self.lookForNewlyDisconnectedDevices()
 
             currentDevices = []
@@ -79,6 +79,7 @@ class DeviceManager:
         newlyConnected = [ usbDevice for usbDevice in currentlyConnectedDevices if usbDevice not in self.usbDevices]
         self.usbDevices = currentlyConnectedDevices
 
+        print(newlyConnected)
         return newlyConnected
 
     def newlyDisconnectedUSBDevices(self):
