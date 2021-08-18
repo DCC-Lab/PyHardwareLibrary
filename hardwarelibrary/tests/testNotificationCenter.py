@@ -83,7 +83,7 @@ class TestNotificationCenter(unittest.TestCase):
     def testAddObserverWrongSender(self):
         someObject = NotificationCenter()
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, "testNotification", someObject)
+        nc.addObserver(self, method=self.handle, notificationName="testNotification", observedObject=someObject)
         nc.postNotification(notificationName="testNotification", notifyingObject=self, userInfo="1234")
         self.assertFalse(self.notificationReceived)
         self.assertNotEqual(self.postedUserInfo, "1234")

@@ -1,3 +1,12 @@
+from enum import Enum
+
+
+class NotificationName(Enum):
+    pass
+# You may define notification names like this for simplicity:
+#    willMove       = "willMove"
+#    didMove        = "didMove"
+#    didGetPosition = "didGetPosition"
 
 class Notification:
     def __init__(self, name, object=None, userInfo=None):
@@ -35,7 +44,10 @@ class NotificationCenter:
             cls._instance = object.__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def addObserver(self, observer, method, notificationName, observedObject=None):
+    def addObserver(self, observer, method, notificationName=None, notification=None, observedObject=None):
+        if notificationName is None:
+            notificationName = notification.name
+
         observerInfo = ObserverInfo(observer=observer, method=method, notificationName=notificationName, observedObject=observedObject)
 
         if notificationName not in self.observers.keys():
