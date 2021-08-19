@@ -38,20 +38,47 @@ class LinearMotionDevice(PhysicalDevice):
         NotificationCenter().postNotification("didMove", notifyingObject=self)
 
     def moveInMicronsTo(self, position):
-        nativePosition = [ x * self.nativeStepsPerMicrons for x in position]
+        nativePosition = [x * self.nativeStepsPerMicrons for x in position]
         self.moveTo(nativePosition)
 
     def moveInMicronsBy(self, displacement):
-        nativeDisplacement = [ dx * self.nativeStepsPerMicrons for dx in displacement]
+        nativeDisplacement = [dx * self.nativeStepsPerMicrons for dx in displacement]
         self.moveTo(nativeDisplacement)
 
     def positionInMicrons(self):
         position = self.position()
-        positionInMicrons = [ x / self.nativeStepsPerMicrons for x in position]
+        positionInMicrons = [x / self.nativeStepsPerMicrons for x in position]
         return positionInMicrons
 
-class DebugLinearMotionDevice(LinearMotionDevice):
+    def mapPositions(self, width: int, height: int, stepInMicrons: int, direction="leftRight"):
+        """mapPositions(width, height, stepInMicrons[, direction == "leftRight" or "zigzag"])
 
+        Returns a list of position tuples, which can be used directly in moveTo functions, to map a sample."""
+
+        initWidth, initHeight, depth = self.positionInMicrons()
+        mapPositions = []
+        for countHeight in range(height):
+            y = initHeight + countHeight * stepInMicrons
+            if direction == "leftRight":
+                for countWidth in range(width):
+                    x = initWidth + countWidth*stepInMicrons
+                    position = (x, y, depth)
+                    mapPositions.append(position)
+            if direction == "zigzag":
+                if countHeight % 2 == 0:
+                    for countWidth in range(width):
+                        x = initWidth + countWidth * stepInMicrons
+                        position = (x, y, depth)
+                        mapPositions.append(position)
+                elif countHeight % 2 == 1:
+                    for countWidth in range(width-1, -1, -1):
+                        x = initWidth + countWidth * stepInMicrons
+                        position = (x, y, depth)
+                        mapPositions.append(position)
+        return mapPositions
+
+
+class DebugLinearMotionDevice(LinearMotionDevice):
     def __init__(self):
         super().__init__("debug", 0xffff, 0xfffd)
         (self.x, self.y, self.z) = (0,0,0)
