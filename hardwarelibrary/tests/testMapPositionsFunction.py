@@ -1,5 +1,4 @@
 import unittest
-import time
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 
