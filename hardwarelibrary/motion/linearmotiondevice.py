@@ -56,7 +56,7 @@ class LinearMotionDevice(PhysicalDevice):
         positionInMicrons = [x / self.nativeStepsPerMicrons for x in position]
         return positionInMicrons
 
-    def mapPositions(self, width: int, height: int, stepInMicrons: int, direction="leftRight"):
+    def mapPositions(self, width: int, height: int, stepInMicrons: int, direction: str = "leftRight"):
         """mapPositions(width, height, stepInMicrons[, direction == "leftRight" or "zigzag"])
 
         Returns a list of position tuples, which can be used directly in moveTo functions, to map a sample."""
