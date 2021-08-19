@@ -29,6 +29,7 @@ class TestMapPositionsFunction(unittest.TestCase):
 
     def testListIsCompleteInZigzagMap(self):
         map = self.device.mapPositions(2, 2, 1, "zigzag")
+        print(map)
         self.assertIsInstance(map, list)
         for i in range(4):
             self.assertIsInstance(map[i], tuple)
@@ -51,6 +52,14 @@ class TestMapPositionsFunction(unittest.TestCase):
 
     def testMoveToFromPositionsGivenWithZigzag(self):
         map = self.device.mapPositions(2, 2, 3, "zigzag")
+        for pos in map:
+            self.device.moveTo(pos)
+            self.assertEqual(pos, self.device.position())
+
+    def testListWithInitialPositionNotWorkingForNow(self):
+        self.device.moveTo((5, 5, 5))
+        map = self.device.mapPositions(2, 2, 3, "leftRight")
+        print(map)
         for pos in map:
             self.device.moveTo(pos)
             self.assertEqual(pos, self.device.position())
