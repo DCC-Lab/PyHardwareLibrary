@@ -1,6 +1,12 @@
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter
 import numpy as np
+from enum import Enum
+
+class NotificationName(Enum):
+    willMove       = "willMove"
+    didMove        = "didMove"
+    didGetPosition = "didGetPosition"
 
 class LinearMotionDevice(PhysicalDevice):
 
@@ -18,24 +24,24 @@ class LinearMotionDevice(PhysicalDevice):
         self.zMaxLimit = None
 
     def moveTo(self, position):
-        NotificationCenter().postNotification("willMove", notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification(NotificationName.willMove.value, notifyingObject=self, userInfo=position)
         self.doMoveTo(position)
-        NotificationCenter().postNotification("didMove", notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification(NotificationName.didMove.value, notifyingObject=self, userInfo=position)
 
     def moveBy(self, displacement):
-        NotificationCenter().postNotification("willMove", notifyingObject=self, userInfo=displacement)
+        NotificationCenter().postNotification(NotificationName.willMove.value, notifyingObject=self, userInfo=displacement)
         self.doMoveBy(displacement)
-        NotificationCenter().postNotification("didMove", notifyingObject=self, userInfo=displacement)
+        NotificationCenter().postNotification(NotificationName.didMove.value, notifyingObject=self, userInfo=displacement)
 
     def position(self) -> ():
         position = self.doGetPosition()
-        NotificationCenter().postNotification("didGetPosition", notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification(NotificationName.didGetPosition.value, notifyingObject=self, userInfo=position)
         return position
 
     def home(self) -> ():
-        NotificationCenter().postNotification("willMove", notifyingObject=self)
+        NotificationCenter().postNotification(NotificationName.willMove.value, notifyingObject=self)
         self.doHome()
-        NotificationCenter().postNotification("didMove", notifyingObject=self)
+        NotificationCenter().postNotification(NotificationName.didMove.value, notifyingObject=self)
 
     def moveInMicronsTo(self, position):
         nativePosition = [x * self.nativeStepsPerMicrons for x in position]
