@@ -67,5 +67,6 @@ class TestMapPositionsFunction(unittest.TestCase):
             self.device.moveInMicronsTo(pos)
             self.assertEqual(pos, self.device.positionInMicrons())
 
+
 if __name__ == '__main__':
     unittest.main()
