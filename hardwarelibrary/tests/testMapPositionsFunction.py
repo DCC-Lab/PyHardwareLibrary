@@ -32,40 +32,46 @@ class TestMapPositionsFunction(unittest.TestCase):
         map = self.device.mapPositions(2, 2, 1, Direction.bidirectional)
         self.assertIsInstance(map, list)
         for i in range(4):
-            self.assertIsInstance(map[i], tuple)
-            self.assertTrue(len(map[i]) == 3)
+            self.assertIsInstance(map[i], dict)
+            self.assertIsInstance(map[i]["index"], tuple)
+            self.assertIsInstance(map[i]["position"], tuple)
+            self.assertTrue(len(map[i]["index"]) == 2)
+            self.assertTrue(len(map[i]["position"]) == 3)
         self.assertTrue(len(map) == 4)
 
     def testListIsCompleteInLeftRightMap(self):
         map = self.device.mapPositions(2, 2, 3, Direction.unidirectional)
         self.assertIsInstance(map, list)
         for i in range(4):
-            self.assertIsInstance(map[i], tuple)
-            self.assertTrue(len(map[i]) == 3)
+            self.assertIsInstance(map[i], dict)
+            self.assertIsInstance(map[i]["index"], tuple)
+            self.assertIsInstance(map[i]["position"], tuple)
+            self.assertTrue(len(map[i]["index"]) == 2)
+            self.assertTrue(len(map[i]["position"]) == 3)
         self.assertTrue(len(map) == 4)
 
     def testmoveInMicronsToFromPositionsGivenWithLeftRight(self):
         map = self.device.mapPositions(2, 2, 3, Direction.unidirectional)
         for pos in map:
-            self.device.moveInMicronsTo(pos)
-            self.assertEqual(pos, self.device.positionInMicrons())
+            self.device.moveInMicronsTo(pos["position"])
+            self.assertEqual(pos["position"], self.device.positionInMicrons())
 
     def testmoveInMicronsToFromPositionsGivenWithZigzag(self):
         map = self.device.mapPositions(2, 2, 3, Direction.bidirectional)
         for pos in map:
-            self.device.moveInMicronsTo(pos)
-            self.assertEqual(pos, self.device.positionInMicrons())
+            self.device.moveInMicronsTo(pos["position"])
+            self.assertEqual(pos["position"], self.device.positionInMicrons())
 
     def testListWithInitialPositionNotNull(self):
         self.device.moveInMicronsTo((5, 5, 5))
         map = self.device.mapPositions(2, 2, 3, Direction.unidirectional)
         for pos in map:
-            self.device.moveInMicronsTo(pos)
-            self.assertEqual(pos, self.device.positionInMicrons())
+            self.device.moveInMicronsTo(pos["position"])
+            self.assertEqual(pos["position"], self.device.positionInMicrons())
         map = self.device.mapPositions(2, 2, 3, Direction.bidirectional)
         for pos in map:
-            self.device.moveInMicronsTo(pos)
-            self.assertEqual(pos, self.device.positionInMicrons())
+            self.device.moveInMicronsTo(pos["position"])
+            self.assertEqual(pos["position"], self.device.positionInMicrons())
 
 
 if __name__ == '__main__':
