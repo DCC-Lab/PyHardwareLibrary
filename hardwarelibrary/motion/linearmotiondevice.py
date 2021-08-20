@@ -8,6 +8,10 @@ class NotificationName(Enum):
     didMove        = "didMove"
     didGetPosition = "didGetPosition"
 
+class Direction(Enum):
+    unidirectional = "leftRight"
+    bidirectional  = "zigzag"
+
 class LinearMotionDevice(PhysicalDevice):
 
     def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
@@ -56,7 +60,7 @@ class LinearMotionDevice(PhysicalDevice):
         positionInMicrons = [x / self.nativeStepsPerMicrons for x in position]
         return tuple(positionInMicrons)
 
-    def mapPositions(self, width: int, height: int, stepInMicrons: int, direction: str = "leftRight"):
+    def mapPositions(self, width: int, height: int, stepInMicrons: float, direction: Direction = Direction.unidirectional):
         """mapPositions(width, height, stepInMicrons[, direction == "leftRight" or "zigzag"])
 
         Returns a list of position tuples, which can be used directly in moveTo functions, to map a sample."""
@@ -65,14 +69,14 @@ class LinearMotionDevice(PhysicalDevice):
         mapPositions = []
         for j in range(height):
             y = initHeight + j * stepInMicrons
-            if direction == "leftRight":
+            if Direction(direction) == Direction.unidirectional:
                 for i in range(width):
                     x = initWidth + i*stepInMicrons
                     index = (i, j)
                     position = (x, y, depth)
                     info = {"index": index, "position": position}
                     mapPositions.append(info)
-            if direction == "zigzag":
+            elif Direction(direction) == Direction.bidirectional:
                 if j % 2 == 0:
                     for i in range(width):
                         x = initWidth + i * stepInMicrons
@@ -87,6 +91,8 @@ class LinearMotionDevice(PhysicalDevice):
                         position = (x, y, depth)
                         info = {"index": index, "position": position}
                         mapPositions.append(info)
+            else:
+                raise ValueError("Invalid direction: {0}".format(direction))
         return mapPositions
 
 
