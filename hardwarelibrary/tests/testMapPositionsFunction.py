@@ -1,3 +1,4 @@
+import env # modifies path
 import unittest
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 
@@ -63,3 +64,6 @@ class TestMapPositionsFunction(unittest.TestCase):
         for pos in map:
             self.device.moveTo(pos)
             self.assertEqual(pos, self.device.position())
+
+if __name__ == '__main__':
+    unittest.main()
