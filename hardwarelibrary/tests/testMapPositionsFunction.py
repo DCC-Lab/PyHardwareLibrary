@@ -29,7 +29,6 @@ class TestMapPositionsFunction(unittest.TestCase):
 
     def testListIsCompleteInZigzagMap(self):
         map = self.device.mapPositions(2, 2, 1, "zigzag")
-        print(map)
         self.assertIsInstance(map, list)
         for i in range(4):
             self.assertIsInstance(map[i], tuple)
@@ -44,22 +43,25 @@ class TestMapPositionsFunction(unittest.TestCase):
             self.assertTrue(len(map[i]) == 3)
         self.assertTrue(len(map) == 4)
 
-    def testMoveToFromPositionsGivenWithLeftRight(self):
+    def testmoveInMicronsToFromPositionsGivenWithLeftRight(self):
         map = self.device.mapPositions(2, 2, 3, "leftRight")
         for pos in map:
-            self.device.moveTo(pos)
-            self.assertEqual(pos, self.device.position())
+            self.device.moveInMicronsTo(pos)
+            self.assertEqual(pos, self.device.positionInMicrons())
 
-    def testMoveToFromPositionsGivenWithZigzag(self):
+    def testmoveInMicronsToFromPositionsGivenWithZigzag(self):
         map = self.device.mapPositions(2, 2, 3, "zigzag")
         for pos in map:
-            self.device.moveTo(pos)
-            self.assertEqual(pos, self.device.position())
+            self.device.moveInMicronsTo(pos)
+            self.assertEqual(pos, self.device.positionInMicrons())
 
-    def testListWithInitialPositionNotWorkingForNow(self):
-        self.device.moveTo((5, 5, 5))
+    def testListWithInitialPositionNotNull(self):
+        self.device.moveInMicronsTo((5, 5, 5))
         map = self.device.mapPositions(2, 2, 3, "leftRight")
-        print(map)
         for pos in map:
-            self.device.moveTo(pos)
-            self.assertEqual(pos, self.device.position())
+            self.device.moveInMicronsTo(pos)
+            self.assertEqual(pos, self.device.positionInMicrons())
+        map = self.device.mapPositions(2, 2, 3, "zigzag")
+        for pos in map:
+            self.device.moveInMicronsTo(pos)
+            self.assertEqual(pos, self.device.positionInMicrons())

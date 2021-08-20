@@ -54,14 +54,14 @@ class LinearMotionDevice(PhysicalDevice):
     def positionInMicrons(self):
         position = self.position()
         positionInMicrons = [x / self.nativeStepsPerMicrons for x in position]
-        return positionInMicrons
+        return tuple(positionInMicrons)
 
     def mapPositions(self, width: int, height: int, stepInMicrons: int, direction: str = "leftRight"):
         """mapPositions(width, height, stepInMicrons[, direction == "leftRight" or "zigzag"])
 
         Returns a list of position tuples, which can be used directly in moveTo functions, to map a sample."""
 
-        initWidth, initHeight, depth = self.positionInMicrons()
+        (initWidth, initHeight, depth) = self.positionInMicrons()
         mapPositions = []
         for countHeight in range(height):
             y = initHeight + countHeight * stepInMicrons
@@ -87,7 +87,7 @@ class LinearMotionDevice(PhysicalDevice):
 class DebugLinearMotionDevice(LinearMotionDevice):
     def __init__(self):
         super().__init__("debug", 0xffff, 0xfffd)
-        (self.x, self.y, self.z) = (0,0,0)
+        (self.x, self.y, self.z) = (0, 0, 0)
         self.nativeStepsPerMicrons = 16
 
     def doGetPosition(self) -> (float, float, float):
@@ -95,7 +95,7 @@ class DebugLinearMotionDevice(LinearMotionDevice):
 
     def doMoveTo(self, position):
         x, y, z = position
-        (self.x, self.y, self.z) = (x,y,z)
+        (self.x, self.y, self.z) = (x, y, z)
 
     def doMoveBy(self, displacement):
         dx, dy, dz = displacement
@@ -104,7 +104,7 @@ class DebugLinearMotionDevice(LinearMotionDevice):
         self.z += dz
 
     def doHome(self):
-        (self.x, self.y, self.z) = (0,0,0)
+        (self.x, self.y, self.z) = (0, 0, 0)
 
     def doInitializeDevice(self):
         pass
