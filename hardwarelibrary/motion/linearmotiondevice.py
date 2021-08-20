@@ -63,24 +63,30 @@ class LinearMotionDevice(PhysicalDevice):
 
         (initWidth, initHeight, depth) = self.positionInMicrons()
         mapPositions = []
-        for countHeight in range(height):
-            y = initHeight + countHeight * stepInMicrons
+        for j in range(height):
+            y = initHeight + j * stepInMicrons
             if direction == "leftRight":
-                for countWidth in range(width):
-                    x = initWidth + countWidth*stepInMicrons
+                for i in range(width):
+                    x = initWidth + i*stepInMicrons
+                    index = (i, j)
                     position = (x, y, depth)
-                    mapPositions.append(position)
+                    info = {"index": index, "position": position}
+                    mapPositions.append(info)
             if direction == "zigzag":
-                if countHeight % 2 == 0:
-                    for countWidth in range(width):
-                        x = initWidth + countWidth * stepInMicrons
+                if j % 2 == 0:
+                    for i in range(width):
+                        x = initWidth + i * stepInMicrons
+                        index = (i, j)
                         position = (x, y, depth)
-                        mapPositions.append(position)
-                elif countHeight % 2 == 1:
-                    for countWidth in range(width-1, -1, -1):
-                        x = initWidth + countWidth * stepInMicrons
+                        info = {"index": index, "position": position}
+                        mapPositions.append(info)
+                elif j % 2 == 1:
+                    for i in range(width-1, -1, -1):
+                        x = initWidth + i * stepInMicrons
+                        index = (i, j)
                         position = (x, y, depth)
-                        mapPositions.append(position)
+                        info = {"index": index, "position": position}
+                        mapPositions.append(info)
         return mapPositions
 
 

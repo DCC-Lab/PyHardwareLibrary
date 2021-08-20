@@ -4,7 +4,6 @@
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/linearmotiondevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/linearmotiondevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testMapPositionsFunction.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testMapPositionsFunction.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
