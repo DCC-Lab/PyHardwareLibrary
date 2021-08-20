@@ -1,6 +1,6 @@
 import env # modifies path
 import unittest
-from hardwarelibrary.motion.sutterdevice import SutterDevice
+from hardwarelibrary.motion.sutterdevice import SutterDevice, Direction
 
 
 class TestMapPositionsFunction(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestMapPositionsFunction(unittest.TestCase):
             self.assertEqual(ind, 5-el)
 
     def testListIsCompleteInZigzagMap(self):
-        map = self.device.mapPositions(2, 2, 1, "zigzag")
+        map = self.device.mapPositions(2, 2, 1, Direction.bidirectional)
         self.assertIsInstance(map, list)
         for i in range(4):
             self.assertIsInstance(map[i], tuple)
@@ -37,7 +37,7 @@ class TestMapPositionsFunction(unittest.TestCase):
         self.assertTrue(len(map) == 4)
 
     def testListIsCompleteInLeftRightMap(self):
-        map = self.device.mapPositions(2, 2, 3, "leftRight")
+        map = self.device.mapPositions(2, 2, 3, Direction.unidirectional)
         self.assertIsInstance(map, list)
         for i in range(4):
             self.assertIsInstance(map[i], tuple)
@@ -45,24 +45,24 @@ class TestMapPositionsFunction(unittest.TestCase):
         self.assertTrue(len(map) == 4)
 
     def testmoveInMicronsToFromPositionsGivenWithLeftRight(self):
-        map = self.device.mapPositions(2, 2, 3, "leftRight")
+        map = self.device.mapPositions(2, 2, 3, Direction.unidirectional)
         for pos in map:
             self.device.moveInMicronsTo(pos)
             self.assertEqual(pos, self.device.positionInMicrons())
 
     def testmoveInMicronsToFromPositionsGivenWithZigzag(self):
-        map = self.device.mapPositions(2, 2, 3, "zigzag")
+        map = self.device.mapPositions(2, 2, 3, Direction.bidirectional)
         for pos in map:
             self.device.moveInMicronsTo(pos)
             self.assertEqual(pos, self.device.positionInMicrons())
 
     def testListWithInitialPositionNotNull(self):
         self.device.moveInMicronsTo((5, 5, 5))
-        map = self.device.mapPositions(2, 2, 3, "leftRight")
+        map = self.device.mapPositions(2, 2, 3, Direction.unidirectional)
         for pos in map:
             self.device.moveInMicronsTo(pos)
             self.assertEqual(pos, self.device.positionInMicrons())
-        map = self.device.mapPositions(2, 2, 3, "zigzag")
+        map = self.device.mapPositions(2, 2, 3, Direction.bidirectional)
         for pos in map:
             self.device.moveInMicronsTo(pos)
             self.assertEqual(pos, self.device.positionInMicrons())
