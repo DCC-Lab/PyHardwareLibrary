@@ -9,8 +9,8 @@ class NotificationName(Enum):
     didGetPosition = "didGetPosition"
 
 class Direction(Enum):
-    unidirectional = "leftRight"
-    bidirectional  = "zigzag"
+    unidirectional = "unidirectional"
+    bidirectional  = "bidirectional"
 
 class LinearMotionDevice(PhysicalDevice):
 
