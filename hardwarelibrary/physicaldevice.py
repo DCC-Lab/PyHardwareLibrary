@@ -1,7 +1,7 @@
 from enum import Enum, IntEnum
 import typing
 import numpy as np
-from hardwarelibrary.notificationcenter import NotificationCenter
+from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
@@ -9,6 +9,11 @@ class DeviceState(IntEnum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
+class PhysicalDeviceNotification(Notification.Name):
+    willInitializeDevice       = "willInitializeDevice"
+    didInitializeDevice        = "didInitializeDevice"
+    willShutdownDevice         = "willShutdownDevice"
+    didShutdownDevice          = "didShutdownDevice"
 
 class PhysicalDevice:
     class UnableToInitialize(Exception):
@@ -25,13 +30,13 @@ class PhysicalDevice:
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
-                NotificationCenter().postNotification("willInitializeDevice", notifyingObject=self)
+                NotificationCenter().postNotification(PhysicalDeviceNotification.willInitializeDevice, notifyingObject=self)
                 self.doInitializeDevice()
                 self.state = DeviceState.Ready
-                NotificationCenter().postNotification("didInitializeDevice", notifyingObject=self)                
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self)
             except Exception as error:
                 self.state = DeviceState.Unrecognized
-                NotificationCenter().postNotification("didInitializeDevice", notifyingObject=self, userInfo=error)
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self, userInfo=error)
                 raise PhysicalDevice.UnableToInitialize(error)
 
     def doInitializeDevice(self):
@@ -40,11 +45,11 @@ class PhysicalDevice:
     def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
-                NotificationCenter().postNotification("willShutdownDevice", notifyingObject=self)
+                NotificationCenter().postNotification(PhysicalDeviceNotification.willShutdownDevice, notifyingObject=self)
                 self.doShutdownDevice()
-                NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self)
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self)
             except Exception as error:
-                NotificationCenter().postNotification("didShutdownDevice", notifyingObject=self, userInfo=error)
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self, userInfo=error)
                 raise PhysicalDevice.UnableToShutdown(error)
             finally:
                 self.state = DeviceState.Recognized

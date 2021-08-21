@@ -2,7 +2,7 @@ import env # modifies path
 import unittest
 
 from hardwarelibrary.communication import *
-from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice, NotificationName
+from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice, LinearMotionNotification
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter
 
@@ -103,14 +103,14 @@ class BaseTestCases:
             self.didNotificationReceived = True
 
         def testPositionNotifications(self):
-            NotificationCenter().addObserver(self, method=self.handleDid, notification=NotificationName.didGetPosition)
+            NotificationCenter().addObserver(self, method=self.handleDid, notificationName=LinearMotionNotification.didGetPosition)
             (x, y, z) = self.device.position()
             self.assertTrue(self.didNotificationReceived)        
             NotificationCenter().removeObserver(self)
 
         def testDeviceMoveNotifications(self):
-            NotificationCenter().addObserver(self, method=self.handleWill, notification=NotificationName.willMove)
-            NotificationCenter().addObserver(self, method=self.handleDid, notification=NotificationName.didMove)
+            NotificationCenter().addObserver(self, method=self.handleWill, notificationName=LinearMotionNotification.willMove)
+            NotificationCenter().addObserver(self, method=self.handleDid, notificationName=LinearMotionNotification.didMove)
 
             self.assertFalse(self.willNotificationReceived)
             self.assertFalse(self.didNotificationReceived)
@@ -124,8 +124,8 @@ class BaseTestCases:
             NotificationCenter().removeObserver(self)
 
         def testDeviceMoveByNotifications(self):
-            NotificationCenter().addObserver(self, method=self.handleWill, notification=NotificationName.willMove)
-            NotificationCenter().addObserver(self, method=self.handleDid, notification=NotificationName.didMove)
+            NotificationCenter().addObserver(self, method=self.handleWill, notificationName=LinearMotionNotification.willMove)
+            NotificationCenter().addObserver(self, method=self.handleDid, notificationName=LinearMotionNotification.didMove)
 
             self.assertFalse(self.willNotificationReceived)
             self.assertFalse(self.didNotificationReceived)
@@ -139,8 +139,8 @@ class BaseTestCases:
 
         def testDeviceHomeNotifications(self):
 
-            NotificationCenter().addObserver(self, method=self.handleWill, notification=NotificationName.willMove)
-            NotificationCenter().addObserver(self, method=self.handleDid, notification=NotificationName.didMove)
+            NotificationCenter().addObserver(self, method=self.handleWill, notificationName=LinearMotionNotification.willMove)
+            NotificationCenter().addObserver(self, method=self.handleDid, notificationName=LinearMotionNotification.didMove)
 
             self.assertFalse(self.willNotificationReceived)
             self.assertFalse(self.didNotificationReceived)

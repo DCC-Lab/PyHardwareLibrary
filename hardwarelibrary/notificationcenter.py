@@ -1,15 +1,19 @@
 from enum import Enum
 
-
-class NotificationName(Enum):
-    pass
-# You may define notification names like this for simplicity:
+# You must define notification names like this for simplicity:
+# class DeviceNotification(NotificationName):
 #    willMove       = "willMove"
 #    didMove        = "didMove"
 #    didGetPosition = "didGetPosition"
 
 class Notification:
+    class Name(Enum):
+        pass
+
     def __init__(self, name, object=None, userInfo=None):
+        if not isinstance(name, Notification.Name):
+            raise ValueError("You must use an enum-subclass of Notification.Name, not a string for the notification name")
+
         self.name = name
         self.object = object
         self.userInfo = userInfo
@@ -44,31 +48,37 @@ class NotificationCenter:
             cls._instance = object.__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def addObserver(self, observer, method, notificationName=None, notification=None, observedObject=None):
-        if notificationName is None:
-            notificationName = notification.name
+    def addObserver(self, observer, method, notificationName=None, observedObject=None):
+        if notificationName is not None and not isinstance(notificationName, Notification.Name):
+            raise ValueError("You must use an enum-subclass of Notification.Name, not a string for the notificationName")
 
         observerInfo = ObserverInfo(observer=observer, method=method, notificationName=notificationName, observedObject=observedObject)
 
         if notificationName not in self.observers.keys():
-            self.observers[notificationName] = [observerInfo]
+            self.observers[notificationName.name] = [observerInfo]
         else:
-            if observerInfo not in self.observers[notificationName]:
-                self.observers[notificationName].append(observerInfo)
+            if observerInfo not in self.observers[notificationName.name]:
+                self.observers[notificationName.name].append(observerInfo)
 
     def removeObserver(self, observer, notificationName=None, observedObject=None):
+        if notificationName is not None and not isinstance(notificationName, Notification.Name):
+            raise ValueError("You must use an enum-subclass of Notification.Name, not a string for the notificationName")
+
         observerToRemove = ObserverInfo(observer=observer, notificationName=notificationName, observedObject=observedObject)
 
         if notificationName is not None:
-            self.observers[notificationName] = [currentObserver for currentObserver in self.observers[notificationName] if not currentObserver.matches(observerToRemove) ]
+            self.observers[notificationName.name] = [currentObserver for currentObserver in self.observers[notificationName.name] if not currentObserver.matches(observerToRemove) ]
         else:
             for name in self.observers.keys():
                 self.observers[name] = [observer for observer in self.observers[name] if not observer.matches(observerToRemove) ]        
 
     def postNotification(self, notificationName, notifyingObject, userInfo=None):
-        if notificationName in self.observers.keys():
+        if not isinstance(notificationName, Notification.Name):
+            raise ValueError("You must use an enum-subclass of Notification.Name, not a string for the notificationName")
+
+        if notificationName.name in self.observers.keys():
             notification = Notification(notificationName, notifyingObject, userInfo)
-            for observerInfo in self.observers[notificationName]:
+            for observerInfo in self.observers[notificationName.name]:
                 if observerInfo.observedObject is None or observerInfo.observedObject == notifyingObject:
                     observerInfo.method(notification)
 
