@@ -1,7 +1,7 @@
 from enum import Enum
 
-# You must define notification names like this for simplicity:
-# class DeviceNotification(NotificationName):
+# You must define notification names like this:
+# class DeviceNotification(Notification.Name):
 #    willMove       = "willMove"
 #    didMove        = "didMove"
 #    didGetPosition = "didGetPosition"
