@@ -1,7 +1,6 @@
+from hardwarelibrary.notificationcenter import NotificationCenter
 from enum import Enum, IntEnum
 import typing
-import numpy as np
-from hardwarelibrary.notificationcenter import NotificationCenter
 
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
@@ -9,14 +8,13 @@ class DeviceState(IntEnum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
-
 class PhysicalDevice:
     class UnableToInitialize(Exception):
         pass
     class UnableToShutdown(Exception):
         pass
 
-    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+    def __init__(self, serialNumber:str, productId:int, vendorId:int):
         self.vendorId = vendorId
         self.productId = productId
         self.serialNumber = serialNumber

@@ -1,10 +1,9 @@
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter
-import numpy as np
 
 class LinearMotionDevice(PhysicalDevice):
 
-    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+    def __init__(self, serialNumber:str, productId:int, vendorId:int):
         super().__init__(serialNumber, productId, vendorId)
         self.x = None
         self.y = None

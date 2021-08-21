@@ -6,7 +6,6 @@ from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
 from hardwarelibrary.communication.debugport import DebugPort
 
-import numpy as np
 import re
 import time
 from struct import *
