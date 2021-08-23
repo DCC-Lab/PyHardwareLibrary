@@ -1,7 +1,17 @@
 from threading import Thread, RLock
+from enum import Enum
+
+# You must define notification names like this:
+# class DeviceNotification(Enum):
+#    willMove       = "willMove"
+#    didMove        = "didMove"
+#    didGetPosition = "didGetPosition"
 
 class Notification:
     def __init__(self, name, object=None, userInfo=None):
+        if not isinstance(name, Enum):
+            raise ValueError("You must use an enum-subclass of Enum, not a string for the notification name")
+
         self.name = name
         self.object = object
         self.userInfo = userInfo
@@ -38,7 +48,10 @@ class NotificationCenter:
             cls._instance = object.__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def addObserver(self, observer, method, notificationName, observedObject=None):
+    def addObserver(self, observer, method, notificationName=None, observedObject=None):
+        if notificationName is not None and not isinstance(notificationName, Enum):
+            raise ValueError("You must use an enum-subclass of Enum, not a string for the notificationName")
+
         observerInfo = ObserverInfo(observer=observer, method=method, notificationName=notificationName, observedObject=observedObject)
 
         with self.lock:
@@ -49,6 +62,9 @@ class NotificationCenter:
                     self.observers[notificationName].append(observerInfo)
 
     def removeObserver(self, observer, notificationName=None, observedObject=None):
+        if notificationName is not None and not isinstance(notificationName, Enum):
+            raise ValueError("You must use an enum-subclass of Enum, not a string for the notificationName")
+
         observerToRemove = ObserverInfo(observer=observer, notificationName=notificationName, observedObject=observedObject)
 
         with self.lock:
@@ -59,6 +75,9 @@ class NotificationCenter:
                     self.observers[name] = [observer for observer in self.observers[name] if not observer.matches(observerToRemove) ]        
 
     def postNotification(self, notificationName, notifyingObject, userInfo=None):
+        if not isinstance(notificationName, Enum):
+            raise ValueError("You must use an enum-subclass of Enum, not a string for the notificationName")
+
         with self.lock:
             if notificationName in self.observers.keys():
                 notification = Notification(notificationName, notifyingObject, userInfo)
