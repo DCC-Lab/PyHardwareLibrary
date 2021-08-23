@@ -3,7 +3,7 @@ from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 import numpy as np
 
-class LinearMotionNotification(Notification.Name):
+class LinearMotionNotification(Enum):
     willMove       = "willMove"
     didMove        = "didMove"
     didGetPosition = "didGetPosition"

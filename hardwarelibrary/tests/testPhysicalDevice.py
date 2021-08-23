@@ -62,6 +62,7 @@ class BaseTestCases:
             self.assertIsNone(self.notificationReceived)
             self.device.initializeDevice()
             self.assertIsNotNone(self.notificationReceived)
+            self.assertEqual(self.notificationReceived.name, PhysicalDeviceNotification.willInitializeDevice)
             nc.removeObserver(self)
 
         def testPostNotificationDidInitialize(self):

@@ -9,7 +9,7 @@ class DeviceState(IntEnum):
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
-class PhysicalDeviceNotification(Notification.Name):
+class PhysicalDeviceNotification(Enum):
     willInitializeDevice       = "willInitializeDevice"
     didInitializeDevice        = "didInitializeDevice"
     willShutdownDevice         = "willShutdownDevice"
