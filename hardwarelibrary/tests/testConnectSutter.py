@@ -26,6 +26,7 @@ class TestConnectSutter(unittest.TestCase):
         self.assertTrue(position[1] == 100)
         self.assertTrue(position[2] == 4000)
 
+    @unittest.skip("Must have real sutter connected")
     def testListStageDevices(self):
         sp = s_ports.SerialPort()
         ports = sp.matchPorts(idVendor=4930, idProduct=1)
@@ -38,6 +39,7 @@ class TestConnectSutter(unittest.TestCase):
         self.assertIsNotNone(sp.port)  # self.assertTrue(sp.isOpen())
         sp.close()
 
+    @unittest.skip("Must have real sutter connected")
     def testConnectRealSutterWithSutterDeviceClass(self):
         sutter = SutterDevice()
         sp = s_ports.SerialPort()

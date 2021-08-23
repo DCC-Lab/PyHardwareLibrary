@@ -1,3 +1,4 @@
+from threading import Thread, RLock
 from enum import Enum
 
 # You must define notification names like this:
@@ -5,7 +6,6 @@ from enum import Enum
 #    willMove       = "willMove"
 #    didMove        = "didMove"
 #    didGetPosition = "didGetPosition"
-
 
 class Notification:
     def __init__(self, name, object=None, userInfo=None):
@@ -40,6 +40,8 @@ class NotificationCenter:
     def __init__(self):
         if not hasattr(self, 'observers'):
             self.observers = {}
+        if not hasattr(self, 'lock'):
+            self.lock = RLock()
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -52,11 +54,12 @@ class NotificationCenter:
 
         observerInfo = ObserverInfo(observer=observer, method=method, notificationName=notificationName, observedObject=observedObject)
 
-        if notificationName not in self.observers.keys():
-            self.observers[notificationName] = [observerInfo]
-        else:
-            if observerInfo not in self.observers[notificationName]:
-                self.observers[notificationName].append(observerInfo)
+        with self.lock:
+            if notificationName not in self.observers.keys():
+                self.observers[notificationName] = [observerInfo]
+            else:
+                if observerInfo not in self.observers[notificationName]:
+                    self.observers[notificationName].append(observerInfo)
 
     def removeObserver(self, observer, notificationName=None, observedObject=None):
         if notificationName is not None and not isinstance(notificationName, Enum):
@@ -64,27 +67,31 @@ class NotificationCenter:
 
         observerToRemove = ObserverInfo(observer=observer, notificationName=notificationName, observedObject=observedObject)
 
-        if notificationName is not None:
-            self.observers[notificationName] = [currentObserver for currentObserver in self.observers[notificationName] if not currentObserver.matches(observerToRemove) ]
-        else:
-            for name in self.observers.keys():
-                self.observers[name] = [observer for observer in self.observers[name] if not observer.matches(observerToRemove) ]        
+        with self.lock:
+            if notificationName is not None:
+                self.observers[notificationName] = [currentObserver for currentObserver in self.observers[notificationName] if not currentObserver.matches(observerToRemove) ]
+            else:
+                for name in self.observers.keys():
+                    self.observers[name] = [observer for observer in self.observers[name] if not observer.matches(observerToRemove) ]        
 
     def postNotification(self, notificationName, notifyingObject, userInfo=None):
         if not isinstance(notificationName, Enum):
             raise ValueError("You must use an enum-subclass of Enum, not a string for the notificationName")
 
-        if notificationName in self.observers.keys():
-            notification = Notification(notificationName, notifyingObject, userInfo)
-            for observerInfo in self.observers[notificationName]:
-                if observerInfo.observedObject is None or observerInfo.observedObject == notifyingObject:
-                    observerInfo.method(notification)
+        with self.lock:
+            if notificationName in self.observers.keys():
+                notification = Notification(notificationName, notifyingObject, userInfo)
+                for observerInfo in self.observers[notificationName]:
+                    if observerInfo.observedObject is None or observerInfo.observedObject == notifyingObject:
+                        observerInfo.method(notification)
 
     def observersCount(self):
-        count = 0
-        for name in self.observers.keys():
-            count += len(self.observers[name])
-        return count
+        with self.lock:
+            count = 0
+            for name in self.observers.keys():
+                count += len(self.observers[name])
+            return count
 
     def clear(self):
-        self.observers = {}
+        with self.lock:
+            self.observers = {}
