@@ -184,7 +184,7 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         nc = NotificationCenter()
         dm.startMonitoring()
-        time.sleep(0.3) # let newlyConnected devices be added.open 
+        time.sleep(0.3) # let newlyConnected devices be added.
         nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
