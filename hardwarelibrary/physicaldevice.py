@@ -1,7 +1,6 @@
 from enum import Enum, IntEnum
+from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
-import numpy as np
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
@@ -21,7 +20,7 @@ class PhysicalDevice:
     class UnableToShutdown(Exception):
         pass
 
-    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+    def __init__(self, serialNumber:str, productId:int, vendorId:int):
         self.vendorId = vendorId
         self.productId = productId
         self.serialNumber = serialNumber

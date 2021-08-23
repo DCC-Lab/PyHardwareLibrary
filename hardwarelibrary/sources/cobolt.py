@@ -2,7 +2,6 @@ from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.communication import *
 from .lasersourcedevice import LaserSourceDevice
 
-import numpy as np
 import re
 import time
 from threading import Thread, RLock
@@ -13,7 +12,7 @@ class CoboltCantTurnOnWithAutostartOn(Exception):
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
     def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
-                 productId: np.uint32 = None, vendorId: np.uint32 = None):
+                 productId: int = None, vendorId: int = None):
 
         self.laserPower = 0
         self.requestedPower = 0

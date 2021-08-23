@@ -1,7 +1,6 @@
 from enum import Enum
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
-import numpy as np
 
 class LinearMotionNotification(Enum):
     willMove       = "willMove"
@@ -14,7 +13,7 @@ class Direction(Enum):
 
 class LinearMotionDevice(PhysicalDevice):
 
-    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+    def __init__(self, serialNumber:str, productId:int, vendorId:int):
         super().__init__(serialNumber, productId, vendorId)
         self.x = None
         self.y = None
