@@ -71,7 +71,7 @@ class DeviceManager:
         endTime = startTime + 5.0
         NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
         while time.time() < endTime :
-            self.lookForNewlyConnectedDevices()
+            # self.lookForNewlyConnectedDevices()
             # self.lookForNewlyDisconnectedDevices()
 
             currentDevices = []
@@ -338,10 +338,9 @@ class TestDeviceManager(unittest.TestCase):
             self.assertTrue(len(self.notificationsToReceive) == 0)        
         nc.removeObserver(self)
 
-    def testNewlyConnectedDevices(self):
-        dm = DeviceManager()
-        self.assertTrue(len(dm.newlyConnectedUSBDevices()) > 4)
-
+    # def testNewlyConnectedDevices(self):
+    #     dm = DeviceManager()
+    #     self.assertTrue(len(dm.newlyConnectedUSBDevices()) > 4)
 
     def addRemoveManyDevices(self, N=1000):
         dm = DeviceManager()
