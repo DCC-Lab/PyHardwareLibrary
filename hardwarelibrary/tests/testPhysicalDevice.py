@@ -2,7 +2,6 @@ import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
-import numpy as np
 from physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
