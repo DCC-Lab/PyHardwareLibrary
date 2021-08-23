@@ -2,16 +2,21 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/PyHardwareLibrary.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PyHardwareLibrary.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testSutter.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testSutter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/linearmotiondevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/linearmotiondevice.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testMapPositionsFunction.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testMapPositionsFunction.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="FlaskConsoleOptions" custom-start-script="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))">
     <envs>
@@ -31,8 +36,6 @@
     <setting file="file://$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" root0="FORCE_HIGHLIGHTING" />
     <setting file="file:///Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/pyftdi/ftdi.py" root0="SKIP_INSPECTION" />
     <setting file="file:///Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/pyftdi/usbtools.py" root0="SKIP_INSPECTION" />
-    <setting file="file://$PROJECT_DIR$/hardwarelibrary/communication/sutter.py" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/hardwarelibrary/tests/testSutter.py" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/hardwarelibrary/physicaldevice.py" root0="FORCE_HIGHLIGHTING" />
   </component>
@@ -57,21 +60,18 @@
     <property name="restartRequiresConfirmation" value="false" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python tests.Unittests for testSutter.TestSutterDevice.testPosition">
-    <configuration name="Unittests for testSutter.TestSutterDevice.testDeviceHome" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python tests.Unittests for testMapPositionsFunction.TestMapPositionsFunction">
+    <configuration name="Unittests for testMapPositionsFunction.TestMapPositionsFunction" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;testSutter.TestSutterDevice.testDeviceHome&quot;" />
+      <option name="_new_target" value="&quot;testMapPositionsFunction.TestMapPositionsFunction&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
@@ -135,19 +135,19 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMoveBy" />
       <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMove" />
       <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDevicePosition" />
-      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMoveBy" />
-      <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceHome" />
       <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testPosition" />
+      <item itemvalue="Python tests.Unittests for testMapPositionsFunction.TestMapPositionsFunction" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Unittests for testMapPositionsFunction.TestMapPositionsFunction" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testPosition" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMoveBy" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceMove" />
         <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDevicePosition" />
-        <item itemvalue="Python tests.Unittests for testSutter.TestSutterDevice.testDeviceHome" />
       </list>
     </recent_temporary>
   </component>

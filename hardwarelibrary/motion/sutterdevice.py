@@ -50,7 +50,6 @@ class SutterDevice(LinearMotionDevice):
                 if self.port.isOpen:
                     self.port.close()
             raise PhysicalDevice.UnableToInitialize(error)
-        
 
     def doShutdownDevice(self):
         self.port.close()
@@ -85,10 +84,10 @@ class SutterDevice(LinearMotionDevice):
         # print(unpack(format, replyBytes))
         return unpack(format, replyBytes)
 
-    def positionInMicrosteps(self) -> (int,int,int): # for compatibility
+    def positionInMicrosteps(self) -> (int, int, int):  # for compatibility
         return self.doGetPosition()
 
-    def doGetPosition(self) -> (int,int,int):
+    def doGetPosition(self) -> (int, int, int):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
         self.sendCommand(commandBytes)
@@ -107,8 +106,8 @@ class SutterDevice(LinearMotionDevice):
             raise Exception(f"Expected carriage return, but got '{reply}' instead.")
 
     def doMoveBy(self, displacement):
-        dx,dy,dz  = displacement
-        x,y,z = self.doGetPosition()
+        dx, dy, dz = displacement
+        x, y, z = self.doGetPosition()
         if x is not None:
             self.doMoveTo((x+dx, y+dy, z+dz))
         else:
