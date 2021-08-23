@@ -1,3 +1,5 @@
+import re
+
 class Command:
     def __init__(self, name:str, endPoints = (None, None)):
         self.name = name

@@ -1,8 +1,7 @@
-from ..physicaldevice import *
-from ..communication import *
+from hardwarelibrary.physicaldevice import *
+from hardwarelibrary.communication import *
 from .lasersourcedevice import LaserSourceDevice
 
-import numpy as np
 import re
 import time
 from threading import Thread, RLock
@@ -13,7 +12,7 @@ class CoboltCantTurnOnWithAutostartOn(Exception):
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
     def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
-                 productId: np.uint32 = None, vendorId: np.uint32 = None):
+                 productId: int = None, vendorId: int = None):
 
         self.laserPower = 0
         self.requestedPower = 0
@@ -57,7 +56,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
                 self.port = SerialPort(portPath=self.portPath)
             
             if self.port is None:
-                raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
+                raise PhysicalDevice.UnableToInitialize("Cannot allocate port {0}".format(self.portPath))
 
             self.port.open()
             self.doGetLaserSerialNumber()
@@ -69,7 +68,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             if self.port is not None:
                 if self.port.isOpen:
                     self.port.close()
-            raise PhysicalDeviceUnableToInitialize()
+            raise PhysicalDevice.UnableToInitialize()
         except PhysicalDeviceUnableToInitialize as error:
             raise error
         

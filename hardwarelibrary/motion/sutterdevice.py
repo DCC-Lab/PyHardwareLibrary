@@ -1,35 +1,29 @@
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.motion.linearmotiondevice import *
 from hardwarelibrary.communication.communicationport import *
+from hardwarelibrary.communication.usbport import USBPort
+from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
+from hardwarelibrary.communication.debugport import DebugPort
 
-import numpy as np
 import re
 import time
 from struct import *
 
-class SutterDevice(PhysicalDevice, LinearMotionDevice):
+class SutterDevice(LinearMotionDevice):
 
-    def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
-                 productId: np.uint32 = None, vendorId: np.uint32 = None):
-
-        if bsdPath is not None:
-            self.portPath = bsdPath
-        elif portPath is not None:
-            self.portPath = portPath
-        else:
-            self.portPath = None
-
-        PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
-        LinearMotionDevice.__init__(self)
+    def __init__(self, serialNumber: str = None):
+        super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
         self.port = None
+        self.nativeStepsPerMicrons = 16
+
+        # All values are in native units (i.e. microsteps)
         self.xMinLimit = 0
         self.yMinLimit = 0
         self.zMinLimit = 0
-        self.xMaxLimit = 25000
-        self.yMaxLimit = 25000
-        self.zMaxLimit = 25000
-
+        self.xMaxLimit = 25000*16
+        self.yMaxLimit = 25000*16
+        self.zMaxLimit = 25000*16
 
     def __del__(self):
         try:
@@ -40,53 +34,132 @@ class SutterDevice(PhysicalDevice, LinearMotionDevice):
 
     def doInitializeDevice(self): 
         try:
-            if self.portPath == "debug":
-                self.port = SutterDebugSerialPort()
+            if self.serialNumber == "debug":
+                self.port = self.DebugSerialPort()
             else:
-                self.port = CommunicationPort(portPath=self.portPath)
-            
-            if self.port is None:
-                raise PhysicalDeviceUnableToInitialize("Cannot allocate port {0}".format(self.portPath))
+                self.port = SerialPort(portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
+                self.port.open(baudRate=128000, timeout=10)
 
-            self.port.open()
-            self.doGetPosition()
+            if self.port is None:
+                raise PhysicalDevice.UnableToInitialize("Cannot allocate port {0}".format(self.portPath))
+
+            self.positionInMicrosteps()
 
         except Exception as error:
             if self.port is not None:
                 if self.port.isOpen:
                     self.port.close()
-            raise PhysicalDeviceUnableToInitialize()
-        except PhysicalDeviceUnableToInitialize as error:
-            raise error
-        
+            raise PhysicalDevice.UnableToInitialize(error)
 
     def doShutdownDevice(self):
         self.port.close()
         self.port = None
-        return
 
-class SutterDebugSerialPort(CommunicationPort):
-    def __init__(self):
-        super(SutterDebugSerialPort,self).__init__()
-        self.xSteps = 0
-        self.ySteps = 0
-        self.zSteps = 0
+    def sendCommand(self, commandBytes):
+        """ The function to write a command to the endpoint. It will initialize the device 
+        if it is not alread initialized. On failure, it will warn and shutdown."""
+        if self.port is None:
+            self.doInitializeDevice()
+        
+        nBytesWritten = self.port.writeData(commandBytes)
+        if nBytesWritten != len(commandBytes):
+            raise Exception(f"Unable to send command {commandBytes} to device.")
 
-        move = DataCommand(name='move', hexPattern='6d(.{8})(.{8})(.{8})')
-        position = DataCommand(name='position', hexPattern='63')
-        self.commands.append(move)
-        self.commands.append(position)
+    def readReply(self, size, format) -> tuple:
+        """ The function to read a reply from the endpoint. It will initialize the device 
+        if it is not already initialized. On failure, it will warn and shutdown. 
+        It will unpack the reply into a tuple.
+        """
+        if format is None:
+            raise Exception("You must provide a format for unpacking in readReply")
 
-    def processCommand(self, command, groups, inputData) -> bytearray:
-        if command.name == 'move':
-            self.x = unpack('<l',groups[0])[0]
-            self.y = unpack('<l',groups[1])[0]
-            self.z = unpack('<l',groups[2])[0]
-            return b'\r'
-        elif command.name == 'position':
-            replyData = bytearray()
-            replyData.extend(bytearray(pack("<l", self.x)))
-            replyData.extend(bytearray(pack("<l", self.y)))
-            replyData.extend(bytearray(pack("<l", self.z)))
-            replyData.extend(b'\r')
-            return replyData
+        if self.port is None:
+            self.initializeDevice()
+
+        replyBytes = self.port.readData(size)
+        if len(replyBytes) != size:
+            raise Exception(f"Not enough bytes read in readReply {replyBytes}")
+
+        # print(replyBytes, format)
+        # print(unpack(format, replyBytes))
+        return unpack(format, replyBytes)
+
+    def positionInMicrosteps(self) -> (int, int, int):  # for compatibility
+        return self.doGetPosition()
+
+    def doGetPosition(self) -> (int, int, int):
+        """ Returns the position in microsteps """
+        commandBytes = pack('<cc', b'C', b'\r')
+        self.sendCommand(commandBytes)
+        (x, y, z) = self.readReply(size=14, format='<xlllx')
+
+        return (x, y, z)
+
+    def doMoveTo(self, position):
+        """ Move to a position in microsteps """
+        x, y, z = position
+        commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
+        self.sendCommand(commandBytes)
+        reply = self.readReply(size=1, format='<c')
+
+        if reply != (b'\r',):
+            raise Exception(f"Expected carriage return, but got '{reply}' instead.")
+
+    def doMoveBy(self, displacement):
+        dx, dy, dz = displacement
+        x, y, z = self.doGetPosition()
+        if x is not None:
+            self.doMoveTo((x+dx, y+dy, z+dz))
+        else:
+            raise Exception("Unable to read position from device")
+
+    def doHome(self):
+        commandBytes = pack('<cc', b'H', b'\r')
+        self.sendCommand(commandBytes)
+        replyBytes = self.readReply(1, '<c')
+        if replyBytes is None:
+            raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if replyBytes != (b'\r',):
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")     
+        
+    def work(self):
+        self.home()
+        commandBytes = pack('<cc', b'Y', b'\r')
+        self.sendCommand(commandBytes)
+        replyBytes = self.readReply(1, '<c')
+        if replyBytes is None:
+            raise Exception(f"Nothing received in respnse to {commandBytes}")
+        if replyBytes != (b'\r',):
+            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
+
+
+    class DebugSerialPort(DebugPort):
+        def __init__(self):
+            super().__init__()
+            self.xSteps = 0
+            self.ySteps = 0
+            self.zSteps = 0
+
+        def processInputBuffers(self, endPointIndex):
+            # We default to ECHO for simplicity
+
+            inputBytes = self.inputBuffers[endPointIndex]
+
+            if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:
+                x,y,z = unpack("<xlllx", inputBytes)
+                self.xSteps = x
+                self.ySteps = y
+                self.zSteps = z
+                self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
+            elif inputBytes[0] == b'h'[0] or inputBytes[0] == b'H'[0]:
+                self.xSteps = 0
+                self.ySteps = 0
+                self.zSteps = 0
+                self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
+            elif inputBytes[0] == b'c'[0] or inputBytes[0] == b'C'[0]:
+                data = pack('<clllc', b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
+                self.writeToOutputBuffer(data, endPointIndex)
+            else:
+                print("Unrecognized command (not everything is implemented): {0}".format(inputBytes))
+
+            self.inputBuffers[endPointIndex] = bytearray()
