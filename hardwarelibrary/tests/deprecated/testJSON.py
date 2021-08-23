@@ -1,10 +1,6 @@
 import env # modifies path
 import json
 import unittest
-from serial import *
-from CommunicationPort import *
-import time
-from threading import Thread, Lock
 
 class TestJSON(unittest.TestCase):
     def testOpenFile(self):

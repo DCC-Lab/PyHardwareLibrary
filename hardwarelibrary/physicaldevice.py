@@ -1,19 +1,26 @@
-from enum import Enum
+from enum import Enum, IntEnum
+from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
-import numpy as np
 
-class DeviceState(Enum):
+class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
     Ready = 1        # Connected and initialized
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
-class PhysicalDeviceUnableToInitialize(Exception):
-    pass
+class PhysicalDeviceNotification(Enum):
+    willInitializeDevice       = "willInitializeDevice"
+    didInitializeDevice        = "didInitializeDevice"
+    willShutdownDevice         = "willShutdownDevice"
+    didShutdownDevice          = "didShutdownDevice"
 
 class PhysicalDevice:
+    class UnableToInitialize(Exception):
+        pass
+    class UnableToShutdown(Exception):
+        pass
 
-    def __init__(self, serialNumber:str, productId:np.uint32, vendorId:np.uint32):
+    def __init__(self, serialNumber:str, productId:int, vendorId:int):
         self.vendorId = vendorId
         self.productId = productId
         self.serialNumber = serialNumber
@@ -22,11 +29,14 @@ class PhysicalDevice:
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
+                NotificationCenter().postNotification(PhysicalDeviceNotification.willInitializeDevice, notifyingObject=self)
                 self.doInitializeDevice()
                 self.state = DeviceState.Ready
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self)
             except Exception as error:
                 self.state = DeviceState.Unrecognized
-                raise error
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self, userInfo=error)
+                raise PhysicalDevice.UnableToInitialize(error)
 
     def doInitializeDevice(self):
         raise NotImplementedError("Base class must override doInitializeDevice()")
@@ -34,9 +44,12 @@ class PhysicalDevice:
     def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
+                NotificationCenter().postNotification(PhysicalDeviceNotification.willShutdownDevice, notifyingObject=self)
                 self.doShutdownDevice()
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self)
             except Exception as error:
-                raise error
+                NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self, userInfo=error)
+                raise PhysicalDevice.UnableToShutdown(error)
             finally:
                 self.state = DeviceState.Recognized
 

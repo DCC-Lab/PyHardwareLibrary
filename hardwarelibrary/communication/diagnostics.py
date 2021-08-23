@@ -24,45 +24,6 @@ class DeviceCommand(NamedTuple):
   
 class USBDeviceDescription:
     @classmethod
-    def connectedUSBDevices(cls, idVendor=None, idProduct=None, serialNumber=None):
-        """ Return a list of USB devices from Ocean Insight that are currently
-        connected (idVendor = 0x2457). If idProduct is provided, match only these
-        products. If a serial number is provided, return the matching device otherwise
-        return  an empty list. If no serial number is provided, return all devices.
-
-        Parameters
-        ----------
-        idProduct: int Default: None
-            The USB idProduct to match
-        serialNumber: str Default: None
-            The serial number to match, when there are still more than one device after
-            filtering out the idProduct.  If there is a single match, the serial number
-            is disregarded.
-
-        Returns
-        -------
-
-        devices: list of Device
-            A list of connected devices matching the criteria provided
-        """
-        if idProduct is None and idVendor is None:
-            devices = list(usb.core.find(find_all=True))
-        elif idProduct is None:
-            devices = list(usb.core.find(find_all=True, idVendor=idVendor))
-        else:
-            devices = list(usb.core.find(find_all=True, 
-                                    idVendor=idVendor, 
-                                    idProduct=idProduct))
-
-        if serialNumber is not None: # A serial number was provided, try to match
-            for device in devices:
-                deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
-                if deviceSerialNumber == serialNumber:
-                    return [device]
-
-            return [] # Nothing matched
-
-        return devices
 
     def __init__(self, name, idVendor=None, idProduct=None):
         self.name = name
@@ -389,27 +350,75 @@ class USBDeviceDescription:
         for property in self.mustAssertFalse:
             self.assertFalseOrRaise(property)
 
-# if __name__ == '__main__':
+def tellMeMore(idVendor=None, idProduct=None):
+    devices = connectedUSBDevices(idVendor=idVendor, idProduct=idProduct)
 
-#     dev = USBDeviceDescription("Optotune LD", idVendor=0x03eb, idProduct=0x2018)
-#     dev.regexPOSIXPort = None
-#     dev.usbParameters = USBParameters(configuration=0, 
-#                                       interface=0,
-#                                       alternate=0,
-#                                       outputEndpoint=0,
-#                                       inputEndpoint=1)
-#     dev.mustAssertTrue = ['isVisible', 'isVisibleOnUSBHub','isVisibleAsPOSIXPort',
-#                           'isValidPOSIXPath','posixPortCanBeOpened', 'hasUniquePOSIXPortMatch', 
-#                           'usbPortCanBeOpened', 'canReadWritePOSIXCommands',
-#                           'canReadWriteUSBCommands']
-#     dev.mustAssertFalse = []
+    for device in devices:
+        print(device)
+
+def connectedUSBDevices(idVendor=None, idProduct=None, serialNumber=None):
+    """ Return a list of USB devices that are currently
+    connected. If idProduct is provided, match only these
+    products. If a serial number is provided, return the matching device otherwise
+    return  an empty list. If no serial number is provided, return all devices.
+
+    Parameters
+    ----------
+    idProduct: int Default: None
+        The USB idProduct to match
+    serialNumber: str Default: None
+        The serial number to match, when there are still more than one device after
+        filtering out the idProduct.  If there is a single match, the serial number
+        is disregarded.
+
+    Returns
+    -------
+
+    devices: list of Device
+        A list of connected devices matching the criteria provided
+    """
+
+    if idProduct is None and idVendor is None:
+        devices = list(usb.core.find(find_all=True))
+    elif idProduct is None:
+        devices = list(usb.core.find(find_all=True, idVendor=idVendor))
+    else:
+        devices = list(usb.core.find(find_all=True, 
+                                idVendor=idVendor, 
+                                idProduct=idProduct))
+
+    if serialNumber is not None: # A serial number was provided, try to match
+        for device in devices:
+            deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 
+            if deviceSerialNumber == serialNumber:
+                return [device]
+
+        return [] # Nothing matched
+
+    return devices
+
+
+if __name__ == '__main__':
+
+    dev = USBDeviceDescription("Optotune LD", idVendor=0x03eb, idProduct=0x2018)
+    dev.regexPOSIXPort = None
+    dev.usbParameters = USBParameters(configuration=0, 
+                                      interface=0,
+                                      alternate=0,
+                                      outputEndpoint=0,
+                                      inputEndpoint=1)
+    dev.mustAssertTrue = ['isVisible', 'isVisibleOnUSBHub','isVisibleAsPOSIXPort',
+                          'isValidPOSIXPath','posixPortCanBeOpened', 'hasUniquePOSIXPortMatch', 
+                          'usbPortCanBeOpened', 'canReadWritePOSIXCommands',
+                          'canReadWriteUSBCommands']
+    dev.mustAssertFalse = []
     
-#     dev.deviceCommands.append(DeviceCommand(text='Start',reply='Ready\r\n'))
-#     dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
-# #    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd', replyData='\x00'))
+    dev.deviceCommands.append(DeviceCommand(text='Start',reply='Ready\r\n'))
+    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd'))
+#    dev.deviceCommands.append(DeviceCommand(data=b'\x50\x77\x44\x41\x07\xd0\x00\x00\x31\xfd', replyData='\x00'))
 
-#     #dev.usbPort.open()
-#     # print(dev.__dict__)
-#     dev.diagnoseConnectivity()
-# #    dev.report()
+    #dev.usbPort.open()
+    # print(dev.__dict__)
+    dev.diagnoseConnectivity()
+#    dev.report()
 
