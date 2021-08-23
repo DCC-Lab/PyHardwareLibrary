@@ -70,16 +70,15 @@ class DeviceManager:
         startTime = time.time()
         endTime = startTime + 5.0
         NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
-        while time.time() < endTime :
-            
-            for newDevice in self.newlyConnectedUSBDevices():
-                self.addDevice(newDevice)
-
-            for oldDevice in self.newlyDisconnectedUSBDevices():
-                self.removeDevice(oldDevice)
-
+        while time.time() < endTime :    
             currentDevices = []
             with self.lock:
+                for newUsbDevice in self.newlyConnectedUSBDevices():
+                    self.addUSBDevice(newUsbDevice)
+
+                for oldUsbDevice in self.newlyDisconnectedUSBDevices():
+                    self.removeUSBDevice(oldUsbDevice)
+
                 currentDevices.extend(self.devices)
 
             NotificationCenter().postNotification(DeviceManagerNotification.status, notifyingObject=self, userInfo=currentDevices)
@@ -121,6 +120,14 @@ class DeviceManager:
             self.monitoring = None
         else:
             raise RuntimeError("No monitoring loop running")
+
+    def addUSBDevice(self, usbDevice):
+        with self.lock:
+            self.usbDevices.append(usbDevice)
+
+    def removeUSBDevice(self, usbDevice):
+        with self.lock:
+            self.usbDevices.remove(usbDevice)
 
     def addDevice(self, device):
         NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
@@ -323,7 +330,7 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         nc = NotificationCenter()
         dm.startMonitoring()
-        time.sleep(0.3) # let newlyConnected devices be added.
+        time.sleep(0.3) # let newlyConnected devices be added.open 
         nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
