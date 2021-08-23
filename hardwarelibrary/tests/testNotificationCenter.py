@@ -6,6 +6,8 @@ from hardwarelibrary.notificationcenter import NotificationCenter, Notification,
 class TestNotificationName(Enum):
     test       = "test"
     test2      = "test2"
+    test3      = "test3"
+    test4      = "test4"
     other      = "other"
     wrong      = "wrong"
 
@@ -125,20 +127,20 @@ class TestNotificationCenter(unittest.TestCase):
     def testRemoveManyObservers(self):
         nc = NotificationCenter()
         someObject = NotificationCenter()
-        nc.addObserver(self, self.handle, "testNotification", someObject)
-        nc.addObserver(self, self.handle, "testNotification2", someObject)
-        nc.addObserver(self, self.handle, "testNotification3", someObject)
-        nc.addObserver(self, self.handle, "testNotification4", None)
+        nc.addObserver(self, self.handle, TestNotificationName.test, someObject)
+        nc.addObserver(self, self.handle, TestNotificationName.test2, someObject)
+        nc.addObserver(self, self.handle, TestNotificationName.test3, someObject)
+        nc.addObserver(self, self.handle, TestNotificationName.test4, None)
         nc.removeObserver(self)
         self.assertEqual(nc.observersCount(), 0)
 
     def testRemoveManyObservers2(self):
         nc = NotificationCenter()
         someObject = NotificationCenter()
-        nc.addObserver(self, self.handle, "testNotification", someObject)
-        nc.addObserver(self, self.handle, "testNotification2", someObject)
-        nc.addObserver(self, self.handle, "testNotification3", someObject)
-        nc.addObserver(self, self.handle, "testNotification4", None)
+        nc.addObserver(self, self.handle, TestNotificationName.test, someObject)
+        nc.addObserver(self, self.handle, TestNotificationName.test2, someObject)
+        nc.addObserver(self, self.handle, TestNotificationName.test3, someObject)
+        nc.addObserver(self, self.handle, TestNotificationName.test4, None)
         nc.removeObserver(self, observedObject=someObject)
         self.assertEqual(nc.observersCount(), 0)
 
