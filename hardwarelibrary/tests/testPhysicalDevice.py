@@ -3,9 +3,10 @@ import unittest
 import time
 from threading import Thread, Lock
 import numpy as np
-from physicaldevice import PhysicalDevice, DeviceState
+from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.motion import DebugLinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
+from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DebugPhysicalDevice(PhysicalDevice):
     def __init__(self):
@@ -26,6 +27,7 @@ class BaseTestCases:
         def setUp(self):
             self.device = None
             self.isRunning = False
+            self.notificationReceived = None
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -54,6 +56,43 @@ class BaseTestCases:
                 self.device.shutdownDevice()
                 self.assertTrue(self.device.state == DeviceState.Unrecognized)
 
+        def testPostNotificationWillInitialize(self):
+            nc = NotificationCenter()
+            nc.addObserver(observer=self, method=self.handle, notificationName=PhysicalDeviceNotification.willInitializeDevice, observedObject=self.device)
+            self.assertIsNone(self.notificationReceived)
+            self.device.initializeDevice()
+            self.assertIsNotNone(self.notificationReceived)
+            self.assertEqual(self.notificationReceived.name, PhysicalDeviceNotification.willInitializeDevice)
+            nc.removeObserver(self)
+
+        def testPostNotificationDidInitialize(self):
+            nc = NotificationCenter()
+            nc.addObserver(observer=self, method=self.handle, notificationName=PhysicalDeviceNotification.didInitializeDevice, observedObject=self.device)
+            self.assertIsNone(self.notificationReceived)
+            self.device.initializeDevice()
+            self.assertIsNotNone(self.notificationReceived)
+            nc.removeObserver(self)
+
+        def testPostNotificationWillShutdown(self):
+            nc = NotificationCenter()
+            nc.addObserver(observer=self, method=self.handle, notificationName=PhysicalDeviceNotification.willShutdownDevice, observedObject=self.device)
+            self.assertIsNone(self.notificationReceived)
+            self.device.initializeDevice()
+            self.device.shutdownDevice()
+            self.assertIsNotNone(self.notificationReceived)
+            nc.removeObserver(self)
+
+        def testPostNotificationDidShutdown(self):
+            nc = NotificationCenter()
+            nc.addObserver(observer=self, method=self.handle, notificationName=PhysicalDeviceNotification.didShutdownDevice, observedObject=self.device)
+            self.assertIsNone(self.notificationReceived)
+            self.device.initializeDevice()
+            self.device.shutdownDevice()
+            self.assertIsNotNone(self.notificationReceived)
+            nc.removeObserver(self)
+
+        def handle(self, notification):
+            self.notificationReceived = notification
 
 class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
@@ -87,7 +126,6 @@ class TestSutterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         self.device = SutterDevice(serialNumber="debug")
-
 
 if __name__ == '__main__':
     unittest.main()
