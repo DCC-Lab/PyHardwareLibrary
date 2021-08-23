@@ -1,14 +1,26 @@
 import env # modifies path
 import unittest
-import numpy as np
 import time
 import re
+from enum import Enum
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
 from threading import Thread, RLock
 from hardwarelibrary.communication.diagnostics import *
+
+class DeviceManagerNotification(Enum):
+    status              = "status"
+    willStartMonitoring = "willStartMonitoring"
+    didStartMonitoring  = "didStartMonitoring"
+    willStopMonitoring  = "willStopMonitoring"
+    didStopMonitoring   = "didStopMonitoring"
+
+    willAddDevice       = "willAddDevice"
+    didAddDevice        = "didAddDevice"
+    willRemoveDevice    = "willRemoveDevice"
+    didRemoveDevice     = "didRemoveDevice"
 
 class DebugPhysicalDevice(PhysicalDevice):
     def __init__(self):
@@ -49,7 +61,7 @@ class DeviceManager:
             if not self.isMonitoring:
                 self.quitMonitoring = False
                 self.monitoring = Thread(target=self.monitoringLoop, name="DeviceManager-RunLoop")
-                NotificationCenter().postNotification(notificationName="willStartMonitoring", notifyingObject=self)
+                NotificationCenter().postNotification(notificationName=DeviceManagerNotification.willStartMonitoring, notifyingObject=self)
                 self.monitoring.start()
             else:
                 raise RuntimeError("Monitoring loop already running")
@@ -57,7 +69,7 @@ class DeviceManager:
     def monitoringLoop(self):        
         startTime = time.time()
         endTime = startTime + 5.0
-        NotificationCenter().postNotification("didStartMonitoring", notifyingObject=self)
+        NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
         while time.time() < endTime :
             self.lookForNewlyConnectedDevices()
             # self.lookForNewlyDisconnectedDevices()
@@ -66,13 +78,13 @@ class DeviceManager:
             with self.lock:
                 currentDevices.extend(self.devices)
 
-            NotificationCenter().postNotification("status", notifyingObject=self, userInfo=currentDevices)
+            NotificationCenter().postNotification(DeviceManagerNotification.status, notifyingObject=self, userInfo=currentDevices)
 
             with self.lock:
                 if self.quitMonitoring:
                      break
             time.sleep(0.2)
-        NotificationCenter().postNotification("didStopMonitoring", notifyingObject=self)
+        NotificationCenter().postNotification(DeviceManagerNotification.didStopMonitoring, notifyingObject=self)
 
     def newlyConnectedUSBDevices(self):
         currentlyConnectedDevices = connectedUSBDevices()
@@ -99,7 +111,7 @@ class DeviceManager:
     
     def stopMonitoring(self):
         if self.isMonitoring:
-            NotificationCenter().postNotification("willStopMonitoring", notifyingObject=self)
+            NotificationCenter().postNotification(DeviceManagerNotification.willStopMonitoring, notifyingObject=self)
             with self.lock:
                 self.quitMonitoring = True
             self.monitoring.join()
@@ -108,16 +120,16 @@ class DeviceManager:
             raise RuntimeError("No monitoring loop running")
 
     def addDevice(self, device):
-        NotificationCenter().postNotification("willAddDevice", notifyingObject=self, userInfo=device)
+        NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
         with self.lock:
             self.devices.add(device)
-        NotificationCenter().postNotification("didAddDevice", notifyingObject=self, userInfo=device)
+        NotificationCenter().postNotification(DeviceManagerNotification.didAddDevice, notifyingObject=self, userInfo=device)
 
     def removeDevice(self, device):
-        NotificationCenter().postNotification("willRemoveDevice", notifyingObject=self, userInfo=device)
+        NotificationCenter().postNotification(DeviceManagerNotification.willRemoveDevice, notifyingObject=self, userInfo=device)
         with self.lock:
             self.devices.remove(device)
-        NotificationCenter().postNotification("didRemoveDevice", notifyingObject=self, userInfo=device)
+        NotificationCenter().postNotification(DeviceManagerNotification.didRemoveDevice, notifyingObject=self, userInfo=device)
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
         with self.lock:
@@ -264,12 +276,15 @@ class TestDeviceManager(unittest.TestCase):
     def testNotificationReceived(self):
         dm = DeviceManager()
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, "willStartMonitoring")
-        nc.addObserver(self, self.handle, "didStartMonitoring")
-        nc.addObserver(self, self.handle, "willStopMonitoring")
-        nc.addObserver(self, self.handle, "didStopMonitoring")
-        nc.addObserver(self, self.handleStatus, "status")
-        self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
+        nc.addObserver(self, self.handle, DeviceManagerNotification.willStartMonitoring)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.didStartMonitoring)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.willStopMonitoring)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.didStopMonitoring)
+        nc.addObserver(self, self.handleStatus, DeviceManagerNotification.status)
+        self.notificationsToReceive = [DeviceManagerNotification.willStartMonitoring,
+                                       DeviceManagerNotification.didStartMonitoring,
+                                       DeviceManagerNotification.willStopMonitoring,
+                                       DeviceManagerNotification.didStopMonitoring]
 
         dm.startMonitoring()
         time.sleep(0.5)
@@ -282,12 +297,15 @@ class TestDeviceManager(unittest.TestCase):
     def testNotificationReceivedWhileAddingDevices(self):
         dm = DeviceManager()
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, "willStartMonitoring")
-        nc.addObserver(self, self.handle, "didStartMonitoring")
-        nc.addObserver(self, self.handle, "willStopMonitoring")
-        nc.addObserver(self, self.handle, "didStopMonitoring")
-        nc.addObserver(self, self.handleStatus, "status")
-        self.notificationsToReceive = ["willStartMonitoring","didStartMonitoring","willStopMonitoring","didStopMonitoring"]
+        nc.addObserver(self, self.handle, DeviceManagerNotification.willStartMonitoring)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.didStartMonitoring)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.willStopMonitoring)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.didStopMonitoring)
+        nc.addObserver(self, self.handleStatus, DeviceManagerNotification.status)
+        self.notificationsToReceive = [DeviceManagerNotification.willStartMonitoring,
+                                       DeviceManagerNotification.didStartMonitoring,
+                                       DeviceManagerNotification.willStopMonitoring,
+                                       DeviceManagerNotification.didStopMonitoring]
 
         dm.startMonitoring()
         time.sleep(0.5)
@@ -301,12 +319,13 @@ class TestDeviceManager(unittest.TestCase):
     def testNotificationReceivedFromAddingDevices(self):
         dm = DeviceManager()
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, "willAddDevice")
-        nc.addObserver(self, self.handle, "didAddDevice")
-        nc.addObserver(self, self.handle, "willRemoveDevice")
-        nc.addObserver(self, self.handle, "didRemoveDevice")
-        self.notificationsToReceive = ["willAddDevice","didAddDevice"]*1000
-        self.notificationsToReceive.extend(["willRemoveDevice","didRemoveDevice"]*1000)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
+        nc.addObserver(self, self.handle, DeviceManagerNotification.didRemoveDevice)
+
+        self.notificationsToReceive = [DeviceManagerNotification.willAddDevice,DeviceManagerNotification.didAddDevice]*1000
+        self.notificationsToReceive.extend([DeviceManagerNotification.willRemoveDevice,DeviceManagerNotification.didRemoveDevice]*1000)
 
 
         dm.startMonitoring()
