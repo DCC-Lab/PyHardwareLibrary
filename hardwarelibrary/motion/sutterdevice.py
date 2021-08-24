@@ -65,8 +65,9 @@ class SutterDevice(LinearMotionDevice):
         """ The function to write a command to the endpoint. It will initialize the device 
         if it is not alread initialized. On failure, it will warn and shutdown."""
         if self.port is None:
-            self.doInitializeDevice()
+            self.initializeDevice()
         
+        time.sleep(0.1)
         nBytesWritten = self.port.writeData(commandBytes)
         if nBytesWritten != len(commandBytes):
             raise Exception(f"Unable to send command {commandBytes} to device.")
@@ -82,6 +83,7 @@ class SutterDevice(LinearMotionDevice):
         if self.port is None:
             self.initializeDevice()
 
+        time.sleep(0.1)
         replyBytes = self.port.readData(size)
         if len(replyBytes) != size:
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
