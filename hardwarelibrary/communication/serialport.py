@@ -115,22 +115,31 @@ class SerialPort(CommunicationPort):
 
     @classmethod
     def ftdiPorts(cls):
-        portList = StringIO()
-        Ftdi.show_devices()
-        everything = portList.getvalue()
+        # Ftdi.show_devices("ftdi:///?", out=portList)
+        # everything = portList.getvalue()
         # print(everything)
         urls = []
-        for someText in everything.split():
-            match = re.match("ftdi://(.+):(.+):(.+)/",someText,re.IGNORECASE)
-            if match is not None:
-                groups = match.groups()
-                thePort = ListPortInfo(device="")
-                thePort.vid = groups[0]
-                thePort.pid = groups[1]
-                thePort.serial_number = groups[2]
-                thePort.device = someText
+        # for someText in everything.split():
+        #     match = re.match("ftdi://(.+):(.+):(.+)/",someText,re.IGNORECASE)
+        #     if match is not None:
+        #         groups = match.groups()
+        #         thePort = ListPortInfo(device="")
+        #         thePort.vid = groups[0]
+        #         thePort.pid = groups[1]
+        #         thePort.serial_number = groups[2]
+        #         thePort.device = someText
 
-                urls.append(thePort)
+        #         urls.append(thePort)
+
+        # FIXME: for some reason, I can't get the Sutter URls above and I must handcode the following.
+        sutterDevices = Ftdi.list_devices(url="ftdi://4930:1/1")
+        for device, address in sutterDevices:
+            thePort = ListPortInfo(device="")
+            thePort.vid = device.vid
+            thePort.pid = device.pid
+            thePort.serial_number = device.sn
+            thePort.device = "ftdi://{0}:{1}:{2}/{3}".format(device.vid, device.pid, device.sn, address)
+            urls.append(thePort)
 
         return urls
 

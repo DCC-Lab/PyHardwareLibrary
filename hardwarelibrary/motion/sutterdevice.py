@@ -10,6 +10,8 @@ import re
 import time
 from struct import *
 
+from pyftdi.ftdi import Ftdi #FIXME: should not be here.
+
 class SutterDevice(LinearMotionDevice):
 
     def __init__(self, serialNumber: str = None):
@@ -37,7 +39,11 @@ class SutterDevice(LinearMotionDevice):
             if self.serialNumber == "debug":
                 self.port = self.DebugSerialPort()
             else:
-                self.port = SerialPort(portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
+                portPath = SerialPort.matchAnyPort(idVendor=self.vendorId, idProduct=self.productId, serialNumber=self.serialNumber)
+                if portPath is None:
+                    raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
+
+                self.port = SerialPort(portPath=portPath)
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:

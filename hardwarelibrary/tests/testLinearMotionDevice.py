@@ -162,6 +162,11 @@ class TestDebugSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
         super().setUp()
         self.device = SutterDevice("debug")
 
+class TestRealSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
+    def setUp(self):
+        super().setUp()
+        self.device = SutterDevice()
+        self.assertIsNotNone(self.device)
 
 if __name__ == '__main__':
     unittest.main()
