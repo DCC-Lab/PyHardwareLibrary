@@ -9,9 +9,14 @@ from hardwarelibrary.notificationcenter import NotificationCenter
 class BaseTestCases:
     class TestLinearMotionDevice(unittest.TestCase):
         def setUp(self):
-            self.device = None
+            # Set self.device in subclass
             self.willNotificationReceived = False
             self.didNotificationReceived = False
+            self.assertIsNotNone(self.device)
+            self.device.initializeDevice()
+
+        def tearDown(self):
+            self.device.initializeDevice()
 
         def testDevicePosition(self):
             (x, y, z) = self.device.position()
@@ -105,7 +110,7 @@ class BaseTestCases:
         def testPositionNotifications(self):
             NotificationCenter().addObserver(self, method=self.handleDid, notificationName=LinearMotionNotification.didGetPosition)
             (x, y, z) = self.device.position()
-            self.assertTrue(self.didNotificationReceived)        
+            self.assertTrue(self.didNotificationReceived)
             NotificationCenter().removeObserver(self)
 
         def testDeviceMoveNotifications(self):
@@ -154,19 +159,18 @@ class BaseTestCases:
 
 class TestDebugLinearMotionDeviceBase(BaseTestCases.TestLinearMotionDevice):
     def setUp(self):
-        super().setUp()
         self.device = DebugLinearMotionDevice()
+        super().setUp()
 
 class TestDebugSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
     def setUp(self):
-        super().setUp()
         self.device = SutterDevice("debug")
+        super().setUp()
 
 class TestRealSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
     def setUp(self):
-        super().setUp()
         self.device = SutterDevice()
-        self.assertIsNotNone(self.device)
+        super().setUp()
 
 if __name__ == '__main__':
     unittest.main()
