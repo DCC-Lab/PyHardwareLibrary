@@ -4,7 +4,7 @@ Do not use yet.
 
 
 
-An example: Sutter ROE-200
+## An example: Sutter ROE-200
 
 Let's look at a classic from microscopy and neuroscience, the MPC-385 XYZ stage from Sutter Instruments with its ROE-200 controller. The manual is available [here](https://github.com/DCC-Lab/PyHardwareLibrary/blob/cd7bf0cf6256ba4dbc6eb26f0657c0db59b35848/hardwarelibrary/manuals/MPC-325_OpMan.pdf) or on their web site, and it is sufficiently detailed for us (it also has a few omissions that we will find).  When we connect the device, we can inspect its **USB Descriptors**. We then find out that the idVendor is 4930, the idProduct is 1. We can pick a USB configuration, pick a USB interface, then the inspection of the endpoint descriptors tells us it has two endpoints: one IN, one OUT. 
 
