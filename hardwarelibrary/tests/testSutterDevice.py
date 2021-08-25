@@ -11,21 +11,22 @@ import serial
 
 class TestSutterDevice(unittest.TestCase):
     def setUp(self):
-            # pyftdi.ftdi.Ftdi.add_custom_product(vid=4930, pid=1, pidname='Sutter')
         try: 
             self.device = SutterDevice()
             self.device.initializeDevice()
         except:
             self.device = SutterDevice("debug")
             self.device.initializeDevice()
-            #print("Using Debug Sutter device for tests")
         
         self.assertIsNotNone(self.device)
-        # raise(unittest.SkipTest("No FTDI connected. Skipping."))
 
     def tearDown(self):
         self.device.shutdownDevice()
         self.device = None
+
+    def testFTDIMatchPort(self):
+        thePort = SerialPort.matchAnyPort(idVendor=4930, idProduct=1)
+        self.assertIsNotNone(thePort)
 
     def testNativeUnits(self):
         self.assertEqual(self.device.nativeStepsPerMicrons, 16)

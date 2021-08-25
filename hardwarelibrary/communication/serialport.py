@@ -115,21 +115,20 @@ class SerialPort(CommunicationPort):
 
     @classmethod
     def ftdiPorts(cls):
-        portList = StringIO()
-        Ftdi.show_devices()
-        everything = portList.getvalue()
-        # print(everything)
-        urls = []
-        for someText in everything.split():
-            match = re.match("ftdi://(.+):(.+):(.+)/",someText,re.IGNORECASE)
-            if match is not None:
-                groups = match.groups()
-                thePort = ListPortInfo(device="")
-                thePort.vid = groups[0]
-                thePort.pid = groups[1]
-                thePort.serial_number = groups[2]
-                thePort.device = someText
+        # FIXME: for some reason, I can't get the Sutter URls with the
+        # wildcard and I must handcode the following. It appears the wildcard
+        # ftdi:///? does not work for some reason.
+        vidpids = [(4930, 1)] # Must add custom pairs in the future.
 
+        urls = []        
+        for vid, pid in vidpids:
+            pyftdidevices = Ftdi.list_devices(url="ftdi://{0}:{1}/1".format(vid, pid))
+            for device, address in pyftdidevices:
+                thePort = ListPortInfo(device="")
+                thePort.vid = device.vid
+                thePort.pid = device.pid
+                thePort.serial_number = device.sn
+                thePort.device = "ftdi://{0}:{1}:{2}/{3}".format(device.vid, device.pid, device.sn, address)
                 urls.append(thePort)
 
         return urls

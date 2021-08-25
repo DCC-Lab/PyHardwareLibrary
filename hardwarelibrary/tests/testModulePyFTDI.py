@@ -10,8 +10,18 @@ import re
 class TestPyFTDIModule(unittest.TestCase):
     def setUp(self):
         portList = StringIO()
+
+        try:
+            idVendor = 4930
+            idProduct = 1
+
+            pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
+        except Exception as err:
+            print(err)        
+
         Ftdi.show_devices(out=portList)
         self.assertIsNotNone(portList)
+        print("{0}".format(portList.getvalue()))
         if len(portList.getvalue()) == 0:
             raise(unittest.SkipTest("No FTDI connected. Skipping."))
 

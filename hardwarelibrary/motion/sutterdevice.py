@@ -10,6 +10,8 @@ import re
 import time
 from struct import *
 
+from pyftdi.ftdi import Ftdi #FIXME: should not be here.
+
 class SutterDevice(LinearMotionDevice):
 
     def __init__(self, serialNumber: str = None):
@@ -37,7 +39,11 @@ class SutterDevice(LinearMotionDevice):
             if self.serialNumber == "debug":
                 self.port = self.DebugSerialPort()
             else:
-                self.port = SerialPort(portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
+                portPath = SerialPort.matchAnyPort(idVendor=self.vendorId, idProduct=self.productId, serialNumber=self.serialNumber)
+                if portPath is None:
+                    raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
+
+                self.port = SerialPort(portPath=portPath)
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
@@ -59,8 +65,9 @@ class SutterDevice(LinearMotionDevice):
         """ The function to write a command to the endpoint. It will initialize the device 
         if it is not alread initialized. On failure, it will warn and shutdown."""
         if self.port is None:
-            self.doInitializeDevice()
+            self.initializeDevice()
         
+        time.sleep(0.1)
         nBytesWritten = self.port.writeData(commandBytes)
         if nBytesWritten != len(commandBytes):
             raise Exception(f"Unable to send command {commandBytes} to device.")
@@ -76,6 +83,7 @@ class SutterDevice(LinearMotionDevice):
         if self.port is None:
             self.initializeDevice()
 
+        time.sleep(0.1)
         replyBytes = self.port.readData(size)
         if len(replyBytes) != size:
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
