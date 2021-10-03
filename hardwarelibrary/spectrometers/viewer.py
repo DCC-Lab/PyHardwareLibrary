@@ -1,3 +1,5 @@
+import os
+
 import usb.core
 import usb.util
 import usb.backend.libusb1
@@ -90,8 +92,10 @@ class SpectraViewer:
         self.autoscaleBtn = Button(axScale, 'Autoscale')
         self.autoscaleBtn.on_clicked(self.clickAutoscale)
 
+        rootDir = os.path.dirname(os.path.abspath(__file__))
+
         try:
-            axLight.imshow(plt.imread("lightbulb.png"))
+            axLight.imshow(plt.imread("{0}/lightbulb.png".format(rootDir)))
             axLight.set_xticks([])
             axLight.set_yticks([])
             self.lightBtn = Button(axLight,'')
@@ -100,7 +104,7 @@ class SpectraViewer:
         self.lightBtn.on_clicked(self.clickWhiteReference)
 
         try:
-            axDark.imshow(plt.imread("darkbulb.png"))
+            axDark.imshow(plt.imread("{0}/darkbulb.png".format(rootDir)))
             axDark.set_xticks([])
             axDark.set_yticks([])
             self.darkBtn = Button(axDark,'') 
