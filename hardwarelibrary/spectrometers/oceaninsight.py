@@ -763,14 +763,14 @@ class USB4000(USB4000_2000Plus):
     idProduct = 0x1022
 
     def __init__(self):
-        USB4000_2000Plus.__init__(self, idProduct=self.idProduct, model="USB4000")
+        super().__init__(self, idProduct=self.idProduct, model="USB4000")
 
 
 class USB2000Plus(USB4000_2000Plus):
     idProduct = 0x101e
 
     def __init__(self):
-        USB4000_2000Plus.__init__(self, idProduct=self.idProduct, model="USB2000+")
+        super().__init__(self, idProduct=self.idProduct, model="USB2000+")
 
 
 class DebugSpectro:
@@ -899,7 +899,6 @@ def validateUSBBackend():
 if __name__ == "__main__":
     try:
         if len(sys.argv) == 1:
-            print(getAllSubclasses(Spectrometer))
             validateUSBBackend() # Why not? dll's on Windows are a mess.
             spectrometer = OISpectrometer.any()
             spectrometer.getSpectrum()
