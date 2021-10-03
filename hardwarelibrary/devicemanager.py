@@ -129,6 +129,7 @@ class DeviceManager:
                 self.quitMonitoring = True
             self.monitoring.join()
             self.monitoring = None
+            self.removeAllDevices()
         else:
             raise RuntimeError("No monitoring loop running")
 
@@ -143,12 +144,10 @@ class DeviceManager:
         candidates = PhysicalDevice.candidates(usbDevice.idVendor, usbDevice.idProduct)
         for candidateClass in candidates:
             try:
-                deviceInstance = candidateClass(serialNumber=deviceSerialNumber, 
+                # This may throw if incompatible
+                deviceInstance = candidateClass(serialNumber=deviceSerialNumber,
                                                 idProduct=usbDevice.idProduct, 
                                                 idVendor=usbDevice.idVendor)
-                if deviceInstance is None:
-                    continue
-                print(deviceInstance, candidateClass)
                 deviceInstance.initializeDevice()
                 deviceInstance.shutdownDevice()
                 self.addDevice(deviceInstance)
@@ -163,12 +162,23 @@ class DeviceManager:
             deviceSerialNumber = ""
         descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidDisconnect, notifyingObject=self, userInfo=descriptor)
+        # Must find actual physicaldevice, then shut it down
 
     def addDevice(self, device):
         NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
         with self.lock:
             self.devices.add(device)
         NotificationCenter().postNotification(DeviceManagerNotification.didAddDevice, notifyingObject=self, userInfo=device)
+
+    def removeAllDevices(self):
+        with self.lock:
+            devicesToRemove = set(self.devices)
+            for device in devicesToRemove:
+                try:
+                    device.shutdownDevice()
+                except Exception as err:
+                    print(err)
+                self.removeDevice(device)
 
     def removeDevice(self, device):
         NotificationCenter().postNotification(DeviceManagerNotification.willRemoveDevice, notifyingObject=self, userInfo=device)

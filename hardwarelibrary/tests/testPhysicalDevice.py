@@ -3,8 +3,8 @@ import unittest
 import time
 from threading import Thread, Lock
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
-from hardwarelibrary.motion import DebugLinearMotionDevice
-from hardwarelibrary.motion import SutterDevice
+from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
+from hardwarelibrary.spectrometers import Spectrometer, USB2000Plus
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DebugPhysicalDevice(PhysicalDevice):
@@ -30,6 +30,10 @@ class BaseTestCases:
             self.device = None
             self.isRunning = False
             self.notificationReceived = None
+
+        def tearDown(self):
+            self.device.shutdownDevice()
+            self.device = None
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -128,6 +132,11 @@ class TestSutterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         self.device = SutterDevice(serialNumber="debug")
+
+class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        self.device = USB2000Plus()
 
 if __name__ == '__main__':
     unittest.main()

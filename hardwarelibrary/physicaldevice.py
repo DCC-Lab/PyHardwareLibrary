@@ -34,6 +34,13 @@ class PhysicalDevice:
     #     return super(PhysicalDevice, cls).__new__(cls)
 
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
+        if serialNumber == "*" or serialNumber is None:
+            serialNumber = ".*"
+        if idProduct is None:
+            idProduct = self.classIdProduct
+        if idVendor is None:
+            idVendor = self.classIdVendor
+
         if not self.isCompatibleWith(serialNumber, idProduct, idVendor):
             raise PhysicalDevice.ClassIncompatibleWithRequestedDevice()
 

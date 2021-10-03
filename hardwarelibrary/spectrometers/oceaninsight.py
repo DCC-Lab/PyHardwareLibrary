@@ -204,6 +204,12 @@ class OISpectrometer(Spectrometer):
         self.inputEndpoints = []
         self.outputEndpoints = []
 
+        self.epParametersIdx = 2
+        self.epStatusIdx = 2
+        self.epCommandOutIdx = 0
+        self.epMainInIdx = 2
+        self.epSecondaryInIdx = 1
+
         self.epCommandOut = None
         self.epMainIn = None
         self.epSecondaryIn = None
@@ -223,8 +229,12 @@ class OISpectrometer(Spectrometer):
         the communication is started.
         """
         try:
-            self.device = OISpectrometer.matchUniqueUSBDevice( idProduct=self.idProduct,
-                                           serialNumber=self.serialNumber)
+
+            if self.serialNumber == "*" or self.serialNumber == ".*":
+                self.device = OISpectrometer.matchUniqueUSBDevice( idProduct=self.idProduct)
+            else:
+                self.device = OISpectrometer.matchUniqueUSBDevice( idProduct=self.idProduct,
+                                               serialNumber=self.serialNumber)
 
             """ Below are all the USB protocol details.  This requires reading
             the USB documentation, the Spectrometer documentation and many other 
@@ -257,9 +267,11 @@ class OISpectrometer(Spectrometer):
                 """ We have at least 2 input endpoints and 1 output. We assign the
                 endpoints according to the documentation, otherwise
                 the subclass will need to assign them."""
-                self.epCommandOut = self.outputEndpoints[0]
-                self.epMainIn = self.inputEndpoints[0]
-                self.epSecondaryIn = self.inputEndpoints[1]
+                self.epCommandOut = self.outputEndpoints[self.epCommandOutIdx]
+                self.epMainIn = self.inputEndpoints[self.epMainInIdx]
+                self.epSecondaryIn = self.inputEndpoints[self.epSecondaryInIdx]
+                self.epParameters = self.inputEndpoints[self.epParametersIdx]
+                self.epStatus = self.inputEndpoints[self.epStatusIdx]
 
             self.flushEndpoints()
             self.sendCommand(b'0x01')
@@ -268,11 +280,13 @@ class OISpectrometer(Spectrometer):
         except Exception as err:
             raise UnableToInitialize("Error when initializing device: {0}".format(err))
 
-    def shutdownDevice(self):
+    def doShutdownDevice(self):
         """
-        Shutdown the Spectrometer. Currently does not perform anything.
+        Shutdown the Spectrometer, free the usbDevice
         """
-        return
+        if self.device is not None:
+            self.device.reset()
+            self.device = None
 
     def flushEndpoints(self):
         for endpoint in self.inputEndpoints:
@@ -508,25 +522,22 @@ class OISpectrometer(Spectrometer):
     def readReply(self, inputEndpoint, size = None, unpackingFormat=None, timeout=None):
         """ Main entry point to read from device in order to have
         consistent method to manage errors. """
-        if inputEndpoint is not None:
-            buffer = array.array('B',[0]*inputEndpoint.wMaxPacketSize)
-            try:
-                if unpackingFormat is not None:
-                    size = calcsize(unpackingFormat)
+        if inputEndpoint is None:
+            raise Exception("endpoint cannot be none")
 
-                if size is None:
-                    inputEndpoint.read(size_or_buffer=buffer, timeout=timeout)
-                else:
-                    buffer = inputEndpoint.read(size_or_buffer=size, timeout=timeout)
+        buffer = array.array('B',[0]*inputEndpoint.wMaxPacketSize)
+        if unpackingFormat is not None:
+            size = calcsize(unpackingFormat)
 
-                if unpackingFormat is not None:
-                    return unpack(unpackingFormat, buffer)
-                else:
-                    return buffer
-            except Exception as err:
-                print("Error reading from device: {0}".format(err))
+        if size is None:
+            inputEndpoint.read(size_or_buffer=buffer, timeout=timeout)
+        else:
+            buffer = inputEndpoint.read(size_or_buffer=size, timeout=timeout)
 
-        return None
+        if unpackingFormat is not None:
+            return unpack(unpackingFormat, buffer)
+
+        return buffer
 
 class USB2000(OISpectrometer):
     """
@@ -573,13 +584,14 @@ class USB2000(OISpectrometer):
 
     def __init__(self, serialNumber=None, idProduct=None, idVendor=None):
         OISpectrometer.__init__(self, serialNumber, idProduct, idVendor, model="USB2000")
-
-        self.initializeDevice()
+        self.epParametersIdx = self.epSecondaryInIdx
+        self.epStatusIdx = self.epMainInIdx
 
     def doInitializeDevice(self):
+        """
+        Nothing particular to do, but making it explicit
+        """
         super().doInitializeDevice()
-        self.epParameters = self.epSecondaryIn
-        self.epStatus = self.epMainIn 
 
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
@@ -667,15 +679,15 @@ class USB4000_2000Plus(OISpectrometer):
 
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None, model=None):
         OISpectrometer.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, model="USB4000")
+        self.epCommandOutIdx = 0
+        self.epMainInIdx = 2
+        self.epSecondaryInIdx = 1
 
+        self.epParametersIdx = 2
+        self.epStatusIdx = 2
 
     def doInitializeDevice(self):
         super().doInitializeDevice()
-        self.epCommandOut = self.outputEndpoints[0]
-        self.epMainIn = self.inputEndpoints[2]
-        self.epSecondaryIn = self.inputEndpoints[1]
-        self.epParameters = self.inputEndpoints[2] 
-        self.epStatus = self.inputEndpoints[2] 
         self.discardLeadingSamples = 5
         self.discardTrailingSamples = 173
 

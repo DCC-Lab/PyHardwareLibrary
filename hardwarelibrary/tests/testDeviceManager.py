@@ -105,22 +105,24 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         dm.startMonitoring()
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.7
-        time.sleep(0.5)
+        expectedMaxEndTime = startTime + 3.0
+        time.sleep(2.0)
+        self.assertEqual(len(dm.devices), 1)
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
+        self.assertEqual(len(dm.devices), 0)
 
     def testRestartRunLoop(self):
         dm = DeviceManager()
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.3
+        expectedMaxEndTime = startTime + 1.0
         dm.startMonitoring()
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.3
+        expectedMaxEndTime = startTime + 1.0
         dm.startMonitoring()
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
@@ -184,7 +186,7 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         nc = NotificationCenter()
         dm.startMonitoring()
-        time.sleep(0.3) # let newlyConnected devices be added.
+        time.sleep(1.0) # let newlyConnected devices be added.
         nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
