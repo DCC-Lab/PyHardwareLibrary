@@ -38,11 +38,15 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
         DeviceManager._instance = None
         del(dm)
+        nc = NotificationCenter()
+        NotificationCenter._instance = None
+        del(nc)
         self.lock = RLock()
         self.notificationsToReceive = []
         self.assertEqual(NotificationCenter().observersCount(), 0)
 
     def tearDown(self):
+        NotificationCenter().clear()
         self.assertEqual(NotificationCenter().observersCount(), 0)
 
     def testMatching1(self):
@@ -185,25 +189,29 @@ class TestDeviceManager(unittest.TestCase):
     def testNotificationReceivedFromAddingDevices(self):
         dm = DeviceManager()
         nc = NotificationCenter()
+
         dm.startMonitoring()
         time.sleep(1.0) # let newlyConnected devices be added.
+
         nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didRemoveDevice)
 
-        self.notificationsToReceive = [DeviceManagerNotification.willAddDevice,DeviceManagerNotification.didAddDevice]*1000
-        self.notificationsToReceive.extend([DeviceManagerNotification.willRemoveDevice,DeviceManagerNotification.didRemoveDevice]*1000)
-
+        N = 1000
+        self.notificationsToReceive = [DeviceManagerNotification.willAddDevice,DeviceManagerNotification.didAddDevice]*N
+        self.notificationsToReceive.extend([DeviceManagerNotification.willRemoveDevice,DeviceManagerNotification.didRemoveDevice]*N)
 
         time.sleep(0.5)
-        self.addRemoveManyDevices(1000)
+        self.addRemoveManyDevices(N)
         time.sleep(0.5)
-        dm.stopMonitoring()
 
         with self.lock:
-            self.assertTrue(len(self.notificationsToReceive) == 0)        
+            self.assertEqual(len(self.notificationsToReceive), 0)
+
         nc.removeObserver(self)
+
+        dm.stopMonitoring()
 
     # def testNewlyConnectedDevices(self):
     #     dm = DeviceManager()
@@ -221,9 +229,13 @@ class TestDeviceManager(unittest.TestCase):
             dm.removeDevice(device)
 
     def handle(self, notification):
+        print(notification.name)
         with self.lock:
-            self.assertEqual(notification.name, self.notificationsToReceive[0])
-            self.notificationsToReceive.pop(0)
+            if len(self.notificationsToReceive) > 0:
+                self.assertEqual(notification.name, self.notificationsToReceive[0])
+                self.notificationsToReceive.pop(0)
+            else:
+                self.fail("Nothing left to receive, yet received {0}".format(notification.name))
 
     def handleStatus(self, notification):
         with self.lock:

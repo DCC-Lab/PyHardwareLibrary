@@ -56,6 +56,10 @@ class DeviceManager:
             cls._instance = object.__new__(cls, *args, **kwargs)
         return cls._instance
 
+    def __del__(self):
+        for device in self.devices:
+            device.shutdownDevice()
+
     def startMonitoring(self):
         with self.lock:
             if not self.isMonitoring:
@@ -162,13 +166,13 @@ class DeviceManager:
             deviceSerialNumber = ""
         descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidDisconnect, notifyingObject=self, userInfo=descriptor)
-        # Must find actual physicaldevice, then shut it down
+        # TODO Must find actual physicaldevice, then shut it down
 
     def addDevice(self, device):
-        NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
         with self.lock:
+            NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
             self.devices.add(device)
-        NotificationCenter().postNotification(DeviceManagerNotification.didAddDevice, notifyingObject=self, userInfo=device)
+            NotificationCenter().postNotification(DeviceManagerNotification.didAddDevice, notifyingObject=self, userInfo=device)
 
     def removeAllDevices(self):
         with self.lock:
@@ -181,10 +185,11 @@ class DeviceManager:
                 self.removeDevice(device)
 
     def removeDevice(self, device):
-        NotificationCenter().postNotification(DeviceManagerNotification.willRemoveDevice, notifyingObject=self, userInfo=device)
         with self.lock:
+            NotificationCenter().postNotification(DeviceManagerNotification.willRemoveDevice, notifyingObject=self,
+                                                  userInfo=device)
             self.devices.remove(device)
-        NotificationCenter().postNotification(DeviceManagerNotification.didRemoveDevice, notifyingObject=self, userInfo=device)
+            NotificationCenter().postNotification(DeviceManagerNotification.didRemoveDevice, notifyingObject=self, userInfo=device)
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
         with self.lock:
