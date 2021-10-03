@@ -387,6 +387,8 @@ def connectedUSBDevices(idVendor=None, idProduct=None, serialNumber=None):
                                 idVendor=idVendor, 
                                 idProduct=idProduct))
 
+    devices = [device for device in devices if device.idVendor != 0x05ac]
+    
     if serialNumber is not None: # A serial number was provided, try to match
         for device in devices:
             deviceSerialNumber = usb.util.get_string(device, device.iSerialNumber ) 

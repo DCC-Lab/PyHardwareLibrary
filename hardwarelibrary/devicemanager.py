@@ -19,6 +19,8 @@ class DeviceManagerNotification(Enum):
     didAddDevice        = "didAddDevice"
     willRemoveDevice    = "willRemoveDevice"
     didRemoveDevice     = "didRemoveDevice"
+    usbDeviceDidConnect = "usbDeviceDidConnect"
+    usbDeviceDidDisconnect = "usbDeviceDidDisconnect"
 
 class DebugPhysicalDevice(PhysicalDevice):
     def __init__(self):
@@ -64,18 +66,18 @@ class DeviceManager:
             else:
                 raise RuntimeError("Monitoring loop already running")
 
-    def monitoringLoop(self):        
+    def monitoringLoop(self, duration=1e7):        
         startTime = time.time()
-        endTime = startTime + 5.0
+        endTime = startTime + duration
         NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
         while time.time() < endTime :    
             currentDevices = []
             with self.lock:
-                for newUsbDevice in self.newlyConnectedUSBDevices():
-                    self.addUSBDevice(newUsbDevice)
-
-                for oldUsbDevice in self.newlyDisconnectedUSBDevices():
-                    self.removeUSBDevice(oldUsbDevice)
+                newDevices, newlyDisconnected = self.newlyConnectedAndDisconnectedUSBDevices()
+                for newUsbDevice in newDevices:
+                    self.usbDeviceConnected(newUsbDevice)
+                for oldUsbDevice in newlyDisconnected:
+                    self.usbDeviceDisconnected(oldUsbDevice)
 
                 currentDevices.extend(self.devices)
 
@@ -87,19 +89,29 @@ class DeviceManager:
             time.sleep(0.2)
         NotificationCenter().postNotification(DeviceManagerNotification.didStopMonitoring, notifyingObject=self)
 
-    def newlyConnectedUSBDevices(self):
+    def showNotifications(self):
+        nc = NotificationCenter()
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.status)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willStartMonitoring)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didStartMonitoring)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willStopMonitoring)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didStopMonitoring)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willAddDevice)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didAddDevice)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willRemoveDevice)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didRemoveDevice)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.usbDeviceDidConnect)
+        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.usbDeviceDidDisconnect)
+
+    def handleNotifications(self, notification):
+        print(notification.name, notification.userInfo)
+
+    def newlyConnectedAndDisconnectedUSBDevices(self):
         currentlyConnectedDevices = connectedUSBDevices()
         newlyConnected = [ usbDevice for usbDevice in currentlyConnectedDevices if usbDevice not in self.usbDevices]
-        self.usbDevices = currentlyConnectedDevices
-
-        return newlyConnected
-
-    def newlyDisconnectedUSBDevices(self):
-        currentlyConnectedDevices = connectedUSBDevices()
         newlyDisconnected = [ usbDevice for usbDevice in self.usbDevices if usbDevice not in currentlyConnectedDevices]
-        self.usbDevices = currentlyConnectedDevices
 
-        return newlyDisconnected
+        return newlyConnected, newlyDisconnected
 
     def matchUSBDeviceWithPhysicalDevice(self, usbDevice):
         return DebugPhysicalDevice()
@@ -119,13 +131,21 @@ class DeviceManager:
         else:
             raise RuntimeError("No monitoring loop running")
 
-    def addUSBDevice(self, usbDevice):
-        with self.lock:
-            self.usbDevices.append(usbDevice)
+    def usbDeviceConnected(self, usbDevice):
+        try:
+            deviceSerialNumber = usb.util.get_string(usbDevice, usbDevice.iSerialNumber ) 
+        except Exception as err:
+            deviceSerialNumber = ""
+        descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
+        NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidConnect, notifyingObject=self, userInfo=descriptor)
 
-    def removeUSBDevice(self, usbDevice):
-        with self.lock:
-            self.usbDevices.remove(usbDevice)
+    def usbDeviceDisconnected(self, usbDevice):
+        try:
+            deviceSerialNumber = usb.util.get_string(usbDevice, usbDevice.iSerialNumber ) 
+        except Exception as err:
+            deviceSerialNumber = ""
+        descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
+        NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidDisconnect, notifyingObject=self, userInfo=descriptor)
 
     def addDevice(self, device):
         NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
