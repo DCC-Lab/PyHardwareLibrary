@@ -10,9 +10,9 @@ import hardwarelibrary.spectrometers as spectro
  # We start by figuring out what the user really wants. If they don't know,
 # we offer some help
 ap = argparse.ArgumentParser(prog='python -m hardwarelibrary')
-ap.add_argument("-s", "--stellarnet", required=False, action='store_const',
+ap.add_argument("-stellar", "--stellarnet", required=False, action='store_const',
                 const=True, help="Decrypt the StellarnNet driver.  Contact StellarNet for info.")
-ap.add_argument("-spectrometer", "--spectrometer", required=False, action='store_const',
+ap.add_argument("-s", "--spectrometer", required=False, action='store_const',
                 const=True, help="Display any spectrometer")
 
 args = vars(ap.parse_args())
