@@ -5,15 +5,19 @@ import re
 import subprocess
 from pathlib import Path
 import platform
+import hardwarelibrary.spectrometers as spectro
 
  # We start by figuring out what the user really wants. If they don't know,
 # we offer some help
 ap = argparse.ArgumentParser(prog='python -m hardwarelibrary')
 ap.add_argument("-s", "--stellarnet", required=False, action='store_const',
                 const=True, help="Decrypt the StellarnNet driver.  Contact StellarNet for info.")
+ap.add_argument("-spectrometer", "--spectrometer", required=False, action='store_const',
+                const=True, help="Display any spectrometer")
 
 args = vars(ap.parse_args())
 decrypt = args['stellarnet']
+displaySpectrum = args['spectrometer']
 
 if decrypt == True:
     rootHardwareLibrary = Path(os.path.abspath(__file__)).parents[1]
@@ -28,3 +32,6 @@ if decrypt == True:
             print("There was an error when unzipping and decrypting the stellarnet.zip file")
     else:
         print('Cannot unzip stellarnet file')
+
+if displaySpectrum == True:
+    spectro.displayAny()
