@@ -96,8 +96,10 @@ class LinearMotionDevice(PhysicalDevice):
 
 
 class DebugLinearMotionDevice(LinearMotionDevice):
+    classIdProduct = 0xfffd
+    classIdVendor = 0xffff
     def __init__(self):
-        super().__init__("debug", 0xffff, 0xfffd)
+        super().__init__("debug", DebugLinearMotionDevice.classIdProduct, DebugLinearMotionDevice.classIdVendor )
         (self.x, self.y, self.z) = (0, 0, 0)
         self.nativeStepsPerMicrons = 16
 
