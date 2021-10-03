@@ -129,7 +129,9 @@ class OISpectrometer(Spectrometer):
         for spectral data and other commands
 
     """
-    idVendor = 0x2457 # Ocean Insight USB idVendor
+
+    # Ocean Insight USB idVendor
+    classIdVendor = 0x2457
 
     # The subclasses must define a NamedTuple Status and a packingFormat
     # to retrieve and make sense of the status. See USB2000 for example.
@@ -139,7 +141,7 @@ class OISpectrometer(Spectrometer):
 
     timeScale = 1 # milliseconds=1, microseconds=1000
 
-    def __init__(self, idProduct, model, serialNumber=None):
+    def __init__(self, serialNumber, idProduct, idVendor, model):
         """
         Finds and initializes the communication with the Ocean Insight spectrometer
         if there is one connected. All subclasses must provide the USB product id
@@ -194,39 +196,13 @@ class OISpectrometer(Spectrometer):
             time, this is not needed, we simply pick the first one if no
             serial number is provided.
         """
+        Spectrometer.__init__(self, serialNumber, idProduct, idVendor)
 
-        self.idProduct = idProduct
-        self.model = model
-        self.device = OISpectrometer.matchUniqueUSBDevice( idProduct=idProduct, 
-                                       serialNumber=serialNumber)
-
-        """ Below are all the USB protocol details.  This requires reading
-        the USB documentation, the Spectrometer documentation and many other 
-        details. What follows may sound like gibberish.
-
-        There is a single USB Configuration (default) with a single USB Interface 
-        without alternate settings, so we can use (0,0).
-        """
-        self.device.set_configuration()
-        self.configuration = self.device.get_active_configuration()
-        self.interface = self.configuration[(0,0)]
-
-        """
-        We are working on the reasonable assumption from the documentation
-        that the first input and output endpoints are the main endpoints and the
-        second input is the data endpoint. If that is not the case, the subclass can
-        simply reassign the endpoints properly in its __init__ function. 
-        """
+        self.device = None
+        self.configuration = None
+        self.interface = None
         self.inputEndpoints = []
         self.outputEndpoints = []
-        for endpoint in self.interface:
-            """ The endpoint address has the 8th bit set to 1 when it is an input.
-            We can check with the bitwise operator & (and) 0x80. It will be zero
-            if an output and non-zero if an input. """
-            if endpoint.bEndpointAddress & 0x80 != 0:
-                self.inputEndpoints.append(endpoint)
-            else:
-                self.outputEndpoints.append(endpoint)
 
         self.epCommandOut = None
         self.epMainIn = None
@@ -234,26 +210,57 @@ class OISpectrometer(Spectrometer):
         self.epParameters = None
         self.epStatus = None
 
-        if len(self.inputEndpoints) >= 2 or len(self.outputEndpoints) > 0:
-            """ We have at least 2 input endpoints and 1 output. We assign the
-            endpoints according to the documentation, otherwise
-            the subclass will need to assign them."""
-            self.epCommandOut = self.outputEndpoints[0]
-            self.epMainIn = self.inputEndpoints[0]
-            self.epSecondaryIn = self.inputEndpoints[1]
-
+        self.model = model
         self.wavelength = None
         self.discardLeadingSamples = 0  # In some models, the leading data is meaningless
         self.discardTrailingSamples = 0 # In some models, the trailing data is meaningless
         self.lastStatus = None
 
-    def initializeDevice(self):
+    def doInitializeDevice(self):
         """
         Initialize the Spectrometer and obtain calibration information.
         This commands needs to be sent only once per session as soon as 
         the communication is started.
         """
         try:
+            self.device = OISpectrometer.matchUniqueUSBDevice( idProduct=self.idProduct,
+                                           serialNumber=self.serialNumber)
+
+            """ Below are all the USB protocol details.  This requires reading
+            the USB documentation, the Spectrometer documentation and many other 
+            details. What follows may sound like gibberish.
+
+            There is a single USB Configuration (default) with a single USB Interface 
+            without alternate settings, so we can use (0,0).
+            """
+            self.device.set_configuration()
+            self.configuration = self.device.get_active_configuration()
+            self.interface = self.configuration[(0,0)]
+
+            """
+            We are working on the reasonable assumption from the documentation
+            that the first input and output endpoints are the main endpoints and the
+            second input is the data endpoint. If that is not the case, the subclass can
+            simply reassign the endpoints properly in its __init__ function. 
+            """
+            for endpoint in self.interface:
+                """ The endpoint address has the 8th bit set to 1 when it is an input.
+                We can check with the bitwise operator & (and) 0x80. It will be zero
+                if an output and non-zero if an input. """
+                if endpoint.bEndpointAddress & 0x80 != 0:
+                    self.inputEndpoints.append(endpoint)
+                else:
+                    self.outputEndpoints.append(endpoint)
+
+
+            if len(self.inputEndpoints) >= 2 or len(self.outputEndpoints) > 0:
+                """ We have at least 2 input endpoints and 1 output. We assign the
+                endpoints according to the documentation, otherwise
+                the subclass will need to assign them."""
+                self.epCommandOut = self.outputEndpoints[0]
+                self.epMainIn = self.inputEndpoints[0]
+                self.epSecondaryIn = self.inputEndpoints[1]
+
             self.flushEndpoints()
             self.sendCommand(b'0x01')
             time.sleep(0.1)
@@ -529,7 +536,9 @@ class USB2000(OISpectrometer):
     3. The format of the retrieved data is different for each spectrometer.
 
     """
-    idProduct = 0x1002
+
+    classIdProduct = 0x1002
+
     statusPackingFormat = '>hh?B???xxxxxxx'
     class Status(NamedTuple):
         """
@@ -562,12 +571,15 @@ class USB2000(OISpectrometer):
         timerSwap: bool = None
         isSpectralDataReady : bool = None
 
-    def __init__(self):
-        OISpectrometer.__init__(self, idProduct=USB2000.idProduct, model="USB2000")
-        self.epParameters = self.epSecondaryIn
-        self.epStatus = self.epMainIn 
+    def __init__(self, serialNumber=None, idProduct=None, idVendor=None):
+        OISpectrometer.__init__(self, serialNumber, idProduct, idVendor, model="USB2000")
 
         self.initializeDevice()
+
+    def doInitializeDevice(self):
+        super().doInitializeDevice()
+        self.epParameters = self.epSecondaryIn
+        self.epStatus = self.epMainIn 
 
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
@@ -613,7 +625,6 @@ class USB4000_2000Plus(OISpectrometer):
     3. The format of the retrieved data is different for each spectrometer.
 
     """
-    idProduct = None
     statusPackingFormat = '<hL?BBB?Bxx?x'
     timeScale = 1000 # microseconds
     class Status(NamedTuple):
@@ -654,8 +665,12 @@ class USB4000_2000Plus(OISpectrometer):
         packetsTransferred: int = None
         isHighSpeed : bool = None
 
-    def __init__(self, idProduct, model):
-        OISpectrometer.__init__(self, idProduct=idProduct, model=model)
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None, model=None):
+        OISpectrometer.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, model="USB4000")
+
+
+    def doInitializeDevice(self):
+        super().doInitializeDevice()
         self.epCommandOut = self.outputEndpoints[0]
         self.epMainIn = self.inputEndpoints[2]
         self.epSecondaryIn = self.inputEndpoints[1]
@@ -663,7 +678,6 @@ class USB4000_2000Plus(OISpectrometer):
         self.epStatus = self.inputEndpoints[2] 
         self.discardLeadingSamples = 5
         self.discardTrailingSamples = 173
-        self.initializeDevice()
 
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
@@ -690,7 +704,7 @@ class USB4000_2000Plus(OISpectrometer):
 
         for packet in range(packetCount):
             inputEndpoint = self.inputEndpoints[0]
-            if self.idProduct == USB4000.idProduct and packet <= 3:
+            if self.idProduct == USB4000.classIdProduct and packet <= 3:
                 inputEndpoint = self.inputEndpoints[1]
 
             values = self.readReply(inputEndpoint, unpackingFormat='<'+'H'*256, timeout=exposureTime*2)
@@ -760,17 +774,17 @@ class USB4000_2000Plus(OISpectrometer):
         return True
 
 class USB4000(USB4000_2000Plus):
-    idProduct = 0x1022
+    classIdProduct = 0x1022
 
-    def __init__(self):
-        super().__init__(self, idProduct=self.idProduct, model="USB4000")
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        USB4000_2000Plus.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, model="USB4000")
 
 
 class USB2000Plus(USB4000_2000Plus):
-    idProduct = 0x101e
+    classIdProduct = 0x101e
 
-    def __init__(self):
-        super().__init__(self, idProduct=self.idProduct, model="USB2000+")
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        USB4000_2000Plus.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, model="USB2000+")
 
 
 class DebugSpectro:

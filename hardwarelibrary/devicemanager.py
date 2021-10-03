@@ -110,6 +110,7 @@ class DeviceManager:
         currentlyConnectedDevices = connectedUSBDevices()
         newlyConnected = [ usbDevice for usbDevice in currentlyConnectedDevices if usbDevice not in self.usbDevices]
         newlyDisconnected = [ usbDevice for usbDevice in self.usbDevices if usbDevice not in currentlyConnectedDevices]
+        self.usbDevices = currentlyConnectedDevices
 
         return newlyConnected, newlyDisconnected
 
@@ -138,6 +139,22 @@ class DeviceManager:
             deviceSerialNumber = ""
         descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidConnect, notifyingObject=self, userInfo=descriptor)
+        
+        candidates = PhysicalDevice.candidates(usbDevice.idVendor, usbDevice.idProduct)
+        for candidateClass in candidates:
+            try:
+                deviceInstance = candidateClass(serialNumber=deviceSerialNumber, 
+                                                idProduct=usbDevice.idProduct, 
+                                                idVendor=usbDevice.idVendor)
+                if deviceInstance is None:
+                    continue
+                print(deviceInstance, candidateClass)
+                deviceInstance.initializeDevice()
+                deviceInstance.shutdownDevice()
+                self.addDevice(deviceInstance)
+                return
+            except Exception as err:
+                print(err)
 
     def usbDeviceDisconnected(self, usbDevice):
         try:

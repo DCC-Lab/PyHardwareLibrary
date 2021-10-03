@@ -13,8 +13,8 @@ class Direction(Enum):
 
 class LinearMotionDevice(PhysicalDevice):
 
-    def __init__(self, serialNumber:str, productId:int, vendorId:int):
-        super().__init__(serialNumber, productId, vendorId)
+    def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
+        super().__init__(serialNumber, idProduct, idVendor)
         self.x = None
         self.y = None
         self.z = None

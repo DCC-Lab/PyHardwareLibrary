@@ -19,13 +19,48 @@ class PhysicalDevice:
         pass
     class UnableToShutdown(Exception):
         pass
+    class ClassIncompatibleWithRequestedDevice(Exception):
+        pass
 
-    def __init__(self, serialNumber:str, productId:int, vendorId:int):
-        self.vendorId = vendorId
-        self.productId = productId
+    classIdVendor = None
+    classIdProduct = None
+
+    # def __new__(cls, *args, **kwargs):
+    #     try:
+    #         if not cls.mayRecognize(kwargs["serialNumber"], kwargs["idProduct"], kwargs["idVendor"]):
+    #             return None
+    #     except Exception as err:
+    #         return None
+    #     return super(PhysicalDevice, cls).__new__(cls)
+
+    def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
+        if not self.isCompatibleWith(serialNumber, idProduct, idVendor):
+            raise PhysicalDevice.ClassIncompatibleWithRequestedDevice()
+
+        self.idVendor = idVendor
+        self.idProduct = idProduct
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
 
+    @classmethod
+    def candidates(cls, idVendor, idProduct):
+        candidateClasses = []
+        
+        if cls.isCompatibleWith(serialNumber="*", idProduct=idProduct, idVendor=idVendor):
+            candidateClasses.append(cls) 
+
+        for aSubclass in cls.__subclasses__():
+            candidateClasses.extend(aSubclass.candidates(idVendor, idProduct))
+
+        return candidateClasses
+
+    @classmethod
+    def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
+        if idVendor == cls.classIdVendor and idProduct == cls.classIdProduct:
+            return True
+
+        return False
+    
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:

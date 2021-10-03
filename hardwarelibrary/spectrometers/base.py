@@ -30,7 +30,8 @@ class SpectrumRequestTimeoutError(RuntimeError):
 class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
-    def __init__(self, serialNumber=None):
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.model = ""
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
@@ -211,7 +212,7 @@ class Spectrometer(PhysicalDevice):
         idVendors = set()
         for aClass in cls.supportedClasses():
             if aClass is not None:
-                idVendors.add(aClass.idVendor)
+                idVendors.add(aClass.classIdVendor)
 
         devices = []
         if idProduct is None:
@@ -261,7 +262,7 @@ class Spectrometer(PhysicalDevice):
         """
 
         devices = cls.connectedUSBDevices(idProduct=idProduct, 
-                                                  serialNumber=serialNumber)
+                                          serialNumber=serialNumber)
 
         device = None
         if len(devices) == 1:

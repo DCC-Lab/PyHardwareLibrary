@@ -8,8 +8,11 @@ from hardwarelibrary.motion import SutterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DebugPhysicalDevice(PhysicalDevice):
+    classIdVendor = 0xfffe
+    classIdProduct = 0xffff
+
     def __init__(self):
-        super().__init__("debug", 0xffff, 0xfffe)
+        super().__init__("debug", DebugPhysicalDevice.classIdProduct, DebugPhysicalDevice.classIdVendor)
         self.errorInitialize = False
         self.errorShutdown = False
 
@@ -33,8 +36,8 @@ class BaseTestCases:
 
         def testBaseInit(self):
             self.assertTrue(len(self.device.serialNumber) > 0)
-            self.assertTrue(self.device.vendorId != 0)
-            self.assertTrue(self.device.productId != 0)
+            self.assertTrue(self.device.idVendor != 0)
+            self.assertTrue(self.device.idProduct != 0)
 
         def testInitialUnconfiguredState(self):
             self.assertTrue(self.device.state == DeviceState.Unconfigured)
