@@ -17,15 +17,21 @@ if not os.path.exists(stellarDecrypted):
 else:            
     from .stellarnet import StellarNet
 
-from .oceaninsight import OISpectrometer, USB2000, USB4000
+from .base import Spectrometer, getAllSubclasses
+from .oceaninsight import OISpectrometer, USB2000, USB4000, USB2000Plus
 from .viewer import SpectraViewer
 
-def any() -> OISpectrometer:
-    return OISpectrometer.any()
+def any() -> Spectrometer:
+    return Spectrometer.any()
+
+def displayAny():
+    spectrometer = Spectrometer.any()
+    if spectrometer is not None:
+        SpectraViewer(spectrometer).display()
 
 def connectedUSBDevices(idProduct=None, serialNumber=None):
-    return OISpectrometer.connectedUSBDevices(idProduct=idProduct, serialNumber=serialNumber)
+    return Spectrometer.connectedUSBDevices(idProduct=idProduct, serialNumber=serialNumber)
 
 def matchUniqueUSBDevice(idProduct=None, serialNumber=None):
-    return OISpectrometer.matchUniqueUSBDevice(idProduct=idProduct, serialNumber=serialNumber)
+    return Spectrometer.matchUniqueUSBDevice(idProduct=idProduct, serialNumber=serialNumber)
 

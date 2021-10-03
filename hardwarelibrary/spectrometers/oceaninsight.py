@@ -605,15 +605,15 @@ class USB2000(OISpectrometer):
                          payloadBytes = pack('<H',int(timeInMs)))
 
 
-class USB4000(OISpectrometer):
+class USB4000_2000Plus(OISpectrometer):
     """
-    A USB4000 spectrometer.  The main differences:
-    1. The idProduct is 0x1022
+    A USB4000/USB2000+ spectrometer.  The main differences from USB2000:
+    1. The idProduct is 0x1022 for USB4000 and 0x101e for USB2000+
     2. The integration time is 16-bit
     3. The format of the retrieved data is different for each spectrometer.
 
     """
-    idProduct = 0x1022
+    idProduct = None
     statusPackingFormat = '<hL?BBB?Bxx?x'
     timeScale = 1000 # microseconds
     class Status(NamedTuple):
@@ -654,8 +654,8 @@ class USB4000(OISpectrometer):
         packetsTransferred: int = None
         isHighSpeed : bool = None
 
-    def __init__(self):
-        OISpectrometer.__init__(self, idProduct=USB4000.idProduct, model="USB4000")
+    def __init__(self, idProduct, model):
+        OISpectrometer.__init__(self, idProduct=idProduct, model=model)
         self.epCommandOut = self.outputEndpoints[0]
         self.epMainIn = self.inputEndpoints[2]
         self.epSecondaryIn = self.inputEndpoints[1]
@@ -671,7 +671,7 @@ class USB4000(OISpectrometer):
         is set short so it may timeout.  You would normally check with
         isSpectrumReady before calling this function.
 
-        The format for the USB4000 is 512 bytes of integers in each packet
+        The format for the USB4000/USB2000+ is 512 bytes of integers in each packet
         followed by a single byte 0x69.
 
         Returns
@@ -683,14 +683,14 @@ class USB4000(OISpectrometer):
         spectrum = []
 
         if not self.lastStatus.isHighSpeed:
-            raise NotImplementedError('Full speed mode not implemented for USB4000.')
+            raise NotImplementedError('Full speed mode not implemented for {0}.'.format(self.model))
 
         packetCount = self.lastStatus.packetCount
         exposureTime = self.lastStatus.integrationTime
 
         for packet in range(packetCount):
             inputEndpoint = self.inputEndpoints[0]
-            if packet <= 3:
+            if self.idProduct == USB4000.idProduct and packet <= 3:
                 inputEndpoint = self.inputEndpoints[1]
 
             values = self.readReply(inputEndpoint, unpackingFormat='<'+'H'*256, timeout=exposureTime*2)
@@ -758,6 +758,19 @@ class USB4000(OISpectrometer):
                 return False
 
         return True
+
+class USB4000(USB4000_2000Plus):
+    idProduct = 0x1022
+
+    def __init__(self):
+        USB4000_2000Plus.__init__(self, idProduct=self.idProduct, model="USB4000")
+
+
+class USB2000Plus(USB4000_2000Plus):
+    idProduct = 0x101e
+
+    def __init__(self):
+        USB4000_2000Plus.__init__(self, idProduct=self.idProduct, model="USB2000+")
 
 
 class DebugSpectro:
@@ -849,260 +862,6 @@ class DebugSpectro:
         except Exception as err:
             print("Unable to save data: {0}".format(err))
 
-class SpectraViewer:
-    def __init__(self, spectrometer):
-        """ A matplotlib-based window to display and manage a spectrometer
-        to replace the insanely inept OceanView software from OceanInsight.
-        If anybody reads this from Ocean Insight, you can take direct people
-        to this Python script.  It is simpler to call it directly from the
-        spectrometer object with its own display function that will instantiate
-        a SpectraViewer and call its display function with itself as a paramater.
-        There are now attributes of interest to a user.
-
-        Parameters
-        ----------
-
-        spectrometer: OISpectrometer
-            A spectrometer from Ocean Insight
-        """
-
-        self.spectrometer = spectrometer
-        self.lastSpectrum = []
-        self.whiteReference = None
-        self.darkReference = None
-        self.figure = None
-        self.axes = None
-        self.quitFlag = False
-        self.saveBtn = None
-        self.quitBtn = None
-        self.lightBtn = None
-        self.darkBtn = None
-        self.integrationTimeBox = None
-        self.animation = None
-
-    def display(self):
-        """ Display the spectrum in free-running mode, with simple
-        autoscale, save and quit buttons as well as a text entry for
-        the integration time. This is the only user-facing function that 
-        is needed.
-        """
-        self.figure, self.axes = self.createFigure()
-
-        self.setupLayout()
-        self.quitFlag = False
-        self.animation = animation.FuncAnimation(self.figure, self.animate, interval=100)
-        plt.show()
-
-    def createFigure(self):
-        """ Create a matplotlib figure with decent properties. """
-
-        SMALL_SIZE = 14
-        MEDIUM_SIZE = 18
-        BIGGER_SIZE = 36
-
-        plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
-        plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
-        plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
-        plt.rc('xtick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
-        plt.rc('ytick', labelsize=MEDIUM_SIZE)  # fontsize of the tick labels
-        plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
-        plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
-
-        fig, axes = plt.subplots()
-        fig.set_size_inches(10, 6, forward=True)
-        serialNumber = self.spectrometer.getSerialNumber()
-        model = self.spectrometer.model
-        fig.canvas.set_window_title('Ocean Insight Spectrometer [serial # {0}, model {1}]'.format(serialNumber, model))
-        axes.set_xlabel("Wavelength [nm]")
-        axes.set_ylabel("Intensity [arb.u]")
-        return fig, axes
-
-    def setupLayout(self):
-        axScale = plt.axes([0.125, 0.90, 0.13, 0.075])
-        axLight = plt.axes([0.25, 0.90, 0.08, 0.075])
-        axDark = plt.axes([0.30, 0.90, 0.08, 0.075])
-        axTime = plt.axes([0.59, 0.90, 0.08, 0.075])
-        axSave = plt.axes([0.73, 0.90, 0.08, 0.075])
-        axQuit = plt.axes([0.82, 0.90, 0.08, 0.075])
-        self.saveBtn = Button(axSave, 'Save')
-        self.saveBtn.on_clicked(self.clickSave)
-        self.quitBtn = Button(axQuit, 'Quit')
-        self.quitBtn.on_clicked(self.clickQuit)
-        self.autoscaleBtn = Button(axScale, 'Autoscale')
-        self.autoscaleBtn.on_clicked(self.clickAutoscale)
-
-        try:
-            axLight.imshow(plt.imread("lightbulb.png"))
-            axLight.set_xticks([])
-            axLight.set_yticks([])
-            self.lightBtn = Button(axLight,'')
-        except:
-            self.lightBtn = Button(axLight,'W')
-        self.lightBtn.on_clicked(self.clickWhiteReference)
-
-        try:
-            axDark.imshow(plt.imread("darkbulb.png"))
-            axDark.set_xticks([])
-            axDark.set_yticks([])
-            self.darkBtn = Button(axDark,'') 
-        except:
-            self.darkBtn = Button(axDark,'D') 
-        self.darkBtn.on_clicked(self.clickDarkReference)
-
-
-        currentIntegrationTime = self.spectrometer.getIntegrationTime()
-        self.integrationTimeBox = TextBox(axTime, 'Integration time [ms]',
-                                          initial="{0}".format(currentIntegrationTime),
-                                          label_pad=0.1)
-        self.integrationTimeBox.on_submit(self.submitTime)
-        self.figure.canvas.mpl_connect('key_press_event', self.keyPress)
-
-
-    def plotSpectrum(self, spectrum=None):
-        """ Plot a spectrum into the figure or request a new spectrum. This
-        is called repeatedly when the display function is called."""
-        if spectrum is None:
-            spectrum = self.spectrometer.getSpectrum()
-
-        if len(self.axes.lines) == 0:
-            self.axes.plot(self.spectrometer.wavelength, spectrum, 'k')
-            self.axes.set_xlabel("Wavelength [nm]")
-            self.axes.set_ylabel("Intensity [arb.u]")
-        else:
-            self.axes.lines[0].set_data( self.spectrometer.wavelength, spectrum) # set plot data
-            self.axes.relim()
-
-    def animate(self, i):
-        """ Internal function that is called repeatedly to manage the
-        update  of the spectrum plot. It is better to use the `animation`
-        strategy instead of a loop with  plt.pause() because plt.pause() will
-        always bring the window to the  foreground. 
-
-        This function is also responsible for determining if the user asked to quit. 
-        """
-        try:
-            self.lastSpectrum = self.spectrometer.getSpectrum()
-            if self.darkReference is not None:
-                self.lastSpectrum -= self.darkReference
-            if self.whiteReference is not None:
-                np.seterr(divide='ignore',invalid='ignore')
-                if self.darkReference is not None:
-                    self.lastSpectrum = self.lastSpectrum / (self.whiteReference-self.darkReference)
-                else:
-                    self.lastSpectrum = self.lastSpectrum / self.whiteReference 
-
-            self.plotSpectrum(spectrum=self.lastSpectrum)
-        except usb.core.USBError as err:
-            print("The spectrometer was disconnected. Quitting.")
-            self.quitFlag = True
-
-        if self.quitFlag:
-            self.animation.event_source.stop()
-            self.animation = None
-            plt.close()
-
-    def keyPress(self, event):
-        """ Event-handling function for keypress: if the user clicks command-Q
-        on macOS, it will nicely quit."""
-
-        if event.key == 'cmd+q':
-            self.clickQuit(event)
-        if event.key == 'backspace':
-            self.clickClearReferences(event)
-
-    def submitTime(self, event):
-        """ Event-handling function for when the user hits return/enter 
-        in the integration time text field. The new integration time 
-        is set in the spectrometer.
-
-        We must autoscale the plot because the intensities could be very different.
-        However, it takes a small amount of time for the spectrometer to react.
-        We wait 0.3 seconds, which is small enough to not be annoying and seems to
-        work fine.
-
-        Anything incorrect will bring the integration time to 3 milliseconds.
-        """
-        try:
-            time = float(self.integrationTimeBox.text)
-            if time == 0:
-                raise ValueError('Requested integration time is invalid: \
-the text "{0}" converts to 0.')
-            self.spectrometer.setIntegrationTime(time)
-            plt.pause(0.3)
-            self.axes.autoscale_view()
-        except Exception as err:
-            print("Error when setting integration time: ",err)
-            self.integrationTimeBox.set_val("3")
-
-    def clickAutoscale(self, event):
-        """ Event-handling function to autoscale the plot """
-        self.axes.autoscale_view()
-
-    def clickClearReferences(self, event):
-        """ Event-handling function to acquire a white reference """
-        self.whiteReference = None
-        self.lightBtn.color = '0.85'
-        self.darkReference = None
-        self.darkBtn.color = '0.85'
-        plt.pause(0.3)
-        self.axes.autoscale_view()
-
-    def clickWhiteReference(self, event):
-        """ Event-handling function to acquire a white reference """
-        if self.whiteReference is None:
-            self.whiteReference = self.spectrometer.getSpectrum()
-            self.lightBtn.color = '0.99'
-        else:
-            self.whiteReference = None
-            self.lightBtn.color = '0.85'
-        plt.pause(0.3)
-        self.axes.autoscale_view()
-
-    def clickDarkReference(self, event):
-        """ Event-handling function to acquire a dark reference """
-        if self.darkReference is None:
-            self.darkReference = self.spectrometer.getSpectrum()
-            self.darkBtn.color = '0.99'
-        else:
-            self.darkReference = None
-            self.darkBtn.color = '0.85'
-        plt.pause(0.3)
-        self.axes.autoscale_view()
-
-    def clickSave(self, event):
-        """ Event-handling function to save the file.  We stop the animation
-        to avoid acquiring more spectra. The last spectrum acquired (i.e.
-        the one displayed) after we have requested the filename. 
-        The data is saved as a CSV file, and the animation is restarted.
-        
-        Technical note: To request the filename, we use different strategies on 
-        different platforms.  On macOS, we can use a function from the backend.
-        On Windows and others, we fall back on Tk, which is usually installed 
-        with python.
-        """
-
-        self.animation.event_source.stop()
-        filepath = "spectrum.csv"
-        try:
-            filepath = backends.backend_macosx._macosx.choose_save_file('Save the data',filepath)
-        except:
-            import tkinter as tk
-            from tkinter import filedialog
-
-            root = tk.Tk()
-            root.withdraw()
-            filepath = filedialog.asksaveasfilename()
-
-        if filepath is not None:
-            self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum, 
-                                           whiteReference=self.whiteReference,
-                                           darkReference=self.darkReference)
-
-        self.animation.event_source.start()
-
-    def clickQuit(self, event):
-        """ Event-handling function to quit nicely."""
-        self.quitFlag = True
 
 def validateUSBBackend():
     backend = usb.backend.libusb1.get_backend()
@@ -1140,6 +899,7 @@ def validateUSBBackend():
 if __name__ == "__main__":
     try:
         if len(sys.argv) == 1:
+            print(getAllSubclasses(Spectrometer))
             validateUSBBackend() # Why not? dll's on Windows are a mess.
             spectrometer = OISpectrometer.any()
             spectrometer.getSpectrum()
