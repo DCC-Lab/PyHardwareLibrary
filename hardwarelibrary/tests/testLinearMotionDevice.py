@@ -12,11 +12,16 @@ class BaseTestCases:
             # Set self.device in subclass
             self.willNotificationReceived = False
             self.didNotificationReceived = False
-            self.assertIsNotNone(self.device)
-            self.device.initializeDevice()
+            if self.device is None:
+                raise (unittest.SkipTest("No device defined in subclass of BaseTestCase"))
+
+            try:
+                self.device.initializeDevice()
+            except Exception as err:
+                raise (unittest.SkipTest("No devices connected"))
 
         def tearDown(self):
-            self.device.initializeDevice()
+            self.device.shutdownDevice()
 
         def testDevicePosition(self):
             (x, y, z) = self.device.position()
