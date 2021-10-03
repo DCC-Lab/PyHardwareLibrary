@@ -229,7 +229,6 @@ class TestDeviceManager(unittest.TestCase):
             dm.removeDevice(device)
 
     def handle(self, notification):
-        print(notification.name)
         with self.lock:
             if len(self.notificationsToReceive) > 0:
                 self.assertEqual(notification.name, self.notificationsToReceive[0])
