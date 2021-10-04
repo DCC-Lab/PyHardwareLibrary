@@ -1,9 +1,30 @@
 import env # modifies path
 import unittest
 import time
-
+from hardwarelibrary.powermeters import *
 from hardwarelibrary.communication import USBPort, TextCommand
 import usb.core
+
+class TestIntegraDevice(unittest.TestCase):
+    device = None
+    def setUp(self):
+        self.device = IntegraDevice()
+        self.assertIsNotNone(self.device)
+        self.device.initializeDevice()
+
+    def tearDown(self):
+        self.device.shutdownDevice()
+
+    def testDeviceVersion(self):
+        self.device.doGetVersion()
+        self.assertTrue(self.device.version == 'Integra Version 2.00.08')
+
+    def testPower(self):
+        self.assertTrue(self.device.measureAbsolutePower() > -0.5)
+
+    def testCalibration(self):
+        self.assertTrue(self.device.getCalibrationWavelength() > 100)
+        print(self.device.getCalibrationWavelength())
 
 class TestIntegraPort(unittest.TestCase):
     port = None
@@ -55,7 +76,6 @@ class TestIntegraPort(unittest.TestCase):
 
         for command in commands:
             self.assertFalse(command.send(port=self.port),msg=command.exceptions)
-
             with self.assertRaises(Exception):
                 leftover = self.port.readString()
                 print("Characters left after command {1}: {0}".format(leftover, command.name))
