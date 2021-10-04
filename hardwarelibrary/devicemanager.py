@@ -6,6 +6,7 @@ from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
+from hardwarelibrary.spectrometers import Spectrometer
 from threading import Thread, RLock
 from hardwarelibrary.communication.diagnostics import *
 
@@ -267,3 +268,22 @@ class DeviceManager:
                     else:
                         matched.append(device)
             return matched
+
+    def linearMotionDevices(self):
+        return self.matchPhysicalDevicesOfType(deviceClass=LinearMotionDevice)
+
+    def anyLinearMotionDevice(self):
+        devices = self.linearMotionDevices()
+        if len(devices) == 0:
+            return None
+        return devices[0]
+
+    def spectrometerDevices(self):
+        return self.matchPhysicalDevicesOfType(deviceClass=Spectrometer)
+
+    def anySpectrometerDevice(self):
+        devices = self.spectrometerDevices()
+        if len(devices) == 0:
+            return None
+        return devices[0]
+
