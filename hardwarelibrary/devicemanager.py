@@ -23,18 +23,20 @@ class DeviceManagerNotification(Enum):
     usbDeviceDidDisconnect = "usbDeviceDidDisconnect"
 
 class DebugPhysicalDevice(PhysicalDevice):
+    classIdVendor = 0xffff
+    classIdProduct = 0xfffe
     def __init__(self):
-        super().__init__("debug", 0xffff, 0xfffe)
+        super().__init__("debug", DebugPhysicalDevice.classIdProduct, DebugPhysicalDevice.classIdVendor)
         self.errorInitialize = False
         self.errorShutdown = False
 
     def doInitializeDevice(self):
         if self.errorInitialize:
-            raise RuntimeError()
+            raise RuntimeError("This error in initializeDevice was programmed for testing")
 
     def doShutdownDevice(self):
         if self.errorShutdown:
-            raise RuntimeError()
+            raise RuntimeError("This error in shutdownDevice was programmed for testing")
 
 class DeviceManager:
     _instance = None

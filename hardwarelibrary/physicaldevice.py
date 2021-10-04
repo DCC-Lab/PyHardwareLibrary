@@ -25,14 +25,6 @@ class PhysicalDevice:
     classIdVendor = None
     classIdProduct = None
 
-    # def __new__(cls, *args, **kwargs):
-    #     try:
-    #         if not cls.mayRecognize(kwargs["serialNumber"], kwargs["idProduct"], kwargs["idVendor"]):
-    #             return None
-    #     except Exception as err:
-    #         return None
-    #     return super(PhysicalDevice, cls).__new__(cls)
-
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
         if serialNumber == "*" or serialNumber is None:
             serialNumber = ".*"
@@ -48,6 +40,8 @@ class PhysicalDevice:
         self.idProduct = idProduct
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
+
+        self.usbDevice = None
 
     @classmethod
     def candidates(cls, idVendor, idProduct):

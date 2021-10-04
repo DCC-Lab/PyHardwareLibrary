@@ -687,9 +687,9 @@ class USB4000_2000Plus(OISpectrometer):
         self.epStatusIdx = 2
 
     def doInitializeDevice(self):
-        super().doInitializeDevice()
         self.discardLeadingSamples = 5
         self.discardTrailingSamples = 173
+        super().doInitializeDevice()
 
     def getSpectrumData(self):
         """ Retrieve the spectral data.  You must call requestSpectrum first.
