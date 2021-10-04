@@ -76,7 +76,7 @@
       <recent name="$PROJECT_DIR$/hardwarelibrary/tests/deprecated" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests for testIntegraDevice.TestIntegraDevice.testDevice">
+  <component name="RunManager" selected="Python tests.Python tests for testIntegraDevice.TestIntegraDevice">
     <configuration name="hardwarelibrary" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -184,8 +184,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python tests.Python tests for testIntegraDevice.TestIntegraDevice.testDevice" />
         <item itemvalue="Python tests.Python tests for testIntegraDevice.TestIntegraDevice" />
+        <item itemvalue="Python tests.Python tests for testIntegraDevice.TestIntegraDevice.testDevice" />
         <item itemvalue="Python tests.Python tests for testIntegraDevice.TestIntegraPort.testValidateCommands" />
         <item itemvalue="Python tests.Python tests for testIntegraDevice.TestIntegraPort" />
         <item itemvalue="Python tests.Python tests for testIntegraDevice.TestIntegraDevice.test01" />
@@ -202,7 +202,7 @@
       <updated>1619125880800</updated>
       <workItem from="1619125884033" duration="7186000" />
       <workItem from="1633207386339" duration="4275000" />
-      <workItem from="1633233914094" duration="37563000" />
+      <workItem from="1633233914094" duration="38486000" />
     </task>
     <servers />
   </component>
@@ -256,7 +256,7 @@
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerSynchronously.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerSynchronously Coverage Results" MODIFIED="1633319357042" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1633237489450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerIsUsable.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerIsUsable Coverage Results" MODIFIED="1633318365946" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
-    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1633359312065" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
+    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1633360931877" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testLinearMotionDevice.coverage" NAME="Unittests for testLinearMotionDevice Coverage Results" MODIFIED="1633280168464" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testConfiguredStateAfterInitialize.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testConfiguredStateAfterInitialize Coverage Results" MODIFIED="1633293814434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testDeviceManager_TestDeviceManager_testRestartRunLoop.coverage" NAME="Unittests for testDeviceManager.TestDeviceManager.testRestartRunLoop Coverage Results" MODIFIED="1633309807362" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />

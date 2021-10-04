@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from hardwarelibrary.communication import USBPort, TextCommand
 from hardwarelibrary.physicaldevice import *
@@ -23,6 +24,10 @@ class PowerMeterDevice(PhysicalDevice):
         self.doGetCalibrationWavelength()
         return self.calibrationWavelength
 
+    def setCalibrationWavelength(self, wavelength):
+        self.doSetCalibrationWavelength(wavelength)
+        self.doGetCalibrationWavelength()
+
     def measureAbsolutePower(self):
         self.doGetAbsolutePower()
         power = self.absolutePower
@@ -41,7 +46,8 @@ class IntegraDevice(PowerMeterDevice):
          "GETPOWER":TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+?)\r\n"),
          "VERSION":TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+?)\r\n"),
          "STATUS":TextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", finalReplyPattern=":100000000"),
-         "GETWAVELENGTH":TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+         "GETWAVELENGTH":TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n"),
+         "SETWAVELENGTH":TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}")
         }
 
         self.version = ""
@@ -64,6 +70,11 @@ class IntegraDevice(PowerMeterDevice):
         getWavelength = self.commands["GETWAVELENGTH"]
         getWavelength.send(port=self.port)
         self.calibrationWavelength = getWavelength.matchAsFloat(0)
+
+    def doSetCalibrationWavelength(self, wavelength):
+        setWavelength = self.commands["SETWAVELENGTH"]
+        setWavelength.send(port=self.port, params=(wavelength))
+        time.sleep(0.05) # This is necessary, see testIntegraDevice
 
     def doGetVersion(self):
         getVersion = self.commands["VERSION"]

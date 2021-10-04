@@ -26,6 +26,10 @@ class TestIntegraDevice(unittest.TestCase):
         self.assertTrue(self.device.getCalibrationWavelength() > 100)
         print(self.device.getCalibrationWavelength())
 
+    def testSetCalibration(self):
+        self.device.setCalibrationWavelength(900)
+        self.assertEqual(self.device.getCalibrationWavelength(), 900)
+
 class TestIntegraPort(unittest.TestCase):
     port = None
     def setUp(self):
