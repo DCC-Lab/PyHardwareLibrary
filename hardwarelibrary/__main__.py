@@ -8,6 +8,17 @@ import platform
 import hardwarelibrary.spectrometers as spectro
 from hardwarelibrary import DeviceManager
 
+import signal
+import sys
+
+def signal_handler(sig, frame):
+    dm = DeviceManager()
+    if dm.isMonitoring and not dm.quitMonitoring:
+        print('Quitting nicely')
+        dm.stopMonitoring()
+
+signal.signal(signal.SIGINT, signal_handler)
+
  # We start by figuring out what the user really wants. If they don't know,
 # we offer some help
 ap = argparse.ArgumentParser(prog='python -m hardwarelibrary')
@@ -43,6 +54,5 @@ if displaySpectrum == True:
 if deviceManager == True:
     dm = DeviceManager()
     dm.showNotifications()
-
     dm.startMonitoring()
 

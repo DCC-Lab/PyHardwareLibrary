@@ -185,8 +185,8 @@ class DeviceManager:
             with self.lock:
                 self.quitMonitoring = True
             self.monitoring.join()
-            self.monitoring = None
             self.removeAllDevices()
+            self.monitoring = None
         else:
             raise RuntimeError("No monitoring loop running")
 
