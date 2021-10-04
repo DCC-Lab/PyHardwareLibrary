@@ -387,6 +387,7 @@ def connectedUSBDevices(idVendor=None, idProduct=None, serialNumber=None):
                                 idVendor=idVendor, 
                                 idProduct=idProduct))
 
+    # Remove Apple Devices
     devices = [device for device in devices if device.idVendor != 0x05ac]
     
     if serialNumber is not None: # A serial number was provided, try to match

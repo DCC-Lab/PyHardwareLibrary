@@ -120,13 +120,13 @@ class TestDeviceManager(unittest.TestCase):
         dm = DeviceManager()
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 1.0
+        expectedMaxEndTime = startTime + 3.0
         dm.startMonitoring()
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 1.0
+        expectedMaxEndTime = startTime + 3.0
         dm.startMonitoring()
         dm.stopMonitoring()
         self.assertTrue(expectedMaxEndTime > time.time() )
@@ -212,6 +212,8 @@ class TestDeviceManager(unittest.TestCase):
         nc.removeObserver(self)
 
         dm.stopMonitoring()
+
+    # def testDisconnectedDevice(self):
 
     # def testNewlyConnectedDevices(self):
     #     dm = DeviceManager()

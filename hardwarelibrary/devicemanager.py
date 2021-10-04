@@ -1,6 +1,7 @@
 import time
 import re
 from enum import Enum
+from typing import NamedTuple
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
@@ -38,6 +39,57 @@ class DebugPhysicalDevice(PhysicalDevice):
         if self.errorShutdown:
             raise RuntimeError("This error in shutdownDevice was programmed for testing")
 
+
+class USBDeviceDescriptor:
+
+    @classmethod
+    def fromUSBDevice(cls, usbDevice):
+        idProduct = usbDevice.idProduct
+        idVendor = usbDevice.idVendor
+        serialNumber = None
+        try:
+            serialNumber = usb.util.get_string(usbDevice, usbDevice.iSerialNumber)
+        except Exception as err:
+            serialNumber = None
+
+        return USBDeviceDescriptor(serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, usbDevice=usbDevice)
+
+    @classmethod
+    def fromProductVendor(cls, serialNumber=None, idProduct=None, idVendor=None):
+        devices = connectedUSBDevices(serialNumber, idProduct, idVendor)
+        usbDevice = None
+        if len(devices) == 1:
+            usbDevice = devices[0]
+
+        return USBDeviceDescriptor(serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, usbDevice=usbDevice)
+
+    def __init__(self, serialNumber=None, idProduct=None, idVendor=None, usbDevice=None):
+        self.serialNumber = serialNumber
+        self.idProduct = idProduct
+        self.idVendor = idVendor
+        self.usbDevice = usbDevice
+
+    def __eq__(self, rhs):
+        if self.serialNumber != rhs.serialNumber:
+            return False
+        if self.idProduct != rhs.idProduct:
+            return False
+        if self.idVendor != rhs.idVendor:
+            return False
+        if self.usbDevice != rhs.usbDevice:
+            return False
+        return True
+
+    def matchesPhysicalDevice(self, device):
+        if self.idProduct != device.idProduct:
+            return False
+        if self.idVendor != device.idVendor:
+            return False
+        if self.serialNumber != device.serialNumber:
+            return False
+
+        return True
+
 class DeviceManager:
     _instance = None
 
@@ -52,6 +104,8 @@ class DeviceManager:
             self.monitoring = None
         if not hasattr(self, 'usbDevices'):
             self.usbDevices = []
+        if not hasattr(self, 'usbDeviceDescriptors'):
+            self.usbDeviceDescriptors = []
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -92,7 +146,7 @@ class DeviceManager:
             with self.lock:
                 if self.quitMonitoring:
                      break
-            time.sleep(0.2)
+            time.sleep(1.0)
         NotificationCenter().postNotification(DeviceManagerNotification.didStopMonitoring, notifyingObject=self)
 
     def showNotifications(self):
@@ -140,35 +194,34 @@ class DeviceManager:
             raise RuntimeError("No monitoring loop running")
 
     def usbDeviceConnected(self, usbDevice):
-        try:
-            deviceSerialNumber = usb.util.get_string(usbDevice, usbDevice.iSerialNumber ) 
-        except Exception as err:
-            deviceSerialNumber = ""
-        descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
+        descriptor = USBDeviceDescriptor.fromUSBDevice(usbDevice)
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidConnect, notifyingObject=self, userInfo=descriptor)
-        
-        candidates = PhysicalDevice.candidates(usbDevice.idVendor, usbDevice.idProduct)
+        if descriptor not in self.usbDeviceDescriptors:
+            self.usbDeviceDescriptors.append(descriptor)
+
+        candidates = PhysicalDevice.candidates(descriptor.idVendor, descriptor.idProduct)
         for candidateClass in candidates:
-            try:
-                # This may throw if incompatible
-                deviceInstance = candidateClass(serialNumber=deviceSerialNumber,
-                                                idProduct=usbDevice.idProduct, 
-                                                idVendor=usbDevice.idVendor)
-                deviceInstance.initializeDevice()
-                deviceInstance.shutdownDevice()
-                self.addDevice(deviceInstance)
-                return
-            except Exception as err:
-                print(err)
+            # This may throw if incompatible
+            deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
+                                            idProduct=descriptor.idProduct,
+                                            idVendor=descriptor.idVendor)
+            deviceInstance.initializeDevice()
+            deviceInstance.shutdownDevice()
+            self.addDevice(deviceInstance)
 
     def usbDeviceDisconnected(self, usbDevice):
-        try:
-            deviceSerialNumber = usb.util.get_string(usbDevice, usbDevice.iSerialNumber ) 
-        except Exception as err:
-            deviceSerialNumber = ""
-        descriptor = (usbDevice.idVendor, usbDevice.idProduct, deviceSerialNumber)
+        descriptor = None
+        for aDescriptor in self.usbDeviceDescriptors:
+            if aDescriptor.usbDevice == usbDevice:
+                descriptor = aDescriptor
+                break
+
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidDisconnect, notifyingObject=self, userInfo=descriptor)
-        # TODO Must find actual physicaldevice, then shut it down
+
+        currentDevices = list(self.devices)
+        for device in currentDevices:
+            if descriptor.matchesPhysicalDevice(device):
+                self.removeDevice(device)
 
     def addDevice(self, device):
         with self.lock:
