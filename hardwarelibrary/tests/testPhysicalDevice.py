@@ -6,6 +6,7 @@ from hardwarelibrary.devicemanager import *
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer, USB2000Plus
+from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DebugPhysicalDevice(PhysicalDevice):
@@ -184,6 +185,15 @@ class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No spectrometer connected"))
+
+class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = IntegraDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No powermeter connected"))
 
 if __name__ == '__main__':
     unittest.main()
