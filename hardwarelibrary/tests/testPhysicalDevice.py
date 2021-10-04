@@ -32,10 +32,24 @@ class BaseTestCases:
             self.isRunning = False
             self.notificationReceived = None
 
+            dm = DeviceManager()
+            DeviceManager._instance = None
+            del(dm)
+            nc = NotificationCenter()
+            NotificationCenter._instance = None
+            del(nc)
+
         def tearDown(self):
             if self.device is not None:
                 self.device.shutdownDevice()
                 self.device = None
+
+            dm = DeviceManager()
+            DeviceManager._instance = None
+            del(dm)
+            nc = NotificationCenter()
+            NotificationCenter._instance = None
+            del(nc)
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -113,9 +127,28 @@ class BaseTestCases:
             time.sleep(1)
 
             matchedDevice = dm.matchPhysicalDevicesOfType(classType)
-            self.assertTrue(len(matchedDevice) > 0)
-
+            self.assertTrue(len(matchedDevice) == 1)
+            self.device = matchedDevice[0]
+            self.device.initializeDevice()
+            self.assertTrue(self.device.state == DeviceState.Ready)
             dm.stopMonitoring()
+
+        def testPhysicalDeviceRecognizedByDeviceManagerSynchronously(self):
+            if self.device.idVendor == 0xffff or self.device.serialNumber == 'debug':
+                raise (unittest.SkipTest("Debug devices not recognized by DM"))
+
+            classType = type(self.device)
+            self.device.shutdownDevice()
+            del(self.device)
+            self.device = None
+
+            dm = DeviceManager()
+            dm.updateConnectedDevices()
+            matchedDevice = dm.matchPhysicalDevicesOfType(classType)
+            self.assertTrue(len(matchedDevice) == 1)
+            self.device = matchedDevice[0]
+            self.device.initializeDevice()
+            self.assertTrue(self.device.state == DeviceState.Ready)
 
         def handle(self, notification):
             self.notificationReceived = notification

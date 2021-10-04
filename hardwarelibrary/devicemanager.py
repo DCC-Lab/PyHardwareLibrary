@@ -126,21 +126,25 @@ class DeviceManager:
             else:
                 raise RuntimeError("Monitoring loop already running")
 
+    def updateConnectedDevices(self) -> list:
+        currentDevices = []
+        with self.lock:
+            newDevices, newlyDisconnected = self.newlyConnectedAndDisconnectedUSBDevices()
+            for newUsbDevice in newDevices:
+                self.usbDeviceConnected(newUsbDevice)
+            for oldUsbDevice in newlyDisconnected:
+                self.usbDeviceDisconnected(oldUsbDevice)
+
+            currentDevices.extend(self.devices)
+
+        return currentDevices
+
     def monitoringLoop(self, duration=1e7):        
         startTime = time.time()
         endTime = startTime + duration
         NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
         while time.time() < endTime :    
-            currentDevices = []
-            with self.lock:
-                newDevices, newlyDisconnected = self.newlyConnectedAndDisconnectedUSBDevices()
-                for newUsbDevice in newDevices:
-                    self.usbDeviceConnected(newUsbDevice)
-                for oldUsbDevice in newlyDisconnected:
-                    self.usbDeviceDisconnected(oldUsbDevice)
-
-                currentDevices.extend(self.devices)
-
+            currentDevices = self.updateConnectedDevices()
             NotificationCenter().postNotification(DeviceManagerNotification.status, notifyingObject=self, userInfo=currentDevices)
 
             with self.lock:

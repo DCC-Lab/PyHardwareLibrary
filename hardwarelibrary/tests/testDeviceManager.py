@@ -213,12 +213,6 @@ class TestDeviceManager(unittest.TestCase):
 
         dm.stopMonitoring()
 
-    # def testDisconnectedDevice(self):
-
-    # def testNewlyConnectedDevices(self):
-    #     dm = DeviceManager()
-    #     self.assertTrue(len(dm.newlyConnectedUSBDevices()) > 4)
-
     def addRemoveManyDevices(self, N=1000):
         dm = DeviceManager()
         devices = []
