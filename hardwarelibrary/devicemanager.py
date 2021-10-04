@@ -67,7 +67,7 @@ class USBDeviceDescriptor:
         self.serialNumber = serialNumber
         self.idProduct = idProduct
         self.idVendor = idVendor
-        self.usbDevice = usbDevice
+        self.usbDevice = usbDevice # should be uncofigured?
 
     def __eq__(self, rhs):
         if self.serialNumber != rhs.serialNumber:
@@ -174,9 +174,6 @@ class DeviceManager:
 
         return newlyConnected, newlyDisconnected
 
-    def matchUSBDeviceWithPhysicalDevice(self, usbDevice):
-        return DebugPhysicalDevice()
-
     @property
     def isMonitoring(self):
         with self.lock:
@@ -215,6 +212,8 @@ class DeviceManager:
             if aDescriptor.usbDevice == usbDevice:
                 descriptor = aDescriptor
                 break
+        if descriptor is None:
+            print("Unable to find descriptor matching {0}".format(usbDevice))
 
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidDisconnect, notifyingObject=self, userInfo=descriptor)
 
