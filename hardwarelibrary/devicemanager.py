@@ -4,9 +4,9 @@ from enum import Enum
 from typing import NamedTuple
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
-from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
-from hardwarelibrary.motion import SutterDevice
+from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer
+from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
 from threading import Thread, RLock
 from hardwarelibrary.communication.diagnostics import *
 
@@ -287,3 +287,11 @@ class DeviceManager:
             return None
         return devices[0]
 
+    def powerMeterDevices(self):
+        return self.matchPhysicalDevicesOfType(deviceClass=PowerMeterDevice)
+
+    def anyPowerMeterDevice(self):
+        devices = self.powerMeterDevices()
+        if len(devices) == 0:
+            return None
+        return devices[0]
