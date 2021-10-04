@@ -93,6 +93,11 @@ class USBDeviceDescriptor:
 class DeviceManager:
     _instance = None
 
+    def destroy(self):
+        dm = DeviceManager()
+        DeviceManager._instance = None
+        del(dm)
+
     def __init__(self):
         if not hasattr(self, 'devices'):
             self.devices = set()
@@ -126,21 +131,25 @@ class DeviceManager:
             else:
                 raise RuntimeError("Monitoring loop already running")
 
+    def updateConnectedDevices(self) -> list:
+        currentDevices = []
+        with self.lock:
+            newDevices, newlyDisconnected = self.newlyConnectedAndDisconnectedUSBDevices()
+            for newUsbDevice in newDevices:
+                self.usbDeviceConnected(newUsbDevice)
+            for oldUsbDevice in newlyDisconnected:
+                self.usbDeviceDisconnected(oldUsbDevice)
+
+            currentDevices.extend(self.devices)
+
+        return currentDevices
+
     def monitoringLoop(self, duration=1e7):        
         startTime = time.time()
         endTime = startTime + duration
         NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
         while time.time() < endTime :    
-            currentDevices = []
-            with self.lock:
-                newDevices, newlyDisconnected = self.newlyConnectedAndDisconnectedUSBDevices()
-                for newUsbDevice in newDevices:
-                    self.usbDeviceConnected(newUsbDevice)
-                for oldUsbDevice in newlyDisconnected:
-                    self.usbDeviceDisconnected(oldUsbDevice)
-
-                currentDevices.extend(self.devices)
-
+            currentDevices = self.updateConnectedDevices()
             NotificationCenter().postNotification(DeviceManagerNotification.status, notifyingObject=self, userInfo=currentDevices)
 
             with self.lock:
@@ -185,8 +194,8 @@ class DeviceManager:
             with self.lock:
                 self.quitMonitoring = True
             self.monitoring.join()
-            self.monitoring = None
             self.removeAllDevices()
+            self.monitoring = None
         else:
             raise RuntimeError("No monitoring loop running")
 

@@ -2,14 +2,15 @@ import env # modifies path
 import unittest
 import time
 from threading import Thread, Lock
+from hardwarelibrary.devicemanager import *
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer, USB2000Plus
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
 class DebugPhysicalDevice(PhysicalDevice):
-    classIdVendor = 0xfffe
-    classIdProduct = 0xffff
+    classIdVendor = 0xffff
+    classIdProduct = 0xfffe
 
     def __init__(self):
         super().__init__("debug", DebugPhysicalDevice.classIdProduct, DebugPhysicalDevice.classIdVendor)
@@ -31,9 +32,14 @@ class BaseTestCases:
             self.isRunning = False
             self.notificationReceived = None
 
+            DeviceManager().destroy()
+            NotificationCenter().destroy()
+
         def tearDown(self):
-            self.device.shutdownDevice()
-            self.device = None
+            if self.device is not None:
+                self.device.shutdownDevice()
+                self.device = None
+
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -97,6 +103,43 @@ class BaseTestCases:
             self.assertIsNotNone(self.notificationReceived)
             nc.removeObserver(self)
 
+        def testPhysicalDeviceRecognizedByDeviceManager(self):
+            if self.device.idVendor == 0xffff or self.device.serialNumber == 'debug':
+                raise (unittest.SkipTest("Debug devices not recognized by DM"))
+
+            classType = type(self.device)
+            self.device.shutdownDevice()
+            del(self.device)
+            self.device = None
+
+            dm = DeviceManager()
+            dm.startMonitoring()
+            time.sleep(1)
+
+            matchedDevice = dm.matchPhysicalDevicesOfType(classType)
+            self.assertTrue(len(matchedDevice) == 1)
+            self.device = matchedDevice[0]
+            self.device.initializeDevice()
+            self.assertTrue(self.device.state == DeviceState.Ready)
+            dm.stopMonitoring()
+
+        def testPhysicalDeviceRecognizedByDeviceManagerSynchronously(self):
+            if self.device.idVendor == 0xffff or self.device.serialNumber == 'debug':
+                raise (unittest.SkipTest("Debug devices not recognized by DM"))
+
+            classType = type(self.device)
+            self.device.shutdownDevice()
+            del(self.device)
+            self.device = None
+
+            dm = DeviceManager()
+            dm.updateConnectedDevices()
+            matchedDevice = dm.matchPhysicalDevicesOfType(classType)
+            self.assertTrue(len(matchedDevice) == 1)
+            self.device = matchedDevice[0]
+            self.device.initializeDevice()
+            self.assertTrue(self.device.state == DeviceState.Ready)
+
         def handle(self, notification):
             self.notificationReceived = notification
 
@@ -136,7 +179,11 @@ class TestSutterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
 class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
-        self.device = USB2000Plus()
+        try:
+            self.device = USB2000Plus()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No spectrometer connected"))
 
 if __name__ == '__main__':
     unittest.main()
