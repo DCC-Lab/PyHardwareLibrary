@@ -33,8 +33,9 @@ class BaseTestCases:
             self.notificationReceived = None
 
         def tearDown(self):
-            self.device.shutdownDevice()
-            self.device = None
+            if self.device is not None:
+                self.device.shutdownDevice()
+                self.device = None
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -98,14 +99,20 @@ class BaseTestCases:
             self.assertIsNotNone(self.notificationReceived)
             nc.removeObserver(self)
 
-        def testRealPhysicalDeviceRecognizedByDeviceManager(self):
+        def testPhysicalDeviceRecognizedByDeviceManager(self):
             if self.device.idVendor == 0xffff or self.device.serialNumber == 'debug':
-                raise (unittest.SkipTest("Debug devices not recognized automatically, skipping test"))
+                raise (unittest.SkipTest("Debug devices not recognized by DM"))
+
+            classType = type(self.device)
+            self.device.shutdownDevice()
+            del(self.device)
+            self.device = None
+
             dm = DeviceManager()
             dm.startMonitoring()
             time.sleep(1)
 
-            matchedDevice = dm.matchPhysicalDevicesOfType(type(self.device))
+            matchedDevice = dm.matchPhysicalDevicesOfType(classType)
             self.assertTrue(len(matchedDevice) > 0)
 
             dm.stopMonitoring()
