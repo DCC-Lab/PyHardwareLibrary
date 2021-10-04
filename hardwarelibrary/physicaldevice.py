@@ -19,13 +19,49 @@ class PhysicalDevice:
         pass
     class UnableToShutdown(Exception):
         pass
+    class ClassIncompatibleWithRequestedDevice(Exception):
+        pass
 
-    def __init__(self, serialNumber:str, productId:int, vendorId:int):
-        self.vendorId = vendorId
-        self.productId = productId
+    classIdVendor = None
+    classIdProduct = None
+
+    def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
+        if serialNumber == "*" or serialNumber is None:
+            serialNumber = ".*"
+        if idProduct is None:
+            idProduct = self.classIdProduct
+        if idVendor is None:
+            idVendor = self.classIdVendor
+
+        if not self.isCompatibleWith(serialNumber, idProduct, idVendor):
+            raise PhysicalDevice.ClassIncompatibleWithRequestedDevice()
+
+        self.idVendor = idVendor
+        self.idProduct = idProduct
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
 
+        self.usbDevice = None
+
+    @classmethod
+    def candidates(cls, idVendor, idProduct):
+        candidateClasses = []
+        
+        if cls.isCompatibleWith(serialNumber="*", idProduct=idProduct, idVendor=idVendor):
+            candidateClasses.append(cls) 
+
+        for aSubclass in cls.__subclasses__():
+            candidateClasses.extend(aSubclass.candidates(idVendor, idProduct))
+
+        return candidateClasses
+
+    @classmethod
+    def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
+        if idVendor == cls.classIdVendor and idProduct == cls.classIdProduct:
+            return True
+
+        return False
+    
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:

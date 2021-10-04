@@ -27,6 +27,7 @@ def any() -> Spectrometer:
 def displayAny():
     spectrometer = Spectrometer.any()
     if spectrometer is not None:
+        spectrometer.initializeDevice()
         SpectraViewer(spectrometer).display()
 
 def connectedUSBDevices(idProduct=None, serialNumber=None):

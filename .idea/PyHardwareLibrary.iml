@@ -2,9 +2,17 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/communication" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/manuals" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/motion" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/powermeters" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/sources" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/spectrometers" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/hardwarelibrary/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (venv)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.8" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

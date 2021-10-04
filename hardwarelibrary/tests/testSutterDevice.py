@@ -9,6 +9,7 @@ from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 import serial
 
+usingDebug = False
 class TestSutterDevice(unittest.TestCase):
     def setUp(self):
         try: 
@@ -17,16 +18,17 @@ class TestSutterDevice(unittest.TestCase):
         except:
             self.device = SutterDevice("debug")
             self.device.initializeDevice()
-        
+
         self.assertIsNotNone(self.device)
 
     def tearDown(self):
         self.device.shutdownDevice()
         self.device = None
 
-    def testFTDIMatchPort(self):
-        thePort = SerialPort.matchAnyPort(idVendor=4930, idProduct=1)
-        self.assertIsNotNone(thePort)
+    # @unittest.skipIf(self.device.serialNumber == "debug")
+    # def testFTDIMatchPort(self):
+    #     thePort = SerialPort.matchAnyPort(idVendor=4930, idProduct=1)
+    #     self.assertIsNotNone(thePort)
 
     def testNativeUnits(self):
         self.assertEqual(self.device.nativeStepsPerMicrons, 16)

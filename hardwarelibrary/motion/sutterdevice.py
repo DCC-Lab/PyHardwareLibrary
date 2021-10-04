@@ -13,9 +13,11 @@ from struct import *
 from pyftdi.ftdi import Ftdi #FIXME: should not be here.
 
 class SutterDevice(LinearMotionDevice):
+    classIdVendor = 4930
+    classIdProduct = 1
 
     def __init__(self, serialNumber: str = None):
-        super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
+        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
         self.port = None
         self.nativeStepsPerMicrons = 16
 
@@ -39,7 +41,7 @@ class SutterDevice(LinearMotionDevice):
             if self.serialNumber == "debug":
                 self.port = self.DebugSerialPort()
             else:
-                portPath = SerialPort.matchAnyPort(idVendor=self.vendorId, idProduct=self.productId, serialNumber=self.serialNumber)
+                portPath = SerialPort.matchAnyPort(idVendor=self.idVendor, idProduct=self.idProduct, serialNumber=self.serialNumber)
                 if portPath is None:
                     raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
 

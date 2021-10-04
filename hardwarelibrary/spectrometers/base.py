@@ -30,11 +30,11 @@ class SpectrumRequestTimeoutError(RuntimeError):
 class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
-    def __init__(self, serialNumber=None):
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.model = ""
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
-        self.serialNumber = serialNumber
 
     def getSerialNumber(self):
         fctName = inspect.currentframe().f_code.co_name
@@ -177,8 +177,8 @@ class Spectrometer(PhysicalDevice):
         devices = cls.connectedUSBDevices()
         for device in devices:
             for aClass in cls.supportedClasses():
-                if device.idProduct == aClass.idProduct:
-                    return aClass()
+                if device.idProduct == aClass.classIdProduct:
+                    return aClass(serialNumber="*", idProduct=device.idProduct, idVendor=device.idVendor)
 
         if len(devices) == 0:
             raise NoSpectrometerConnected('No spectrometer connected.')
@@ -211,7 +211,7 @@ class Spectrometer(PhysicalDevice):
         idVendors = set()
         for aClass in cls.supportedClasses():
             if aClass is not None:
-                idVendors.add(aClass.idVendor)
+                idVendors.add(aClass.classIdVendor)
 
         devices = []
         if idProduct is None:
@@ -261,7 +261,7 @@ class Spectrometer(PhysicalDevice):
         """
 
         devices = cls.connectedUSBDevices(idProduct=idProduct, 
-                                                  serialNumber=serialNumber)
+                                          serialNumber=serialNumber)
 
         device = None
         if len(devices) == 1:
