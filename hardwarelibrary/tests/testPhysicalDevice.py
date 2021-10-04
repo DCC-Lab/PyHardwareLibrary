@@ -32,24 +32,14 @@ class BaseTestCases:
             self.isRunning = False
             self.notificationReceived = None
 
-            dm = DeviceManager()
-            DeviceManager._instance = None
-            del(dm)
-            nc = NotificationCenter()
-            NotificationCenter._instance = None
-            del(nc)
+            DeviceManager().destroy()
+            NotificationCenter().destroy()
 
         def tearDown(self):
             if self.device is not None:
                 self.device.shutdownDevice()
                 self.device = None
 
-            dm = DeviceManager()
-            DeviceManager._instance = None
-            del(dm)
-            nc = NotificationCenter()
-            NotificationCenter._instance = None
-            del(nc)
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)

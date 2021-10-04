@@ -93,6 +93,11 @@ class USBDeviceDescriptor:
 class DeviceManager:
     _instance = None
 
+    def destroy(self):
+        dm = DeviceManager()
+        DeviceManager._instance = None
+        del(dm)
+
     def __init__(self):
         if not hasattr(self, 'devices'):
             self.devices = set()
