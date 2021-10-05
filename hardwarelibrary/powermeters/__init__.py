@@ -1,2 +1,3 @@
 
-from .powermeterdevice import PowerMeterDevice, IntegraDevice
+from .powermeterdevice import PowerMeterDevice
+from .integradevice import IntegraDevice
