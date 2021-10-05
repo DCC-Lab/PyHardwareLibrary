@@ -2,12 +2,12 @@ import time
 import re
 from enum import Enum
 from typing import NamedTuple
+from threading import Thread, RLock
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer
 from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
-from threading import Thread, RLock
 from hardwarelibrary.communication.diagnostics import *
 
 class DeviceManagerNotification(Enum):

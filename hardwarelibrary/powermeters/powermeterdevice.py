@@ -34,6 +34,8 @@ class PowerMeterDevice(PhysicalDevice):
         NotificationCenter().postNotification(PowerMeterNotification.didMeasure, notifyingObject=self, userInfo=power)
         return power
 
+    def doGetStatusUserInfo(self):
+        return self.measureAbsolutePower()
 
 class IntegraDevice(PowerMeterDevice):
     classIdProduct = 0x0300
@@ -64,12 +66,12 @@ class IntegraDevice(PowerMeterDevice):
     def doGetAbsolutePower(self):
         getPowerCommand = self.commands["GETPOWER"]
         getPowerCommand.send(port=self.port)
-        self.absolutePower = getPowerCommand.matchAsFloat(0)
+        self.absolutePower = float(getPowerCommand.matchGroups[0])
 
     def doGetCalibrationWavelength(self):
         getWavelength = self.commands["GETWAVELENGTH"]
         getWavelength.send(port=self.port)
-        self.calibrationWavelength = getWavelength.matchAsFloat(0)
+        self.calibrationWavelength = float(getWavelength.matchGroups[0])
 
     def doSetCalibrationWavelength(self, wavelength):
         setWavelength = self.commands["SETWAVELENGTH"]
@@ -80,3 +82,4 @@ class IntegraDevice(PowerMeterDevice):
         getVersion = self.commands["VERSION"]
         getVersion.send(port=self.port)
         self.version = getVersion.matchGroups[0]
+

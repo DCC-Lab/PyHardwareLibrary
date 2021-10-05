@@ -1,6 +1,8 @@
 from enum import Enum, IntEnum
+from threading import Thread, RLock
 from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
+import time
 
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
@@ -13,6 +15,7 @@ class PhysicalDeviceNotification(Enum):
     didInitializeDevice        = "didInitializeDevice"
     willShutdownDevice         = "willShutdownDevice"
     didShutdownDevice          = "didShutdownDevice"
+    status                     = "status"
 
 class PhysicalDevice:
     class UnableToInitialize(Exception):
@@ -42,6 +45,11 @@ class PhysicalDevice:
         self.state = DeviceState.Unconfigured
 
         self.usbDevice = None
+
+        self.lock = RLock()
+        self.quitMonitoring = False
+        self.monitoring = None
+        self.refreshInterval = 1.0
 
     @classmethod
     def candidates(cls, idVendor, idProduct):
@@ -77,10 +85,17 @@ class PhysicalDevice:
     def doInitializeDevice(self):
         raise NotImplementedError("Base class must override doInitializeDevice()")
 
+    def initializeIfNeeded(self):
+        if self.state == DeviceState.Unconfigured:
+            self.initializeDevice()
+
     def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
                 NotificationCenter().postNotification(PhysicalDeviceNotification.willShutdownDevice, notifyingObject=self)
+                if self.isMonitoring:
+                    self.stopBackgroundStatusUpdates()
+
                 self.doShutdownDevice()
                 NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self)
             except Exception as error:
@@ -91,3 +106,42 @@ class PhysicalDevice:
 
     def doShutdownDevice(self):
         raise NotImplementedError("Base class must override doShutdownDevice()")
+
+    def startBackgroundStatusUpdates(self):
+        with self.lock:
+            if not self.isMonitoring:
+                self.quitMonitoring = False
+                self.monitoring = Thread(target=self.backgroundStatusUpdates, name="Physical-Device-backgroundStatusUpdates")
+                self.monitoring.start()
+            else:
+                raise RuntimeError("Monitoring loop already running")
+
+    def backgroundStatusUpdates(self):
+        while True:
+            try:
+                userInfo = self.doGetStatusUserInfo()
+            except Exception as err:
+                print("Error when calling doGetStatus: {0}".format(err))
+                userInfo = None
+
+            NotificationCenter().postNotification(PhysicalDeviceNotification.status, notifyingObject=self,
+                                                  userInfo=userInfo)
+
+            with self.lock:
+                if self.quitMonitoring:
+                    break
+            time.sleep(self.refreshInterval)
+
+    @property
+    def isMonitoring(self):
+        with self.lock:
+            return self.monitoring is not None
+
+    def stopBackgroundStatusUpdates(self):
+        if self.isMonitoring:
+            with self.lock:
+                self.quitMonitoring = True
+            self.monitoring.join()
+            self.monitoring = None
+        else:
+            raise RuntimeError("No status loop running")

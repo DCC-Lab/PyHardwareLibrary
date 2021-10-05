@@ -149,7 +149,7 @@ class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         super().setUp()
         self.device = DebugPhysicalDevice()
 
-    def testConfiguredStateSequenceToShutdownWithInitError(self):
+    def testConfiguredStateSequenceToShutdownWithInitializeError(self):
         self.device.errorInitialize = True
         self.assertTrue(self.device.state == DeviceState.Unconfigured)
         with self.assertRaises(Exception):
@@ -158,7 +158,7 @@ class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.device.shutdownDevice()
         self.assertTrue(self.device.state == DeviceState.Unrecognized)
 
-    def testConfiguredStateSequenceToShutdownWithShutError(self):
+    def testConfiguredStateSequenceToShutdownWithShutdownError(self):
         self.device.errorShutdown = True
         self.assertTrue(self.device.state == DeviceState.Unconfigured)
         self.device.initializeDevice()

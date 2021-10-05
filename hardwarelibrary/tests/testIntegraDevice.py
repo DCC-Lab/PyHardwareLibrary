@@ -21,6 +21,7 @@ class TestIntegraDevice(unittest.TestCase):
 
     def testPower(self):
         self.assertTrue(self.device.measureAbsolutePower() > -0.5)
+        print(self.device.measureAbsolutePower())
 
     def testCalibration(self):
         self.assertTrue(self.device.getCalibrationWavelength() > 100)
