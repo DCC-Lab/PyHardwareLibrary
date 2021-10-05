@@ -27,6 +27,7 @@ class PhysicalDevice:
 
     classIdVendor = None
     classIdProduct = None
+    commands = None
 
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
         if serialNumber == "*" or serialNumber is None:
@@ -43,7 +44,6 @@ class PhysicalDevice:
         self.idProduct = idProduct
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
-
         self.usbDevice = None
 
         self.lock = RLock()
@@ -69,7 +69,15 @@ class PhysicalDevice:
             return True
 
         return False
-    
+
+    @classmethod
+    def commandHelp(cls):
+        if cls.commands is None:
+            print("No help available for {0}".format(cls))
+            
+        for name, command in enumerate(cls.commands):
+            print(command)
+
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
@@ -118,11 +126,7 @@ class PhysicalDevice:
 
     def backgroundStatusUpdates(self):
         while True:
-            try:
-                userInfo = self.doGetStatusUserInfo()
-            except Exception as err:
-                print("Error when calling doGetStatus: {0}".format(err))
-                userInfo = None
+            userInfo = self.doGetStatusUserInfo()
 
             NotificationCenter().postNotification(PhysicalDeviceNotification.status, notifyingObject=self,
                                                   userInfo=userInfo)
@@ -131,6 +135,9 @@ class PhysicalDevice:
                 if self.quitMonitoring:
                     break
             time.sleep(self.refreshInterval)
+
+    def doGetStatusUserInfo(self):
+        return None
 
     @property
     def isMonitoring(self):

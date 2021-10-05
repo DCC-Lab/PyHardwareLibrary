@@ -144,6 +144,9 @@ class BaseTestCases:
         def handle(self, notification):
             self.notificationReceived = notification
 
+        def testCommandHelp(self):
+            self.device.commandHelp()
+
 class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
@@ -182,6 +185,9 @@ class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         super().setUp()
         try:
             self.device = USB2000Plus()
+            self.initializeDevice()
+            self.shutdownDevice()
+
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No spectrometer connected"))
