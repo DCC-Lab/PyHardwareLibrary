@@ -29,6 +29,9 @@ class DebugPhysicalDevice(PhysicalDevice):
 class BaseTestCases:
     class TestPhysicalDeviceBase(unittest.TestCase):
         def setUp(self):
+            super().setUp()
+            DeviceManager().updateConnectedDevices()
+
             self.device = None
             self.isRunning = False
             self.notificationReceived = None
@@ -41,6 +44,8 @@ class BaseTestCases:
                 self.device.shutdownDevice()
                 self.device = None
 
+            DeviceManager().removeAllDevices()
+            super().tearDown()
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -184,10 +189,7 @@ class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         try:
-            self.device = USB2000Plus()
-            self.initializeDevice()
-            self.shutdownDevice()
-
+            self.device = DeviceManager().anySpectrometerDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No spectrometer connected"))
@@ -196,7 +198,7 @@ class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         try:
-            self.device = IntegraDevice()
+            self.device = DeviceManager().anyPowerMeterDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No powermeter connected"))
