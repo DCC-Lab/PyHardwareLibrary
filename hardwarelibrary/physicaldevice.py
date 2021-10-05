@@ -76,11 +76,16 @@ class PhysicalDevice:
 
     @classmethod
     def commandHelp(cls):
+        className = "{0}".format(cls)
+        match = re.search(r".*?\.(\w*?)'>", className)
+        if match is not None:
+            className = match.groups(1)[0]
+
         if cls.commands is None:
-            print("No help available for {0}".format(cls))
+            print("No help available for {0}".format(className))
             return
 
-        print("Help for {0}".format(cls))
+        print("Help for {0}".format(className))
         for name, command in cls.commands.items():
             match = re.search(r"\{(.*?)\}", command.text)
             if match is not None:
