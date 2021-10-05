@@ -238,5 +238,12 @@ class TestDeviceManager(unittest.TestCase):
         # if len(devices) != 0:
         #     self.assertTrue(isinstance(devices[0], DebugLinearMotionDevice))
 
+    def testSendCommand(self):
+        DeviceManager().updateConnectedDevices()
+        list(DeviceManager().devices)[0].initializeDevice()
+        DeviceManager().sendCommand("VERSION")
+        DeviceManager().sendCommand("GETWAVELENGTH")
+        list(DeviceManager().devices)[0].shutdownDevice()
+
 if __name__ == '__main__':
     unittest.main()

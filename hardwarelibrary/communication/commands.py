@@ -47,6 +47,9 @@ class TextCommand(Command):
             else:
                 textCommand = self.text
 
+            if port is None:
+                raise RuntimeError("port cannot be None")
+
             port.writeString(string=textCommand, endPoint=self.endPoints[0])
 
             if self.multiReplyCount > 1:

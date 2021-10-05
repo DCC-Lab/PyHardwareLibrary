@@ -161,7 +161,7 @@ class DeviceManager:
             with self.lock:
                 if self.quitMonitoring:
                      break
-            time.sleep(1.0)
+            time.sleep(0.3)
         NotificationCenter().postNotification(DeviceManagerNotification.didStopMonitoring, notifyingObject=self)
 
     def showNotifications(self):
@@ -300,3 +300,14 @@ class DeviceManager:
         if len(devices) == 0:
             return None
         return devices[0]
+
+    def sendCommand(self, commandName, deviceIdentifier=0):
+        DeviceManager().updateConnectedDevices()
+        device = list(self.devices)[deviceIdentifier]
+
+        if device.state == DeviceState.Ready:
+            command = device.commands[commandName]
+            command.send(port=device.port)
+            print(commandName, command.text, command.reply, command.matchGroups)
+        else:
+            print("Device {0} is not ready: call initiailizeDevice()".format(device))
