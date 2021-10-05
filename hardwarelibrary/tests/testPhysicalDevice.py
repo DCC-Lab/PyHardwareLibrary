@@ -198,7 +198,7 @@ class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         try:
-            self.device = DeviceManager().anyPowerMeterDevice()
+            self.device = IntegraDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No powermeter connected"))

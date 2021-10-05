@@ -3,6 +3,7 @@ from threading import Thread, RLock
 from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
 import time
+import re
 
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
@@ -79,8 +80,14 @@ class PhysicalDevice:
             print("No help available for {0}".format(cls))
             return
 
-        for name, command in enumerate(cls.commands):
-            print(command)
+        print("Help for {0}".format(cls))
+        for name, command in cls.commands.items():
+            match = re.search(r"\{(.*?)\}", command.text)
+            if match is not None:
+                numberOfArgs = len(match.groups())
+                print("'{0}' followed by {3} args in format {2} [{1}]".format(name, command.text, match.groups(), numberOfArgs))
+            else:
+                print("'{0}' [{1}]".format(name, command.text))
 
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
