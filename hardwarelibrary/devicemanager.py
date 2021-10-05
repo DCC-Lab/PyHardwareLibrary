@@ -66,9 +66,14 @@ class USBDeviceDescriptor:
 
     def __init__(self, serialNumber=None, idProduct=None, idVendor=None, usbDevice=None):
         self.serialNumber = serialNumber
+        if self.serialNumber is None or serialNumber == "*":
+            self.serialNumberPattern = ".?" # at least one character
+        else:
+            self.serialNumberPattern = self.serialNumber
+
         self.idProduct = idProduct
         self.idVendor = idVendor
-        self.usbDevice = usbDevice # should be uncofigured?
+        self.usbDevice = usbDevice # should be unconfigured?
 
     def __eq__(self, rhs):
         if self.serialNumber != rhs.serialNumber:
@@ -86,7 +91,7 @@ class USBDeviceDescriptor:
             return False
         if self.idVendor != device.idVendor:
             return False
-        if self.serialNumber != device.serialNumber:
+        if re.match(self.serialNumber, device.serialNumber, re.IGNORECASE) is not None:
             return False
 
         return True
@@ -262,7 +267,7 @@ class DeviceManager:
                 if issubclass(type(device), deviceClass):
                     if serialNumber is not None:
                         regexSerialNumber = serialNumber
-                        regMatch = re.match(regexSerialNumber, device.serialNumber)
+                        regMatch = re.match(regexSerialNumber, device.serialNumber, re.IGNORECASE)
                         if regMatch is not None:
                             matched.append(device)
                     else:
