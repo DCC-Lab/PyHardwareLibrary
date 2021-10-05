@@ -17,8 +17,6 @@ class IntegraDevice(PowerMeterDevice):
 
     def __init__(self, serialNumber:str = None, idProduct:int = 0x0300, idVendor:int = 0x1ad5):
         super().__init__(serialNumber, idProduct, idVendor)
-        self.port = None
-
         self.version = ""
 
     def doInitializeDevice(self):

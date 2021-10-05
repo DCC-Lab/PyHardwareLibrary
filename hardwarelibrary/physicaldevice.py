@@ -44,7 +44,10 @@ class PhysicalDevice:
         self.idProduct = idProduct
         self.serialNumber = serialNumber
         self.state = DeviceState.Unconfigured
+
+        # So far, everything is USB, let's just assume they all need this:
         self.usbDevice = None
+        self.port = None
 
         self.lock = RLock()
         self.quitMonitoring = False
@@ -74,7 +77,8 @@ class PhysicalDevice:
     def commandHelp(cls):
         if cls.commands is None:
             print("No help available for {0}".format(cls))
-            
+            return
+
         for name, command in enumerate(cls.commands):
             print(command)
 
@@ -111,6 +115,9 @@ class PhysicalDevice:
                 raise PhysicalDevice.UnableToShutdown(error)
             finally:
                 self.state = DeviceState.Recognized
+                if self.port is not None:
+                    self.port.close()
+                    self.port = None
 
     def doShutdownDevice(self):
         raise NotImplementedError("Base class must override doShutdownDevice()")
