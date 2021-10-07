@@ -1,11 +1,10 @@
 # This script is called firstIntegraCommunication.py
-import env # modifies path
 import unittest
+from array import array
+
 import usb.core
 import usb.util
-from array import array 
 
-from hardwarelibrary.communication import USBPort, TextCommand
 
 class TestIntegraPort(unittest.TestCase):
     def setUp(self):

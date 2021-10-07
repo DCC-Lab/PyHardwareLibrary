@@ -1,13 +1,6 @@
-import env # modifies path
 import unittest
-import time
-import os
-from struct import *
 
-from hardwarelibrary.communication import *
 from hardwarelibrary.motion.sutterdevice import SutterDevice
-
-import serial
 
 usingDebug = False
 class TestSutterDevice(unittest.TestCase):

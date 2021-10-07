@@ -1,7 +1,8 @@
-import env
+import unittest
+
 import usb.core
 import usb.util
-import unittest
+
 from usbport import *
 
 

@@ -1,9 +1,10 @@
-import env # modifies path
 import unittest
 import time
-from hardwarelibrary.powermeters import *
+import unittest
+
 from hardwarelibrary.communication import USBPort, TextCommand
-import usb.core
+from hardwarelibrary.powermeters import *
+
 
 class TestIntegraDevice(unittest.TestCase):
     device = None

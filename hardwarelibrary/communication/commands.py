@@ -24,7 +24,7 @@ class Command:
         return len(self.exceptions) != 0
 
     def send(self, port) -> bool:
-        raise NotImplementedError()
+        raise NotImplementedError("Subclasses must implement the send() command")
 
 class TextCommand(Command):
     def __init__(self, name, text, replyPattern = None, 
@@ -41,7 +41,6 @@ class TextCommand(Command):
 
     def send(self, port, params=None) -> bool:
         try:
-            self.isSent = True
             if params is not None:
                 textCommand = self.text.format(params)
             else:
@@ -51,6 +50,7 @@ class TextCommand(Command):
                 raise RuntimeError("port cannot be None")
 
             port.writeString(string=textCommand, endPoint=self.endPoints[0])
+            self.isSent = True
 
             if self.multiReplyCount > 1:
                 self.reply = []
@@ -106,8 +106,8 @@ class DataCommand(Command):
 
     def send(self, port) -> bool:
         try:
-            self.isSent = True
             nBytes = port.writeData(data=self.data, endPoint=self.endPoints[0])
+            self.isSent = True
             if self.replyDataLength > 0:
                 self.reply = port.readData(length=self.replyDataLength)
             elif self.replyHexRegex is not None:

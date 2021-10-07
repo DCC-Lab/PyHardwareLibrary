@@ -1,11 +1,11 @@
-import env # modifies path
 import unittest
 from io import StringIO
+import unittest
+from io import StringIO
+
 import pyftdi.serialext
 from pyftdi.ftdi import Ftdi
-from pyftdi.usbtools import UsbDeviceDescriptor, UsbTools
-from serial.tools.list_ports import comports
-import re
+
 
 class TestPyFTDIModule(unittest.TestCase):
     def setUp(self):

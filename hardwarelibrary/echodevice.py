@@ -1,0 +1,34 @@
+from hardwarelibrary.physicaldevice import *
+from hardwarelibrary.communication.communicationport import *
+from hardwarelibrary.communication.commands import DataCommand
+from hardwarelibrary.communication.debugport import DebugPort
+
+import re
+import time
+from struct import *
+
+from pyftdi.ftdi import Ftdi #FIXME: should not be here.
+
+
+class EchoDevice(PhysicalDevice):
+    classIdProduct = 0x6001
+    classIdVendor = 0x0403
+    commands = {"ECHO1": TextCommand(name="ECHO1", text="someText", replyPattern="someText"),
+                "ECHO2": TextCommand(name="ECHO2", text="someOtherText", replyPattern="someOtherText"),
+                "ECHO3": DataCommand(name="ECHO3", data=b"someOtherText", replyDataLength=len("someOtherText"))}
+
+    def __init__(self, serialNumber='ftDXIKC4', idProduct=classIdProduct, idVendor=classIdVendor):
+        PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
+
+    def doInitializeDevice(self):
+        pass
+
+    def doShutdownDevice(self):
+        pass
+
+class DebugEchoDevice(EchoDevice):
+    classIdProduct = 0xfffa
+    classIdVendor = 0xffff
+
+    def __init__(self, serialNumber='debug', idProduct=classIdProduct, idVendor=classIdVendor):
+        PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)

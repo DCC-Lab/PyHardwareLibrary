@@ -1,6 +1,5 @@
-import usb.core
-import usb.util
 import usb.backend.libusb1 as libusb1
+import usb.util
 
 backend = libusb1.get_backend()
 if backend is None:

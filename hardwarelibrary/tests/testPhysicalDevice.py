@@ -1,13 +1,12 @@
-import env # modifies path
 import unittest
-import time
-from threading import Thread, Lock
+
 from hardwarelibrary.devicemanager import *
-from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
-from hardwarelibrary.spectrometers import Spectrometer, USB2000Plus
-from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from hardwarelibrary.notificationcenter import NotificationCenter
+from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
+from hardwarelibrary.powermeters import IntegraDevice
+from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
+
 
 class DebugPhysicalDevice(PhysicalDevice):
     classIdVendor = 0xffff
@@ -202,6 +201,32 @@ class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No powermeter connected"))
+
+class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = EchoDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No ECHO connected"))
+
+    def testEchoCommands(self):
+        for command in self.device.commands:
+            self.device.send(command)
+
+class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = DebugEchoDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No ECHO connected"))
+
+    def testEchoCommands(self):
+        for command in self.device.commands:
+            self.device.send(command)
 
 if __name__ == '__main__':
     unittest.main()

@@ -171,3 +171,8 @@ class PhysicalDevice:
             self.monitoring = None
         else:
             raise RuntimeError("No status loop running")
+
+    def sendCommand(self, command):
+        if self.port is not None:
+            command.send(port=self.port)
+            return command.reply
