@@ -2,7 +2,7 @@ import unittest
 import time
 import unittest
 
-from hardwarelibrary.communication import USBPort, TextCommand
+from hardwarelibrary.communication import USBPort, TextCommand, MultilineTextCommand
 from hardwarelibrary.powermeters import *
 
 
@@ -76,7 +76,7 @@ class TestIntegraPort(unittest.TestCase):
         commands = [
          TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+?)\r\n"),
          TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+?)\r\n"),
-         TextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", finalReplyPattern=":100000000"),
+         MultilineTextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", lastLinePattern=":100000000"),
          TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
         ]
 

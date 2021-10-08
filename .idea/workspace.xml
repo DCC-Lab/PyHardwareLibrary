@@ -5,33 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/hardwarelibrary/echodevice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/communication/commands.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/communication/commands.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/communication/communicationport.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/communication/communicationport.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/devicemanager.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/devicemanager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/communication/echoport.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/communication/echoport.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/echodevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/echodevice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/physicaldevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/physicaldevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/socketclient.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/socketclient.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testCobolt.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testCobolt.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testCoboltDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testCoboltDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testCoboltSerial.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testCoboltSerial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testIntegraSerialPort.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testIntegraSerialPort.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testJSON.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/testJSON.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/usbFinder.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/deprecated/usbFinder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testCommunicationPorts.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testCommunicationPorts.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testConnectSutter.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testConnectSutter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testDeviceManager.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testDeviceManager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/powermeters/integradevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/powermeters/integradevice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testIntegraDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testIntegraDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testLinearMotionDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testLinearMotionDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testMapPositionsFunction.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testMapPositionsFunction.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testModulePyFTDI.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testModulePyFTDI.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testModulePySerial.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testModulePySerial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testNotificationCenter.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testNotificationCenter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testOptotuneDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testOptotuneDevice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testSutterDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testSutterDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testSutterSerialPort.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testSutterSerialPort.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -160,7 +141,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in testCommunicationPorts.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests for testPhysicalDevice.TestDebugEchoPhysicalDevice.testEchoCommands" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -171,8 +152,8 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testCommunicationPorts.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <option name="_new_target" value="&quot;testPhysicalDevice.TestDebugEchoPhysicalDevice.testEchoCommands&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
     <configuration name="Python tests in testDeviceManager.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
@@ -224,18 +205,18 @@
       <item itemvalue="Python.test" />
       <item itemvalue="Python.hardwarelibrary" />
       <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
-      <item itemvalue="Python tests.Python tests in testCommunicationPorts.py" />
       <item itemvalue="Python tests.Python tests in testDeviceManager.py" />
       <item itemvalue="Python tests.Unittests for testPhysicalDevice.TestEchoPhysicalDevice" />
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestDebugEchoPhysicalDevice" />
+      <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestDebugEchoPhysicalDevice.testEchoCommands" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestDebugEchoPhysicalDevice" />
+        <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestDebugEchoPhysicalDevice.testEchoCommands" />
         <item itemvalue="Python tests.Unittests for testPhysicalDevice.TestEchoPhysicalDevice" />
         <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
         <item itemvalue="Python tests.Python tests in testDeviceManager.py" />
-        <item itemvalue="Python tests.Python tests in testCommunicationPorts.py" />
       </list>
     </recent_temporary>
   </component>
@@ -252,7 +233,7 @@
       <workItem from="1633233914094" duration="43393000" />
       <workItem from="1633387372811" duration="11232000" />
       <workItem from="1633466219391" duration="11697000" />
-      <workItem from="1633636244184" duration="2768000" />
+      <workItem from="1633636244184" duration="7100000" />
     </task>
     <servers />
   </component>
@@ -295,11 +276,6 @@
           <option name="timeStamp" value="69" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py</url>
-          <line>105</line>
-          <option name="timeStamp" value="73" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/communication/communicationport.py</url>
           <line>122</line>
           <option name="timeStamp" value="75" />
@@ -308,6 +284,16 @@
           <url>file://$PROJECT_DIR$/hardwarelibrary/devicemanager.py</url>
           <line>308</line>
           <option name="timeStamp" value="76" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/hardwarelibrary/communication/commands.py</url>
+          <line>171</line>
+          <option name="timeStamp" value="81" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py</url>
+          <line>230</line>
+          <option name="timeStamp" value="82" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -327,7 +313,7 @@
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestPowerMeterPhysicalDevice_testCommandHelp.coverage" NAME="Unittests for testPhysicalDevice.TestPowerMeterPhysicalDevice.testCommandHelp Coverage Results" MODIFIED="1633468673310" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1633237489450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerIsUsable.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerIsUsable Coverage Results" MODIFIED="1633318365946" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
-    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1633640595324" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
+    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1633660471395" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testLinearMotionDevice.coverage" NAME="Unittests for testLinearMotionDevice Coverage Results" MODIFIED="1633280168464" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testConfiguredStateAfterInitialize.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testConfiguredStateAfterInitialize Coverage Results" MODIFIED="1633293814434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testDeviceManager_TestDeviceManager_testRestartRunLoop.coverage" NAME="Unittests for testDeviceManager.TestDeviceManager.testRestartRunLoop Coverage Results" MODIFIED="1633309807362" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />

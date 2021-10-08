@@ -25,6 +25,8 @@ class PhysicalDevice:
         pass
     class ClassIncompatibleWithRequestedDevice(Exception):
         pass
+    class NotInitialized(Exception):
+        pass
 
     classIdVendor = None
     classIdProduct = None
@@ -87,12 +89,10 @@ class PhysicalDevice:
 
         print("Help for {0}".format(className))
         for name, command in cls.commands.items():
-            match = re.search(r"\{(.*?)\}", command.text)
-            if match is not None:
-                numberOfArgs = len(match.groups())
-                print("'{0}' followed by {3} args in format {2} [{1}]".format(name, command.text, match.groups(), numberOfArgs))
+            if command.numberOfArguments > 0:
+                print("'{0}' followed by {3} args in format {2} [{1}]".format(name, command.payload, match.groups(), command.numberOfArguments))
             else:
-                print("'{0}' [{1}]".format(name, command.text))
+                print("'{0}' [{1}]".format(name, command.payload))
 
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
@@ -173,6 +173,7 @@ class PhysicalDevice:
             raise RuntimeError("No status loop running")
 
     def sendCommand(self, command):
-        if self.port is not None:
-            command.send(port=self.port)
-            return command.reply
+        if self.state != DeviceState.Ready:
+            raise PhysicalDevice.NotInitialized
+
+        command.send(port=self.port)

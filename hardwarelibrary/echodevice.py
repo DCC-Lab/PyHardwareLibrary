@@ -15,7 +15,7 @@ class EchoDevice(PhysicalDevice):
     classIdVendor = 0x0403
     commands = {"ECHO1": TextCommand(name="ECHO1", text="someText", replyPattern="someText"),
                 "ECHO2": TextCommand(name="ECHO2", text="someOtherText", replyPattern="someOtherText"),
-                "ECHO3": DataCommand(name="ECHO3", data=b"someOtherText", replyDataLength=len("someOtherText"))}
+                "ECHO3": DataCommand(name="ECHO3", data=b"someData", replyDataLength=len(b"someData"))}
 
     def __init__(self, serialNumber='ftDXIKC4', idProduct=classIdProduct, idVendor=classIdVendor):
         PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
@@ -32,3 +32,10 @@ class DebugEchoDevice(EchoDevice):
 
     def __init__(self, serialNumber='debug', idProduct=classIdProduct, idVendor=classIdVendor):
         PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
+
+    def doInitializeDevice(self):
+        self.port = DebugPort()
+        self.port.open()
+
+    def doShutdownDevice(self):
+        self.port.close()

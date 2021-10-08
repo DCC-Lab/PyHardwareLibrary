@@ -1,6 +1,6 @@
 import time
 from enum import Enum
-from hardwarelibrary.communication import USBPort, TextCommand
+from hardwarelibrary.communication import USBPort, TextCommand, MultilineTextCommand
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
@@ -10,7 +10,7 @@ class IntegraDevice(PowerMeterDevice):
     commands = {
         "GETPOWER": TextCommand(name="GETPOWER", text="*CVU", replyPattern=r"(.+?)\r\n"),
         "VERSION": TextCommand(name="VERSION", text="*VER", replyPattern=r"(.+?)\r\n"),
-        "STATUS": TextCommand(name="STATUS", text="*STS", replyPattern=r"(.+?)\r\n", finalReplyPattern=":100000000"),
+        "STATUS": MultilineTextCommand(name="STATUS", text="*STS", replyPattern=r"(.+?)\r\n", lastLinePattern=":100000000"),
         "GETWAVELENGTH": TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern=r"PWC\s*:\s*(.+?)\r\n"),
         "SETWAVELENGTH": TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}")
     }
