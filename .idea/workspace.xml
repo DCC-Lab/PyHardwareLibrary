@@ -6,9 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/echodevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/echodevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/sutterdevice.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -230,6 +228,8 @@
       <workItem from="1633387372811" duration="11232000" />
       <workItem from="1633466219391" duration="11697000" />
       <workItem from="1633636244184" duration="8763000" />
+      <workItem from="1633745862356" duration="1522000" />
+      <workItem from="1633799006587" duration="162000" />
     </task>
     <servers />
   </component>
