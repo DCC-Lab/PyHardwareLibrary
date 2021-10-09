@@ -1,12 +1,12 @@
-import env # modifies path
 import unittest
-import time
-from threading import Thread, Lock
+
 from hardwarelibrary.devicemanager import *
-from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
-from hardwarelibrary.spectrometers import Spectrometer, USB2000Plus
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from hardwarelibrary.notificationcenter import NotificationCenter
+from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
+from hardwarelibrary.powermeters import IntegraDevice
+from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
+
 
 class DebugPhysicalDevice(PhysicalDevice):
     classIdVendor = 0xffff
@@ -28,6 +28,9 @@ class DebugPhysicalDevice(PhysicalDevice):
 class BaseTestCases:
     class TestPhysicalDeviceBase(unittest.TestCase):
         def setUp(self):
+            super().setUp()
+            DeviceManager().updateConnectedDevices()
+
             self.device = None
             self.isRunning = False
             self.notificationReceived = None
@@ -40,6 +43,8 @@ class BaseTestCases:
                 self.device.shutdownDevice()
                 self.device = None
 
+            DeviceManager().removeAllDevices()
+            super().tearDown()
 
         def testIsRunning(self):
             self.assertFalse(self.isRunning)
@@ -143,12 +148,15 @@ class BaseTestCases:
         def handle(self, notification):
             self.notificationReceived = notification
 
+        def testCommandHelp(self):
+            self.device.commandHelp()
+
 class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         self.device = DebugPhysicalDevice()
 
-    def testConfiguredStateSequenceToShutdownWithInitError(self):
+    def testConfiguredStateSequenceToShutdownWithInitializeError(self):
         self.device.errorInitialize = True
         self.assertTrue(self.device.state == DeviceState.Unconfigured)
         with self.assertRaises(Exception):
@@ -157,7 +165,7 @@ class TestDebugPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.device.shutdownDevice()
         self.assertTrue(self.device.state == DeviceState.Unrecognized)
 
-    def testConfiguredStateSequenceToShutdownWithShutError(self):
+    def testConfiguredStateSequenceToShutdownWithShutdownError(self):
         self.device.errorShutdown = True
         self.assertTrue(self.device.state == DeviceState.Unconfigured)
         self.device.initializeDevice()
@@ -180,10 +188,47 @@ class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         try:
-            self.device = USB2000Plus()
+            self.device = DeviceManager().anySpectrometerDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No spectrometer connected"))
+
+class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = IntegraDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No powermeter connected"))
+
+class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = EchoDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No ECHO connected"))
+
+    def testEchoCommands(self):
+        self.device.initializeDevice()
+        for name, command in self.device.commands.items():
+            try:
+                self.device.sendCommand(command)
+            except Exception as err:
+                self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
+        self.device.shutdownDevice()
+
+class TestDebugEchoPhysicalDevice(TestEchoPhysicalDevice):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = DebugEchoDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No ECHO connected"))
+
 
 if __name__ == '__main__':
     unittest.main()

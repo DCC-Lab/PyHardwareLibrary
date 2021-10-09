@@ -2,11 +2,12 @@ import time
 import re
 from enum import Enum
 from typing import NamedTuple
+from threading import Thread, RLock
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
-from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
-from hardwarelibrary.motion import SutterDevice
-from threading import Thread, RLock
+from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice, SutterDevice
+from hardwarelibrary.spectrometers import Spectrometer
+from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
 from hardwarelibrary.communication.diagnostics import *
 
 class DeviceManagerNotification(Enum):
@@ -65,9 +66,14 @@ class USBDeviceDescriptor:
 
     def __init__(self, serialNumber=None, idProduct=None, idVendor=None, usbDevice=None):
         self.serialNumber = serialNumber
+        if self.serialNumber is None or serialNumber == "*":
+            self.serialNumberPattern = ".?" # at least one character
+        else:
+            self.serialNumberPattern = self.serialNumber
+
         self.idProduct = idProduct
         self.idVendor = idVendor
-        self.usbDevice = usbDevice # should be uncofigured?
+        self.usbDevice = usbDevice # should be unconfigured?
 
     def __eq__(self, rhs):
         if self.serialNumber != rhs.serialNumber:
@@ -85,7 +91,7 @@ class USBDeviceDescriptor:
             return False
         if self.idVendor != device.idVendor:
             return False
-        if self.serialNumber != device.serialNumber:
+        if re.match(self.serialNumber, device.serialNumber, re.IGNORECASE) is not None:
             return False
 
         return True
@@ -155,7 +161,7 @@ class DeviceManager:
             with self.lock:
                 if self.quitMonitoring:
                      break
-            time.sleep(1.0)
+            time.sleep(0.3)
         NotificationCenter().postNotification(DeviceManagerNotification.didStopMonitoring, notifyingObject=self)
 
     def showNotifications(self):
@@ -261,9 +267,48 @@ class DeviceManager:
                 if issubclass(type(device), deviceClass):
                     if serialNumber is not None:
                         regexSerialNumber = serialNumber
-                        regMatch = re.match(regexSerialNumber, device.serialNumber)
+                        regMatch = re.match(regexSerialNumber, device.serialNumber, re.IGNORECASE)
                         if regMatch is not None:
                             matched.append(device)
                     else:
                         matched.append(device)
             return matched
+
+    def linearMotionDevices(self):
+        return self.matchPhysicalDevicesOfType(deviceClass=LinearMotionDevice)
+
+    def anyLinearMotionDevice(self):
+        devices = self.linearMotionDevices()
+        if len(devices) == 0:
+            return None
+        return devices[0]
+
+    def spectrometerDevices(self):
+        return self.matchPhysicalDevicesOfType(deviceClass=Spectrometer)
+
+    def anySpectrometerDevice(self):
+        devices = self.spectrometerDevices()
+        if len(devices) == 0:
+            return None
+        return devices[0]
+
+    def powerMeterDevices(self):
+        return self.matchPhysicalDevicesOfType(deviceClass=PowerMeterDevice)
+
+    def anyPowerMeterDevice(self):
+        devices = self.powerMeterDevices()
+        if len(devices) == 0:
+            return None
+        return devices[0]
+
+    def sendCommand(self, commandName, deviceIdentifier=0):
+        DeviceManager().updateConnectedDevices()
+        device = list(self.devices)[deviceIdentifier]
+
+        if device.state == DeviceState.Ready:
+            command = device.commands[commandName]
+            command.send(port=device.port)
+            return (commandName, command.text, command.matchGroups)
+        else:
+            print("Device {0} is not Ready: call initializeDevice()".format(device))
+

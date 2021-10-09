@@ -1,14 +1,9 @@
-import env # modifies path
 import unittest
-import time
-from threading import Thread, Lock
-import random
-import array
-import os
-from pyftdi.ftdi import Ftdi
+
+from serial.tools.list_ports import comports
 
 from hardwarelibrary.communication.serialport import SerialPort
-from serial.tools.list_ports import comports
+
 
 class TestSerialModule(unittest.TestCase):
     def setUp(self):

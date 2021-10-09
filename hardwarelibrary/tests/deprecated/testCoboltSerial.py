@@ -1,10 +1,5 @@
-import env # modifies path
 import unittest
-import time
-from threading import Thread, Lock
 
-from serial import *
-from hardwarelibrary import *
 
 class BaseTestCases:
 

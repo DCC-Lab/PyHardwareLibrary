@@ -99,7 +99,7 @@ class SerialPort(CommunicationPort):
                     portObjects.append(port)
             else:
                 if port.vid == idVendor and port.pid == idProduct:
-                    if re.match(serialNumber, port.serial_number, re.IGNORECASE):
+                    if re.search(serialNumber, port.serial_number, re.IGNORECASE):
                         portObjects.append(port)
 
 

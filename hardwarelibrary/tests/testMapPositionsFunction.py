@@ -1,5 +1,5 @@
-import env # modifies path
 import unittest
+
 from hardwarelibrary.motion.sutterdevice import SutterDevice, Direction
 
 

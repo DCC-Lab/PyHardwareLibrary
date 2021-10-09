@@ -1,7 +1,7 @@
-import env
 import unittest
-from hardwarelibrary.motion.sutterdevice import SutterDevice
+
 import hardwarelibrary.communication.serialport as s_ports
+from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 
 class TestConnectSutter(unittest.TestCase):

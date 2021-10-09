@@ -1,11 +1,7 @@
-import env
-import usb.core
-import usb.util
-import unittest
-from hardwarelibrary.communication.serialport import SerialPort
-from hardwarelibrary.communication.usbport import *
-import time
 import os
+import unittest
+
+from hardwarelibrary.communication.serialport import SerialPort
 
 hardcodedPath = '/dev/tty.usbmodem143101'
 

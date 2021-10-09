@@ -1,10 +1,9 @@
-import env # modifies path
 import unittest
 
-from hardwarelibrary.communication import *
 from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice, LinearMotionNotification
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter
+
 
 class BaseTestCases:
     class TestLinearMotionDevice(unittest.TestCase):
