@@ -1,5 +1,6 @@
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.communication.communicationport import *
+from hardwarelibrary.communication.serialport import *
 from hardwarelibrary.communication.commands import DataCommand
 from hardwarelibrary.communication.debugport import DebugPort
 
@@ -21,10 +22,11 @@ class EchoDevice(PhysicalDevice):
         PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
 
     def doInitializeDevice(self):
-        pass
+        self.port = SerialPort(idVendor=self.idVendor, idProduct=self.idProduct)
+        self.port.open()
 
     def doShutdownDevice(self):
-        pass
+        self.port.close()
 
 class DebugEchoDevice(EchoDevice):
     classIdProduct = 0xfffa

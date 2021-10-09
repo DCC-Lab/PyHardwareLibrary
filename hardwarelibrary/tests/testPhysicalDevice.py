@@ -212,10 +212,15 @@ class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             raise (unittest.SkipTest("No ECHO connected"))
 
     def testEchoCommands(self):
-        for command in self.device.commands:
-            self.device.send(command)
+        self.device.initializeDevice()
+        for name, command in self.device.commands.items():
+            try:
+                self.device.sendCommand(command)
+            except Exception as err:
+                self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
+        self.device.shutdownDevice()
 
-class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+class TestDebugEchoPhysicalDevice(TestEchoPhysicalDevice):
     def setUp(self):
         super().setUp()
         try:
@@ -224,14 +229,6 @@ class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         except Exception as err:
             raise (unittest.SkipTest("No ECHO connected"))
 
-    def testEchoCommands(self):
-        self.device.initializeDevice()
-        for name, command in self.device.commands.items():
-            try:
-                self.device.sendCommand(command)
-            except Exception as err:
-                self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
-        self.device.shutdownDevice()
 
 if __name__ == '__main__':
     unittest.main()
