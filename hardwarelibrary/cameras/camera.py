@@ -4,12 +4,12 @@ from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from threading import Thread, RLock
 import cv2
-
+import re
 
 class CameraDeviceNotification(Enum):
     willStartCapture    = "willStartCapture"
     didStartCapture     = "didStartCapture"
-    willStopCapture    = "willStopCapture"
+    willStopCapture     = "willStopCapture"
     didStopCapture      = "didStopCapture"
     imageCaptured       = "imageCaptured"
 
@@ -21,6 +21,11 @@ class CameraDevice(PhysicalDevice):
         self.lock = RLock()
         self.mainLoop = None
 
+    def doShutdownDevice(self):
+        with self.lock:
+            if self.isCapturing:
+                self.stop()
+
     def livePreview(self):
         NotificationCenter().postNotification(notificationName=CameraDeviceNotification.willStartCapture,
                                               notifyingObject=self)
@@ -28,13 +33,13 @@ class CameraDevice(PhysicalDevice):
 
     def start(self):
         with self.lock:
-            if not self.isMonitoring:
+            if not self.isCapturing:
                 self.quitLoop = False
                 self.mainLoop = Thread(target=self.captureLoop, name="Camera-CaptureLoop")
                 NotificationCenter().postNotification(notificationName=CameraDeviceNotification.willStartCapture, notifyingObject=self)
                 self.mainLoop.start()
             else:
-                raise RuntimeError("Monitoring loop already running")
+                raise RuntimeError("Capture loop already running")
 
     @property
     def isCapturing(self):
@@ -77,7 +82,6 @@ class CameraDevice(PhysicalDevice):
             if self.quitLoop:
                 return
 
-
 class OpenCVCamera(CameraDevice):
     classIdVendor = 0x05ac
     classIdProduct = 0x1112
@@ -105,11 +109,10 @@ class OpenCVCamera(CameraDevice):
                 raise Exception("Could not open video device")
 
     def doShutdownDevice(self):
+        super().doShutdownDevice()
         with self.lock:
-            if self.isCapturing:
-                self.stop()
             self.cameraHandler.release()
-            cv2.destroyAllWindows()
+            #qcv2.destroyAllWindows()
 
     def doCaptureFrame(self):
         with self.lock:
@@ -117,7 +120,26 @@ class OpenCVCamera(CameraDevice):
             ret, frame = self.cameraHandler.read()
             return frame
 
+    @classmethod
+    def availableCameras(cls):
+        numberOfCameras = 0
+        for i in range(10):
+            cam = cv2.VideoCapture(i)
+            wasAcquired, frame = cam.read()
+
+            for property in dir(cv2):
+                if re.search('CAP_', property) is not None:
+                    indexProp = getattr(cv2, property)
+                    print(property, cam.get(indexProp))
+
+            if not wasAcquired:
+                break
+            numberOfCameras += 1
+
+        return numberOfCameras
+
 if __name__ == "__main__":
+    print(OpenCVCamera.availableCameras())
     cam = OpenCVCamera()
     cam.initializeDevice()
     cam.livePreview()
