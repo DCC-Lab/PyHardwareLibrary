@@ -117,7 +117,7 @@ class OpenCVCamera(CameraDevice):
         wasAcquired, frame = cam.read()
         cam.release()
 
-        return True
+        return wasAcquired
 
     def doInitializeDevice(self):
         with self.lock:
