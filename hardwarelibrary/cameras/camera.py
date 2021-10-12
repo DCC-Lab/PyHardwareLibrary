@@ -9,7 +9,7 @@ import cv2
 class CameraDeviceNotification(Enum):
     willStartCapture    = "willStartCapture"
     didStartCapture     = "didStartCapture"
-    willStoptCapture    = "willStopCapture"
+    willStopCapture    = "willStopCapture"
     didStopCapture      = "didStopCapture"
     imageCaptured       = "imageCaptured"
 
@@ -78,7 +78,7 @@ class CameraDevice(PhysicalDevice):
                 return
 
 
-class FaceTimeCamera(CameraDevice):
+class OpenCVCamera(CameraDevice):
     classIdVendor = 0x05ac
     classIdProduct = 0x1112
     def __init__(self, serialNumber:str = None, idProduct:int = None, idVendor:int = None):
@@ -89,6 +89,9 @@ class FaceTimeCamera(CameraDevice):
         if serialNumber is not None:
             self.cvCameraIndex = int(serialNumber)
 
+    @classmethod
+    def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
+        return True
 
     def doInitializeDevice(self):
         with self.lock:
@@ -115,7 +118,7 @@ class FaceTimeCamera(CameraDevice):
             return frame
 
 if __name__ == "__main__":
-    cam = FaceTimeCamera()
+    cam = OpenCVCamera()
     cam.initializeDevice()
     cam.livePreview()
     cam.shutdownDevice()

@@ -1,2 +1,2 @@
 
-from .camera import FaceTimeCamera, CameraDeviceNotification
+from .camera import OpenCVCamera, CameraDeviceNotification
