@@ -85,6 +85,10 @@ class FaceTimeCamera(CameraDevice):
         super().__init__(serialNumber, idProduct, idVendor)
         self.version = ""
         self.cameraHandler = None
+        self.cvCameraIndex = 0
+        if serialNumber is not None:
+            self.cvCameraIndex = int(serialNumber)
+
 
     def doInitializeDevice(self):
         with self.lock:
@@ -114,3 +118,4 @@ if __name__ == "__main__":
     cam = FaceTimeCamera()
     cam.initializeDevice()
     cam.livePreview()
+    cam.shutdownDevice()
