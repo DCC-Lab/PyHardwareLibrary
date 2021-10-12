@@ -21,6 +21,9 @@ class CameraDevice(PhysicalDevice):
         self.lock = RLock()
         self.mainLoop = None
 
+    def doInitializeDevice(self):
+        pass # nothing to do, but incuded by symmetry with doShutdown
+
     def doShutdownDevice(self):
         with self.lock:
             if self.isCapturing:
@@ -120,6 +123,7 @@ class OpenCVCamera(CameraDevice):
         return wasAcquired
 
     def doInitializeDevice(self):
+        super().doInitializeDevice()
         with self.lock:
             # FIXME: Open the first camera we find
             self.cameraHandler = cv2.VideoCapture(self.cvCameraIndex)

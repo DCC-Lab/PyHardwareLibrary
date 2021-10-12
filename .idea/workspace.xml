@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/PyHardwareLibrary.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PyHardwareLibrary.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README-3-USB-Cameras.md" beforeDir="false" afterPath="$PROJECT_DIR$/README-3-USB-Cameras.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/cameras/camera.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/cameras/camera.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -240,7 +238,7 @@
       <workItem from="1633636244184" duration="8763000" />
       <workItem from="1633745862356" duration="1522000" />
       <workItem from="1633799006587" duration="162000" />
-      <workItem from="1634074796406" duration="325000" />
+      <workItem from="1634074796406" duration="420000" />
     </task>
     <servers />
   </component>
@@ -329,12 +327,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/cameras/camera.py</url>
-          <line>134</line>
+          <line>138</line>
           <option name="timeStamp" value="89" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/cameras/camera.py</url>
-          <line>99</line>
+          <line>102</line>
           <option name="timeStamp" value="92" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -344,7 +342,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/cameras/camera.py</url>
-          <line>164</line>
+          <line>168</line>
           <option name="timeStamp" value="96" />
         </line-breakpoint>
       </breakpoints>
