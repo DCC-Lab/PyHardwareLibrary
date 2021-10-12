@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/hardwarelibrary/cameras/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/cameras/camera.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/cameras/camera.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -58,7 +60,7 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/hardwarelibrary/powermeters" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/hardwarelibrary/cameras" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -69,13 +71,14 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/hardwarelibrary/cameras" />
       <recent name="$PROJECT_DIR$/hardwarelibrary/powermeters" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/hardwarelibrary/tests/deprecated" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.camera">
+  <component name="RunManager" selected="Python tests.Python tests in testDeviceManager.py">
     <configuration name="camera" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -157,7 +160,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in testPhysicalDevice.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in testDeviceManager.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -168,7 +171,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testDeviceManager.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
@@ -205,19 +208,19 @@
     <list>
       <item itemvalue="Python.test" />
       <item itemvalue="Python.hardwarelibrary" />
-      <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
       <item itemvalue="Python tests.Unittests for testPhysicalDevice.TestEchoPhysicalDevice" />
       <item itemvalue="Python tests.Unittests for testPhysicalDevice" />
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestEchoPhysicalDevice.testEchoCommands" />
       <item itemvalue="Python.camera" />
+      <item itemvalue="Python tests.Python tests in testDeviceManager.py" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests in testDeviceManager.py" />
         <item itemvalue="Python.camera" />
         <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestEchoPhysicalDevice.testEchoCommands" />
         <item itemvalue="Python tests.Unittests for testPhysicalDevice" />
         <item itemvalue="Python tests.Unittests for testPhysicalDevice.TestEchoPhysicalDevice" />
-        <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
       </list>
     </recent_temporary>
   </component>
@@ -335,7 +338,7 @@
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testIntegraDevice_TestIntegraDevice_testDeviceVersion.coverage" NAME="Unittests for testIntegraDevice.TestIntegraDevice.testDeviceVersion Coverage Results" MODIFIED="1633446759666" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestEchoPhysicalDevice.coverage" NAME="Unittests for testPhysicalDevice.TestEchoPhysicalDevice Coverage Results" MODIFIED="1633662453043" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestPowerMeterPhysicalDevice_testPostNotificationDidShutdown.coverage" NAME="Unittests for testPhysicalDevice.TestPowerMeterPhysicalDevice.testPostNotificationDidShutdown Coverage Results" MODIFIED="1633449648926" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
-    <SUITE FILE_PATH="coverage/PyHardwareLibrary$camera.coverage" NAME="camera Coverage Results" MODIFIED="1634055272428" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/cameras" />
+    <SUITE FILE_PATH="coverage/PyHardwareLibrary$camera.coverage" NAME="camera Coverage Results" MODIFIED="1634055567571" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/cameras" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice Coverage Results" MODIFIED="1633447053482" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testDeviceManager.coverage" NAME="Unittests for testDeviceManager Coverage Results" MODIFIED="1633291099266" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerSynchronously.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerSynchronously Coverage Results" MODIFIED="1633319357042" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />

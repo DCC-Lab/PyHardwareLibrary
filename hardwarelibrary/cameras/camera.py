@@ -13,7 +13,7 @@ class CameraDeviceNotification(Enum):
     didStopCapture      = "didStopCapture"
     imageCaptured       = "imageCaptured"
 
-class FacetimeCamera(PhysicalDevice):
+class FaceTimeCamera(PhysicalDevice):
     classIdVendor = 0x05ac
     classIdProduct = 0x1112
     def __init__(self, serialNumber:str = None, idProduct:int = None, idVendor:int = None):
@@ -95,6 +95,6 @@ class FacetimeCamera(PhysicalDevice):
             return frame
 
 if __name__ == "__main__":
-    cam = FacetimeCamera()
+    cam = FaceTimeCamera()
     cam.initializeDevice()
     cam.livePreview()
