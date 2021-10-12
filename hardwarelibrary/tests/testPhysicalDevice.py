@@ -5,6 +5,7 @@ from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.powermeters import IntegraDevice
+from hardwarelibrary.cameras import FaceTimeCamera
 from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
 
 
@@ -229,6 +230,15 @@ class TestDebugEchoPhysicalDevice(TestEchoPhysicalDevice):
         except Exception as err:
             raise (unittest.SkipTest("No ECHO connected"))
 
+
+class TestCameraPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = FaceTimeCamera()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No Facetime Camera connected"))
 
 if __name__ == '__main__':
     unittest.main()
