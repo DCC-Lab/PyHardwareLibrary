@@ -69,7 +69,14 @@ class CameraDevice(PhysicalDevice):
                 NotificationCenter().postNotification(CameraDeviceNotification.willStopCapture, notifyingObject=self)
                 break
 
+        cv2.destroyAllWindows()
         NotificationCenter().postNotification(CameraDeviceNotification.didStopCapture, notifyingObject=self)
+
+    def captureFrames(self, n=1):
+        frames = []
+        for i in range(n):
+            frames.append(self.doCaptureFrame())
+        return frames
 
     def captureLoopThread(self):
         frame = None
@@ -83,8 +90,7 @@ class CameraDevice(PhysicalDevice):
                 return
 
 class OpenCVCamera(CameraDevice):
-    classIdVendor = 0x05ac
-    classIdProduct = 0x1112
+
     def __init__(self, serialNumber:str = None, idProduct:int = None, idVendor:int = None):
         super().__init__(serialNumber, idProduct, idVendor)
         self.version = ""
@@ -93,14 +99,30 @@ class OpenCVCamera(CameraDevice):
         if serialNumber is not None:
             self.cvCameraIndex = int(serialNumber)
 
+    def openCVProperties(self):
+        properties = {}
+        for property in dir(cv2):
+            if re.search('CAP_', property) is not None:
+                indexProp = getattr(cv2, property)
+                value = cam.get(indexProp)
+                if value != 0:
+                    properties[property] = value
+        return properties
+
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
+        cameraIndex = int(serialNumber)
+
+        cam = cv2.VideoCapture(cameraIndex)
+        wasAcquired, frame = cam.read()
+        cam.release()
+
         return True
 
     def doInitializeDevice(self):
         with self.lock:
             # FIXME: Open the first camera we find
-            self.cameraHandler = cv2.VideoCapture(0)
+            self.cameraHandler = cv2.VideoCapture(self.cvCameraIndex)
 
             if self.cameraHandler is None:
                 raise Exception("Could not open video device")
@@ -112,7 +134,7 @@ class OpenCVCamera(CameraDevice):
         super().doShutdownDevice()
         with self.lock:
             self.cameraHandler.release()
-            #qcv2.destroyAllWindows()
+            self.cameraHandler = None
 
     def doCaptureFrame(self):
         with self.lock:
@@ -126,21 +148,18 @@ class OpenCVCamera(CameraDevice):
         for i in range(10):
             cam = cv2.VideoCapture(i)
             wasAcquired, frame = cam.read()
-
-            for property in dir(cv2):
-                if re.search('CAP_', property) is not None:
-                    indexProp = getattr(cv2, property)
-                    print(property, cam.get(indexProp))
+            cam.release()
 
             if not wasAcquired:
                 break
+
             numberOfCameras += 1
 
         return numberOfCameras
 
 if __name__ == "__main__":
     print(OpenCVCamera.availableCameras())
-    cam = OpenCVCamera()
+    cam = OpenCVCamera(serialNumber="1")
     cam.initializeDevice()
     cam.livePreview()
     cam.shutdownDevice()
