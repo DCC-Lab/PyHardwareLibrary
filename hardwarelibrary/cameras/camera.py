@@ -114,7 +114,10 @@ class OpenCVCamera(CameraDevice):
 
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
-        cameraIndex = int(serialNumber)
+        try:
+            cameraIndex = int(serialNumber)
+        except Exception as err:
+            cameraIndex = 0
 
         cam = cv2.VideoCapture(cameraIndex)
         wasAcquired, frame = cam.read()
@@ -163,7 +166,7 @@ class OpenCVCamera(CameraDevice):
 
 if __name__ == "__main__":
     print(OpenCVCamera.availableCameras())
-    cam = OpenCVCamera(serialNumber="1")
+    cam = OpenCVCamera()
     cam.initializeDevice()
     cam.livePreview()
     cam.shutdownDevice()
