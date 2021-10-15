@@ -55,7 +55,7 @@ class EndpointDescriptor(NamedTuple):
     bInterval : int
     packingFormat = "<BBBBHB"
 
-class StringDescriptor(NamedTuple):
+class StringDescriptor0(NamedTuple):
     bLength: int
     bDescriptorType: int
     wLANGID : list
@@ -64,8 +64,8 @@ class StringDescriptor(NamedTuple):
 class StringDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
-    bString : list
-    packingFormat = "<BB{0}s"
+    bString : str
+    packingFormat = "<BB{0}H"
 
 # """
 # USB information available at https://www.beyondlogic.org/usbnutshell/usb6.shtml
@@ -74,13 +74,23 @@ class StringDescriptor(NamedTuple):
 class RequestType(enum.IntEnum):
     outVendorDevice = usb.util.CTRL_OUT | usb.util.CTRL_TYPE_VENDOR | usb.util.CTRL_RECIPIENT_DEVICE
     inVendorDevice = usb.util.CTRL_IN | usb.util.CTRL_TYPE_VENDOR | usb.util.CTRL_RECIPIENT_DEVICE
-#
-# """
-# Vendor-specific request for StellarNet and EZUSB, as accepted by the USB
-# standard and defined in the firmware for EZUSB.
-# """
-#
-class Request(enum.IntEnum):
+
+class SetupPacket(NamedTuple):
+    bmRequestType : int
+    bRequest : int
+    wValue : int
+    wIndex : int
+    wLength : int
+    packingFormat = "<BBHHH"
+
+class StandardRequest(NamedTuple):
+    bmRequestType: int
+    bRequest : int
+
+"""
+https://www.beyondlogic.org/usbnutshell/usb6.shtml#StandardDeviceRequests
+"""
+class StandardDeviceRequest(enum.IntEnum):
     GET_STATUS = 0x00
     CLEAR_FEATURE = 0x01
     SET_FEATURE = 0x03
@@ -89,6 +99,16 @@ class Request(enum.IntEnum):
     SET_DESCRIPTOR = 0x07
     GET_CONFIGURATION = 0x08
     SET_CONFIGURATION = 0x09
+
+class StandardDeviceRequestType(enum.IntEnum):
+    GET_STATUS = usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    CLEAR_FEATURE = usb.util.CTRL_OUT | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    SET_FEATURE = usb.util.CTRL_OUT | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    SET_ADDRESS = usb.util.CTRL_OUT | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    GET_DESCRIPTOR = usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    SET_DESCRIPTOR = usb.util.CTRL_OUT | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    GET_CONFIGURATION = usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
+    SET_CONFIGURATION = usb.util.CTRL_OUT | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE
 
 class DescriptorType(enum.IntEnum):
     Device = 0x01
@@ -144,11 +164,15 @@ class TestUVCCamera(unittest.TestCase):
 
         self.assertTrue(uvcInterfaces > 0)
 
+    def testEnums(self):
+        print(StandardDeviceRequest.GET_STATUS)
+        print(StandardDeviceRequestType.GET_STATUS)
+
     def testSendStatusControlRequest(self):
         device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
 
-        ret = device.ctrl_transfer(usb.util.CTRL_IN,
-                      bRequest=Request.GET_STATUS,
+        ret = device.ctrl_transfer(StandardDeviceRequestType.GET_STATUS,
+                      bRequest=StandardDeviceRequest.GET_STATUS,
                       wValue=0,
                       wIndex=0,
                       data_or_wLength=2)
@@ -157,8 +181,8 @@ class TestUVCCamera(unittest.TestCase):
     def testGetDeviceDescriptor(self):
         device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
 
-        ret = device.ctrl_transfer(usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE,
-                      bRequest=Request.GET_DESCRIPTOR,
+        ret = device.ctrl_transfer(StandardDeviceRequestType.GET_DESCRIPTOR,
+                      bRequest=StandardDeviceRequest.GET_DESCRIPTOR,
                       wValue=(usb.util.DESC_TYPE_DEVICE << 8) ,
                       wIndex=0,
                       data_or_wLength=0x12)
@@ -170,8 +194,8 @@ class TestUVCCamera(unittest.TestCase):
     def testGetConfigurationDescriptor(self):
         device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
 
-        ret = device.ctrl_transfer(usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE,
-                      bRequest=Request.GET_DESCRIPTOR,
+        ret = device.ctrl_transfer(StandardDeviceRequestType.GET_CONFIGURATION,
+                      bRequest=StandardDeviceRequest.GET_DESCRIPTOR,
                       wValue=(usb.util.DESC_TYPE_CONFIG << 8),
                       wIndex=0,
                       data_or_wLength=0x09)
@@ -184,8 +208,8 @@ class TestUVCCamera(unittest.TestCase):
         wTotalLength = ret[2] | (ret[3]<<8)
         self.assertEqual(desc.wTotalLength, wTotalLength)
 
-        ret = device.ctrl_transfer(usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE,
-                      bRequest=Request.GET_DESCRIPTOR,
+        ret = device.ctrl_transfer(StandardDeviceRequestType.GET_CONFIGURATION,
+                      bRequest=StandardDeviceRequest.GET_DESCRIPTOR,
                       wValue=(usb.util.DESC_TYPE_CONFIG << 8),
                       wIndex=0,
                       data_or_wLength=wTotalLength)
