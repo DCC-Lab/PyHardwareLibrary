@@ -46,6 +46,27 @@ class InterfaceDescriptor(NamedTuple):
     iInterface : int
     packingFormat = "<BBBBBBBBB"
 
+class EndpointDescriptor(NamedTuple):
+    bLength: int
+    bDescriptorType: int
+    bEndpointAddress : int
+    bmAttributes : int
+    wMaxPacketSize : int
+    bInterval : int
+    packingFormat = "<BBBBHB"
+
+class StringDescriptor(NamedTuple):
+    bLength: int
+    bDescriptorType: int
+    wLANGID : list
+    packingFormat = "<BB{0}H"
+
+class StringDescriptor(NamedTuple):
+    bLength: int
+    bDescriptorType: int
+    bString : list
+    packingFormat = "<BB{0}s"
+
 # """
 # USB information available at https://www.beyondlogic.org/usbnutshell/usb6.shtml
 # """
@@ -68,6 +89,14 @@ class Request(enum.IntEnum):
     SET_DESCRIPTOR = 0x07
     GET_CONFIGURATION = 0x08
     SET_CONFIGURATION = 0x09
+
+class DescriptorType(enum.IntEnum):
+    Device = 0x01
+    Configuration = 0x02
+    String = 0x03
+    Interface = 0x04
+    Endpoint = 0x05
+
 #
 # """
 # Memory address for Reset on EZUSB chip
