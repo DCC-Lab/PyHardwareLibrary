@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testUVCCamera.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testUVCCamera.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,7 +76,7 @@
       <recent name="$PROJECT_DIR$/hardwarelibrary/tests/deprecated" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetConfigurationDescriptor">
+  <component name="RunManager" selected="Python tests.Python tests in testUVCCamera.py">
     <configuration name="hardwarelibrary" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -120,7 +121,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests for testUVCCamera.TestUVCCamera.testGetClassFromInterface" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests for testUVCCamera.TestUVCCamera" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -131,22 +132,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera.testGetClassFromInterface&quot;" />
-      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Python tests for testUVCCamera.TestUVCCamera.testGetConfiguration" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
-      <module name="PyHardwareLibrary" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera.testGetConfiguration&quot;" />
+      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
@@ -165,7 +151,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests for testUVCCamera.TestUVCCamera.testGetVStandardCInterfaceDescriptor" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests for testUVCCamera.TestUVCCamera.testGetDeviceDescriptor" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -176,11 +162,11 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera.testGetVStandardCInterfaceDescriptor&quot;" />
+      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera.testGetDeviceDescriptor&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests for testUVCCamera.TestUVCCamera.testSendStatusControlRequest" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests for testUVCCamera.TestUVCCamera.testGetInterfaceDescriptor" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -191,26 +177,41 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera.testSendStatusControlRequest&quot;" />
+      <option name="_new_target" value="&quot;testUVCCamera.TestUVCCamera.testGetInterfaceDescriptor&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests in testUVCCamera.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="PyHardwareLibrary" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testUVCCamera.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
     <list>
       <item itemvalue="Python.test" />
       <item itemvalue="Python.hardwarelibrary" />
-      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetConfiguration" />
-      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetClassFromInterface" />
-      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testSendStatusControlRequest" />
-      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetVStandardCInterfaceDescriptor" />
       <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetConfigurationDescriptor" />
+      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetDeviceDescriptor" />
+      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera" />
+      <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetInterfaceDescriptor" />
+      <item itemvalue="Python tests.Python tests in testUVCCamera.py" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests in testUVCCamera.py" />
+        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetInterfaceDescriptor" />
         <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetConfigurationDescriptor" />
-        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetVStandardCInterfaceDescriptor" />
-        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testSendStatusControlRequest" />
-        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetClassFromInterface" />
-        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetConfiguration" />
+        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera" />
+        <item itemvalue="Python tests.Python tests for testUVCCamera.TestUVCCamera.testGetDeviceDescriptor" />
       </list>
     </recent_temporary>
   </component>
@@ -232,7 +233,7 @@
       <workItem from="1633799006587" duration="162000" />
       <workItem from="1634074796406" duration="444000" />
       <workItem from="1634084413305" duration="2217000" />
-      <workItem from="1634314741330" duration="4396000" />
+      <workItem from="1634314741330" duration="6888000" />
     </task>
     <servers />
   </component>
@@ -336,8 +337,13 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testUVCCamera.py</url>
-          <line>59</line>
-          <option name="timeStamp" value="101" />
+          <line>152</line>
+          <option name="timeStamp" value="102" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testUVCCamera.py</url>
+          <line>151</line>
+          <option name="timeStamp" value="103" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -359,7 +365,7 @@
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestPowerMeterPhysicalDevice_testCommandHelp.coverage" NAME="Unittests for testPhysicalDevice.TestPowerMeterPhysicalDevice.testCommandHelp Coverage Results" MODIFIED="1633468673310" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1633237489450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerIsUsable.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerIsUsable Coverage Results" MODIFIED="1633318365946" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
-    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1634323166126" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
+    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1634325695646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testLinearMotionDevice.coverage" NAME="Unittests for testLinearMotionDevice Coverage Results" MODIFIED="1633280168464" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testConfiguredStateAfterInitialize.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testConfiguredStateAfterInitialize Coverage Results" MODIFIED="1633293814434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testDeviceManager_TestDeviceManager_testRestartRunLoop.coverage" NAME="Unittests for testDeviceManager.TestDeviceManager.testRestartRunLoop Coverage Results" MODIFIED="1633309807362" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
