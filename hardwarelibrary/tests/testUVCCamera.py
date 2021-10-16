@@ -511,6 +511,14 @@ class TestUVCCamera(unittest.TestCase):
         self.assertIsNotNone(devices)
 
         for device in devices:
+            ret = device.ctrl_transfer(StandardDeviceRequestType.GET_DESCRIPTOR,
+                                            bRequest=StandardDeviceRequest.GET_DESCRIPTOR,
+                                            wValue=(usb.util.DESC_TYPE_DEVICE << 8),
+                                            wIndex=0,
+                                            data_or_wLength=struct.calcsize(DeviceDescriptor.packingFormat))
+            deviceDescriptor, bytes = self.unpackSingleDescriptor(ret)
+            print(deviceDescriptor)
+
             ret = device.ctrl_transfer(StandardDeviceRequestType.GET_CONFIGURATION,
                                        bRequest=StandardDeviceRequest.GET_DESCRIPTOR,
                                        wValue=(usb.util.DESC_TYPE_CONFIG << 8) | 0,
