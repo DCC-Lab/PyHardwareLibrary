@@ -27,6 +27,13 @@ class DescriptorType(enum.IntEnum):
     CS_INTERFACE = 0x24
     CS_ENDPOINT = 0x25
 
+class DescriptorSubType(enum.IntEnum):
+    VC_HEADER = 0x01
+    VC_INPUT_TERMINAL = 0x02
+    VC_OUTPUT_TERMINAL = 0x03
+    VC_SELECTOR_UNIT = 0x04
+    VC_PROCESSING_UNIT = 0x05
+
 class UnknownDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: DescriptorType
@@ -87,6 +94,13 @@ class InterfaceDescriptor(NamedTuple):
     bInterfaceProtocol: int
     iInterface: int
     packingFormat = "<BBBBBBBBB"
+
+class ClassSpecificInterfaceDescriptor(NamedTuple):
+    bLength: int
+    bDescriptorType: int
+    bDescriptorSubType: int
+    bytes: bytearray = None
+    packingFormat = "<BBB"
 
 class ClassSpecificVCInterfaceDescriptor(NamedTuple):
     bLength: int
@@ -481,15 +495,23 @@ class TestUVCCamera(unittest.TestCase):
                            DescriptorType.Endpoint: EndpointDescriptor,
                            DescriptorType.String: StringDescriptor}
 
+        csDescriptorSubTypes = {
+
+        }
+
         descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
         descriptorBytes = data[:descriptor.bLength]
         remainingBytes = data[descriptor.bLength:]
         descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, descriptorBytes), bytes=descriptorBytes)
 
         try:
-            templateType = descriptorsTypes[descriptor.bDescriptorType]
-            descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
+            if descriptor.bDescriptorType == DescriptorType.CS_INTERFACE:
+                descriptor = ClassSpecificInterfaceDescriptor(*struct.unpack_from(ClassSpecificInterfaceDescriptor.packingFormat, descriptorBytes), bytes=descriptorBytes)
+            else:
+                templateType = descriptorsTypes[descriptor.bDescriptorType]
+                descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
         except Exception as err:
+
             pass
 
         return descriptor, remainingBytes
