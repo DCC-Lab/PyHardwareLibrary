@@ -484,15 +484,12 @@ class TestUVCCamera(unittest.TestCase):
         descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
         descriptorBytes = data[:descriptor.bLength]
         remainingBytes = data[descriptor.bLength:]
-        descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, descriptorBytes))
+        descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, descriptorBytes), bytes=descriptorBytes)
 
         try:
             templateType = descriptorsTypes[descriptor.bDescriptorType]
             descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
-            # print("The descriptor is of type {0}, {1}".format(descriptor.bDescriptorType, templateType))
         except Exception as err:
-            # print(err)
-            # print("The descriptor of type {0} is not recognized: {1}".format(descriptor.bDescriptorType, descriptorBytes))
             pass
 
         return descriptor, remainingBytes
