@@ -516,7 +516,7 @@ class TestUVCCamera(unittest.TestCase):
                 templateType = descriptorsTypes[descriptor.bDescriptorType]
                 descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
         except Exception as err:
-
+            print(err)
             pass
 
         return descriptor, remainingBytes
