@@ -26,13 +26,20 @@ class DescriptorType(enum.IntEnum):
     HID = 0x11
     CS_INTERFACE = 0x24
     CS_ENDPOINT = 0x25
+"""
+https://www.spinelelectronics.com/pdf/UVC%201.5%20Class%20specification.pdf
 
+https://opensource.apple.com/source/IOUSBFamily/IOUSBFamily-555.4.4/USBProberV2/DecodeVideoInterfaceDescriptor.h
+"""
 class DescriptorSubType(enum.IntEnum):
+    VC_DESCRIPTOR_UNDEFINED = 0x00
     VC_HEADER = 0x01
     VC_INPUT_TERMINAL = 0x02
     VC_OUTPUT_TERMINAL = 0x03
     VC_SELECTOR_UNIT = 0x04
     VC_PROCESSING_UNIT = 0x05
+    VC_EXTENSION_UNIT = 0x06
+    VC_ENCODING_UNIT = 0x07
 
 class UnknownDescriptor(NamedTuple):
     bLength: int
@@ -102,7 +109,7 @@ class ClassSpecificInterfaceDescriptor(NamedTuple):
     bytes: bytearray = None
     packingFormat = "<BBB"
 
-class ClassSpecificVCHeaderInterfaceDescriptor(NamedTuple):
+class VideoControlHeaderInterfaceDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -113,8 +120,7 @@ class ClassSpecificVCHeaderInterfaceDescriptor(NamedTuple):
     baInterfaceNr: int = 0
     packingFormat = "<BBBHHLB{0}B"
 
-
-class ClassSpecificVCInputTerminalDescriptorCamera(NamedTuple):
+class VideoControlInputTerminalDescriptorCamera(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -129,8 +135,7 @@ class ClassSpecificVCInputTerminalDescriptorCamera(NamedTuple):
     bmControls: int
     packingFormat = "<BBBBHBBHHHBH"
 
-
-class ClassSpecificVCInputTerminalDescriptorComposite(NamedTuple):
+class VideoControlInputTerminalDescriptorComposite(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -140,8 +145,7 @@ class ClassSpecificVCInputTerminalDescriptorComposite(NamedTuple):
     iTerminal: int
     packingFormat = "<BBBBHBB"
 
-
-class ClassSpecificVCOutputTerminalDescriptor(NamedTuple):
+class VideoControlOutputTerminalDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -152,8 +156,7 @@ class ClassSpecificVCOutputTerminalDescriptor(NamedTuple):
     iTerminal: int
     packingFormat = "<BBBBHBBB"
 
-
-class ClassSpecificVCSelectorUnitDescriptor(NamedTuple):
+class VideoControlSelectorUnitDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -164,8 +167,7 @@ class ClassSpecificVCSelectorUnitDescriptor(NamedTuple):
     iSelector: int
     packingFormat = "<BBBBBBBB"
 
-
-class ClassSpecificVCProcessingUnitDescriptor(NamedTuple):
+class VideoControlProcessingUnitDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -496,11 +498,11 @@ class TestUVCCamera(unittest.TestCase):
                            DescriptorType.String: StringDescriptor}
 
         csDescriptorSubTypes = {
-            DescriptorSubType.VC_HEADER: ClassSpecificVCHeaderInterfaceDescriptor,
-            DescriptorSubType.VC_INPUT_TERMINAL : ClassSpecificVCInputTerminalDescriptorComposite,
-            DescriptorSubType.VC_OUTPUT_TERMINAL : ClassSpecificVCOutputTerminalDescriptor,
-            DescriptorSubType.VC_SELECTOR_UNIT : ClassSpecificVCSelectorUnitDescriptor,
-            DescriptorSubType.VC_PROCESSING_UNIT: ClassSpecificVCProcessingUnitDescriptor,
+            DescriptorSubType.VC_HEADER: VideoControlHeaderInterfaceDescriptor,
+            DescriptorSubType.VC_INPUT_TERMINAL : VideoControlInputTerminalDescriptorComposite,
+            DescriptorSubType.VC_OUTPUT_TERMINAL : VideoControlOutputTerminalDescriptor,
+            DescriptorSubType.VC_SELECTOR_UNIT : VideoControlSelectorUnitDescriptor,
+            DescriptorSubType.VC_PROCESSING_UNIT: VideoControlProcessingUnitDescriptor,
         }
 
         descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
