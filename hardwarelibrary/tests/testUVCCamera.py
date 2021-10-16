@@ -102,7 +102,7 @@ class ClassSpecificInterfaceDescriptor(NamedTuple):
     bytes: bytearray = None
     packingFormat = "<BBB"
 
-class ClassSpecificVCInterfaceDescriptor(NamedTuple):
+class ClassSpecificVCHeaderInterfaceDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -114,7 +114,7 @@ class ClassSpecificVCInterfaceDescriptor(NamedTuple):
     packingFormat = "<BBBHHLB{0}B"
 
 
-class InputTerminalDescriptorCamera(NamedTuple):
+class ClassSpecificVCInputTerminalDescriptorCamera(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -130,7 +130,7 @@ class InputTerminalDescriptorCamera(NamedTuple):
     packingFormat = "<BBBBHBBHHHBH"
 
 
-class InputTerminalDescriptorComposite(NamedTuple):
+class ClassSpecificVCInputTerminalDescriptorComposite(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -141,7 +141,7 @@ class InputTerminalDescriptorComposite(NamedTuple):
     packingFormat = "<BBBBHBB"
 
 
-class OutputTerminalDescriptor(NamedTuple):
+class ClassSpecificVCOutputTerminalDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -153,7 +153,7 @@ class OutputTerminalDescriptor(NamedTuple):
     packingFormat = "<BBBBHBBB"
 
 
-class SelectorUnitDescriptor(NamedTuple):
+class ClassSpecificVCSelectorUnitDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -165,7 +165,7 @@ class SelectorUnitDescriptor(NamedTuple):
     packingFormat = "<BBBBBBBB"
 
 
-class ProcessingUnitDescriptor(NamedTuple):
+class ClassSpecificVCProcessingUnitDescriptor(NamedTuple):
     bLength: int
     bDescriptorType: int
     bDescriptorSubType: int
@@ -496,7 +496,11 @@ class TestUVCCamera(unittest.TestCase):
                            DescriptorType.String: StringDescriptor}
 
         csDescriptorSubTypes = {
-
+            DescriptorSubType.VC_HEADER: ClassSpecificVCHeaderInterfaceDescriptor,
+            DescriptorSubType.VC_INPUT_TERMINAL : ClassSpecificVCInputTerminalDescriptorComposite,
+            DescriptorSubType.VC_OUTPUT_TERMINAL : ClassSpecificVCOutputTerminalDescriptor,
+            DescriptorSubType.VC_SELECTOR_UNIT : ClassSpecificVCSelectorUnitDescriptor,
+            DescriptorSubType.VC_PROCESSING_UNIT: ClassSpecificVCProcessingUnitDescriptor,
         }
 
         descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
@@ -506,7 +510,8 @@ class TestUVCCamera(unittest.TestCase):
 
         try:
             if descriptor.bDescriptorType == DescriptorType.CS_INTERFACE:
-                descriptor = ClassSpecificInterfaceDescriptor(*struct.unpack_from(ClassSpecificInterfaceDescriptor.packingFormat, descriptorBytes), bytes=descriptorBytes)
+                templateType = csDescriptorSubTypes[descriptor.bDescriptorSubType]
+                descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
             else:
                 templateType = descriptorsTypes[descriptor.bDescriptorType]
                 descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
