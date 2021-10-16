@@ -507,7 +507,7 @@ class TestUVCCamera(unittest.TestCase):
 
     def testUnpackDescriptors(self):
         offset = 0
-        devices = usb.core.find(find_all=True)
+        devices = usb.core.find(find_all=True, idVendor=0x5ac)
         self.assertIsNotNone(devices)
 
         for device in devices:
@@ -536,7 +536,7 @@ class TestUVCCamera(unittest.TestCase):
                                         data_or_wLength=desc.wTotalLength)
 
             descriptors = self.unpackDescriptors(data)
-            [ print(d) for d in descriptors]
+            [ print("  ",d) for d in descriptors]
 
 
 if __name__ == '__main__':
