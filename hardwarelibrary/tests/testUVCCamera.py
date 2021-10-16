@@ -31,15 +31,37 @@ https://www.spinelelectronics.com/pdf/UVC%201.5%20Class%20specification.pdf
 
 https://opensource.apple.com/source/IOUSBFamily/IOUSBFamily-555.4.4/USBProberV2/DecodeVideoInterfaceDescriptor.h
 """
+
+
 class DescriptorSubType(enum.IntEnum):
     VC_DESCRIPTOR_UNDEFINED = 0x00
-    VC_HEADER = 0x01
-    VC_INPUT_TERMINAL = 0x02
-    VC_OUTPUT_TERMINAL = 0x03
-    VC_SELECTOR_UNIT = 0x04
-    VC_PROCESSING_UNIT = 0x05
-    VC_EXTENSION_UNIT = 0x06
-    VC_ENCODING_UNIT = 0x07
+    VC_HEADER               = 0x01
+    VC_INPUT_TERMINAL       = 0x02
+    VC_OUTPUT_TERMINAL      = 0x03
+    VC_SELECTOR_UNIT        = 0x04
+    VC_PROCESSING_UNIT      = 0x05
+    VC_EXTENSION_UNIT       = 0x06
+    VC_ENCODING_UNIT        = 0x07
+
+    VS_UNDEFINED			= 0x00,
+    VS_INPUT_HEADER			= 0x01,
+    VS_OUTPUT_HEADER		= 0x02,
+    VS_STILL_IMAGE_FRAME	= 0x03,
+    VS_FORMAT_UNCOMPRESSED	= 0x04,
+    VS_FRAME_UNCOMPRESSED	= 0x05,
+    VS_FORMAT_MJPEG			= 0x06,
+    VS_FRAME_MJPEG			= 0x07,
+    VS_FORMAT_MPEG1			= 0x08, # Reserved in 1.1
+    VS_FORMAT_MPEG2PS		= 0x09, # Reserved in 1.1
+    VS_FORMAT_MPEG2TS		= 0x0a,
+    VS_FORMAT_DV			= 0x0c,
+    VS_COLORFORMAT          = 0x0d,
+    VS_FORMAT_VENDOR		= 0x0e,	# Reserved in 1.1
+    VS_FRAME_VENDOR			= 0x0f,	# Reserved in 1.1
+    VS_FORMAT_FRAME_BASED	= 0x10,
+    VS_FRAME_FRAME_BASED	= 0x11,
+    VS_FORMAT_STREAM_BASED	= 0x12,
+    VS_FORMAT_MPEG4SL		= 0xFF # Undefined in 1.1
 
 class UnknownDescriptor(NamedTuple):
     bLength: int
@@ -179,6 +201,20 @@ class VideoControlProcessingUnitDescriptor(NamedTuple):
     iProcessing: int
     bmVideoStandards: int
     packingFormat = "<BBBBBHBHBB"
+
+class VideoStreamingMJPEGVideoFormatDescriptor(NamedTuple):
+    bLength: int
+    bDescriptorType: int
+    bDescriptorSubType: int
+    bFormatIndex: int
+    bNumFrameDescriptors: int
+    bmFlags: int
+    bDefaultFrameIndex: int
+    bAspectRatioX: int
+    bAspectRatioY: int
+    bmInterlaceFlags: int
+    bCopyProtect : int
+    packingFormat = "<10B"
 
 
 class StandardInterruptEndpointDescriptor(NamedTuple):
@@ -503,6 +539,7 @@ class TestUVCCamera(unittest.TestCase):
             DescriptorSubType.VC_OUTPUT_TERMINAL : VideoControlOutputTerminalDescriptor,
             DescriptorSubType.VC_SELECTOR_UNIT : VideoControlSelectorUnitDescriptor,
             DescriptorSubType.VC_PROCESSING_UNIT: VideoControlProcessingUnitDescriptor,
+            DescriptorSubType.VS_FORMAT_MJPEG: VideoStreamingMJPEGVideoFormatDescriptor
         }
 
         descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
