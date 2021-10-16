@@ -510,6 +510,9 @@ class TestUVCCamera(unittest.TestCase):
 
         try:
             if descriptor.bDescriptorType == DescriptorType.CS_INTERFACE:
+                descriptor = ClassSpecificInterfaceDescriptor(
+                    *struct.unpack_from(ClassSpecificInterfaceDescriptor.packingFormat, descriptorBytes),
+                    bytes=descriptorBytes)
                 templateType = csDescriptorSubTypes[descriptor.bDescriptorSubType]
                 descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
             else:
