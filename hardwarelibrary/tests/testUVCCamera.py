@@ -214,7 +214,7 @@ class VideoStreamingMJPEGVideoFormatDescriptor(NamedTuple):
     bAspectRatioY: int
     bmInterlaceFlags: int
     bCopyProtect : int
-    packingFormat = "<10B"
+    packingFormat = "<11B"
 
 
 class StandardInterruptEndpointDescriptor(NamedTuple):
