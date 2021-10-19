@@ -334,25 +334,56 @@ class StandardEndpointRequestType(enum.IntEnum):
     SYNCH_FRAME = usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_ENDPOINT
 
 
-#
-# """
-# Memory address for Reset on EZUSB chip
-# """
-#
-# class Value(enum.IntEnum):
-#     reset = 0xE600
-#
-# """
-# Reset ON/OFF values
-# """
-#
-# class Data(enum.IntEnum):
-#     resetON = 1
-#     resetOFF = 0
+class Inspector:
+    @classmethod
+    def unpackSingleDescriptor(cls, data) -> ():
+        descriptorsTypes = {DescriptorType.Device: DeviceDescriptor,
+                           DescriptorType.Configuration: ConfigurationDescriptor,
+                           DescriptorType.Interface: InterfaceDescriptor,
+                           DescriptorType.Endpoint: EndpointDescriptor,
+                           DescriptorType.String: StringDescriptor}
+
+        csDescriptorSubTypes = {
+            DescriptorSubType.VC_HEADER: VideoControlHeaderInterfaceDescriptor,
+            DescriptorSubType.VC_INPUT_TERMINAL : VideoControlInputTerminalDescriptorComposite,
+            DescriptorSubType.VC_OUTPUT_TERMINAL : VideoControlOutputTerminalDescriptor,
+            DescriptorSubType.VC_SELECTOR_UNIT : VideoControlSelectorUnitDescriptor,
+            DescriptorSubType.VC_PROCESSING_UNIT: VideoControlProcessingUnitDescriptor,
+            DescriptorSubType.VS_FORMAT_MJPEG: VideoStreamingMJPEGVideoFormatDescriptor
+        }
+
+        descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
+        descriptorBytes = data[:descriptor.bLength]
+        remainingBytes = data[descriptor.bLength:]
+        descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, descriptorBytes), bytes=descriptorBytes)
+
+        try:
+            if descriptor.bDescriptorType == DescriptorType.CS_INTERFACE:
+                descriptor = ClassSpecificInterfaceDescriptor(
+                    *struct.unpack_from(ClassSpecificInterfaceDescriptor.packingFormat, descriptorBytes),
+                    bytes=descriptorBytes)
+                templateType = csDescriptorSubTypes[descriptor.bDescriptorSubType]
+                descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
+            else:
+                templateType = descriptorsTypes[descriptor.bDescriptorType]
+                descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
+        except Exception as err:
+            print(err)
+            pass
+
+        return descriptor, remainingBytes
+
+    @classmethod
+    def unpackDescriptors(cls, data):
+        descriptors = []
+        while len(data) > 0:
+            descriptor, data = Inspector.unpackSingleDescriptor(data)
+            descriptors.append(descriptor)
+
+        return descriptors
 
 
-
-class TestUVCCamera(unittest.TestCase):
+class TestUSBDescriptorInspector(unittest.TestCase):
     def testDescriptorPackingFormats(self):
         self.assertEqual(struct.calcsize(DeviceDescriptor.packingFormat), 18)
         self.assertEqual(struct.calcsize(ConfigurationDescriptor.packingFormat), 9)
@@ -526,54 +557,9 @@ class TestUVCCamera(unittest.TestCase):
         desc = InterfaceDescriptor(*theStruct)
         print(desc)
 
-    def unpackSingleDescriptor(self, data) -> ():
-        descriptorsTypes = {DescriptorType.Device: DeviceDescriptor,
-                           DescriptorType.Configuration: ConfigurationDescriptor,
-                           DescriptorType.Interface: InterfaceDescriptor,
-                           DescriptorType.Endpoint: EndpointDescriptor,
-                           DescriptorType.String: StringDescriptor}
-
-        csDescriptorSubTypes = {
-            DescriptorSubType.VC_HEADER: VideoControlHeaderInterfaceDescriptor,
-            DescriptorSubType.VC_INPUT_TERMINAL : VideoControlInputTerminalDescriptorComposite,
-            DescriptorSubType.VC_OUTPUT_TERMINAL : VideoControlOutputTerminalDescriptor,
-            DescriptorSubType.VC_SELECTOR_UNIT : VideoControlSelectorUnitDescriptor,
-            DescriptorSubType.VC_PROCESSING_UNIT: VideoControlProcessingUnitDescriptor,
-            DescriptorSubType.VS_FORMAT_MJPEG: VideoStreamingMJPEGVideoFormatDescriptor
-        }
-
-        descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, data))
-        descriptorBytes = data[:descriptor.bLength]
-        remainingBytes = data[descriptor.bLength:]
-        descriptor = UnknownDescriptor(*struct.unpack_from(UnknownDescriptor.packingFormat, descriptorBytes), bytes=descriptorBytes)
-
-        try:
-            if descriptor.bDescriptorType == DescriptorType.CS_INTERFACE:
-                descriptor = ClassSpecificInterfaceDescriptor(
-                    *struct.unpack_from(ClassSpecificInterfaceDescriptor.packingFormat, descriptorBytes),
-                    bytes=descriptorBytes)
-                templateType = csDescriptorSubTypes[descriptor.bDescriptorSubType]
-                descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
-            else:
-                templateType = descriptorsTypes[descriptor.bDescriptorType]
-                descriptor = templateType(*struct.unpack_from(templateType.packingFormat, descriptorBytes))
-        except Exception as err:
-            print(err)
-            pass
-
-        return descriptor, remainingBytes
-
-    def unpackDescriptors(self, data):
-        descriptors = []
-        while len(data) > 0:
-            descriptor, data = self.unpackSingleDescriptor(data)
-            descriptors.append(descriptor)
-
-        return descriptors
-
     def testUnpackDescriptors(self):
         offset = 0
-        devices = usb.core.find(find_all=True, idVendor=0x5ac)
+        devices = usb.core.find(find_all=True)
         self.assertIsNotNone(devices)
 
         for device in devices:
@@ -582,7 +568,7 @@ class TestUVCCamera(unittest.TestCase):
                                             wValue=(usb.util.DESC_TYPE_DEVICE << 8),
                                             wIndex=0,
                                             data_or_wLength=struct.calcsize(DeviceDescriptor.packingFormat))
-            deviceDescriptor, bytes = self.unpackSingleDescriptor(ret)
+            deviceDescriptor, bytes = Inspector.unpackSingleDescriptor(ret)
             print(deviceDescriptor)
 
             ret = device.ctrl_transfer(StandardDeviceRequestType.GET_CONFIGURATION,
@@ -601,7 +587,7 @@ class TestUVCCamera(unittest.TestCase):
                                         wIndex=0,
                                         data_or_wLength=desc.wTotalLength)
 
-            descriptors = self.unpackDescriptors(data)
+            descriptors = Inspector.unpackDescriptors(data)
             [ print("  ",d) for d in descriptors]
 
 
