@@ -67,12 +67,12 @@ class SerialPort(CommunicationPort):
         # or              idVendor and idProduct
         # or              idVendor
 
-        # We must add custom vendors when rewquired
+        # We must add custom vendors when required
         try:
             if idVendor is not None and idProduct is not None:
                 # print("Adding custom product")
                 pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
-            elif idVendor is not None :
+            elif idVendor is not None:
                 # print("Adding custom vendor")
                 pyftdi.ftdi.Ftdi.add_custom_vendor(vid=idVendor, vidname='VID {0}'.format(idVendor))
 
