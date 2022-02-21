@@ -382,25 +382,18 @@ class Inspector:
 
         return descriptors
 
-
-class TestUSBDescriptorInspector(unittest.TestCase):
-    def testDescriptorPackingFormats(self):
-        self.assertEqual(struct.calcsize(DeviceDescriptor.packingFormat), 18)
-        self.assertEqual(struct.calcsize(ConfigurationDescriptor.packingFormat), 9)
-        self.assertEqual(struct.calcsize(InterfaceDescriptor.packingFormat), 9)
-        self.assertEqual(struct.calcsize(EndpointDescriptor.packingFormat), 7)
+class TestUVCCamera(unittest.TestCase):
+    idVendor = 0x2e1a
+    idProduct = 0x00c1
 
     def setUp(self):
-        self.device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
-        # self.assertIsNotNone(self.device)
-
-    def testUSBDevices(self):
-        devices = list(usb.core.find(find_all=True))
-        self.assertIsNotNone(devices)
-        self.assertTrue(len(devices) > 0)
+        # self.device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
+        self.device = usb.core.find(idVendor=TestUVCCamera.idVendor, idProduct=TestUVCCamera.idProduct)
+        if self.device is None:
+            raise unittest.SkipTest("No facetime camera")
 
     def testGetFacetimeCam(self):
-        devices = list(usb.core.find(idVendor=0x05ac, idProduct=0x1112))
+        devices = list(usb.core.find(idVendor=TestUVCCamera.idVendor, idProduct=TestUVCCamera.idProduct))
         self.assertIsNotNone(devices)
         self.assertTrue(len(devices) == 1)
         cam = devices[0]
@@ -413,7 +406,7 @@ class TestUSBDescriptorInspector(unittest.TestCase):
             conf.bDeviceClass
 
     def testGetClassFromInterface(self):
-        device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
+        device = usb.core.find(idVendor=TestUVCCamera.idVendor, idProduct=TestUVCCamera.idProduct)
         conf = device.get_active_configuration()
 
         uvcInterfaces = 0
@@ -422,6 +415,18 @@ class TestUSBDescriptorInspector(unittest.TestCase):
                 uvcInterfaces += 1
 
         self.assertTrue(uvcInterfaces > 0)
+
+    def testDescriptorPackingFormats(self):
+        self.assertEqual(struct.calcsize(DeviceDescriptor.packingFormat), 18)
+        self.assertEqual(struct.calcsize(ConfigurationDescriptor.packingFormat), 9)
+        self.assertEqual(struct.calcsize(InterfaceDescriptor.packingFormat), 9)
+        self.assertEqual(struct.calcsize(EndpointDescriptor.packingFormat), 7)
+
+    def testUSBDevices(self):
+        devices = list(usb.core.find(find_all=True))
+        self.assertIsNotNone(devices)
+        self.assertTrue(len(devices) > 0)
+
 
     def testEnums(self):
         print(StandardDeviceRequest.GET_STATUS)
@@ -496,8 +501,8 @@ class TestUSBDescriptorInspector(unittest.TestCase):
             print(interfaceDescriptor)
             offset += interfaceDescriptor.bLength
 
-            classSpecificDescriptor = ClassSpecificVCInterfaceDescriptor(
-                *struct.unpack_from(ClassSpecificVCInterfaceDescriptor.packingFormat.format(0), ret, offset))
+            classSpecificDescriptor = VideoControlHeaderInterfaceDescriptor(
+                *struct.unpack_from(VideoControlHeaderInterfaceDescriptor.packingFormat.format(0), ret, offset))
             print(classSpecificDescriptor)
             self.assertEqual(classSpecificDescriptor.bLength, 0x0d)
             self.assertEqual(classSpecificDescriptor.bDescriptorType, 0x24)
@@ -543,7 +548,7 @@ class TestUSBDescriptorInspector(unittest.TestCase):
         Interface Descriptors cannot be accessed directly by a GetDescriptor/SetDescriptor Request.
         String Descriptors include a Language ID in wIndex to allow for multiple language support.
         """
-        device = usb.core.find(idVendor=0x05ac, idProduct=0x1112)
+        device = usb.core.find(idVendor=idVendor, idProduct=idProduct)
 
         ret = device.ctrl_transfer(usb.util.CTRL_IN | usb.util.CTRL_TYPE_STANDARD | usb.util.CTRL_RECIPIENT_DEVICE,
                                    bRequest=Request.GET_DESCRIPTOR,
