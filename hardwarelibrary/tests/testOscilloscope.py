@@ -33,6 +33,12 @@ class TestTektronik(unittest.TestCase):
         self.device.displayWaveforms([Channels.CH1, Channels.CH2])
         self.device.shutdownDevice()
 
+    def testDisplayWaveform(self):
+        self.device = OscilloscopeDevice()
+        self.device.initializeDevice()
+        self.device.displayWaveforms([Channels.CH1, Channels.CH2])
+        self.device.shutdownDevice()
+
 
 @unittest.skip("For understanding earlier on")
 class TestTektronikSerialCommands(unittest.TestCase):
