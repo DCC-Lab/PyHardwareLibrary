@@ -27,7 +27,7 @@ class OscilloscopeDevice(PhysicalDevice):
     classIdVendor = 0x0403
     classIdProduct = 0x6001
 
-    def __init__(self, serialNumber:str = None):
+    def __init__(self, serialNumber:str = None, idProduct = 0x6001, idVendor = 0x0403):
         super().__init__(serialNumber, idProduct=self.classIdProduct, idVendor=self.classIdVendor)
 
         self.port = SerialPort(idVendor=self.classIdVendor, idProduct=self.classIdProduct)
@@ -59,7 +59,7 @@ class OscilloscopeDevice(PhysicalDevice):
         if self.port is not None:
             self.port.open(baudRate=9600, timeout=5.0, rtscts=True)
             self.doGetTektronikStatus()
-            self.model = self.doSendQuery("ID?\n", "ID (TEK.*?),.+")
+            # self.model = self.doSendQuery("ID?\n", "ID (TEK.*?),.+")
 
     def doShutdownDevice(self):
         if self.port is not None:
@@ -170,6 +170,18 @@ class OscilloscopeDevice(PhysicalDevice):
         if hasError:
             return errors[0]
         return None
+
+    @classmethod
+    def showHelp(cls, err=None):
+        print("This should work with Tektronik scopes (tested on TDS-1002)")
+
+        # Well, how about that? This does not work in Windows
+        # https://stackoverflow.com/questions/2330245/python-change-text-color-in-shell
+        # if sys.stdout.isatty:
+        #     err = '\x1b[{0}m{1}\x1b[0m'.format(';'.join(['33','1']), err)
+
+        print("""    There was an error when starting: '{0}'.
+    See above for help.""".format(err))
 
 
 if __name__ == "__main__":
