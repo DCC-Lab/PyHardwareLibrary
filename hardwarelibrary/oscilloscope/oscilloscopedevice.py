@@ -9,6 +9,8 @@ class Channels(Enum):
     ch2     = "ch2"
 
 class OscilloscopeDevice(PhysicalDevice):
+    classIdVendor = 0x0403
+    classIdProduct = 0x6001
 
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
         super().__init__(serialNumber, idProduct, idVendor)
