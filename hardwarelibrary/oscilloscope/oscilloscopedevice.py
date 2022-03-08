@@ -33,13 +33,11 @@ class OscilloscopeDevice(PhysicalDevice):
         self.port = SerialPort(idVendor=self.classIdVendor, idProduct=self.classIdProduct)
         self.delay = None
 
-    def wait(self):
-        if self.delay is not None:
-            time.sleep(self.delay)
-
     def displayWaveforms(self, channels=None):
         if channels is None:
             channels = [Channels.CH1, Channels.CH2]
+
+        plt.style.use('https://raw.githubusercontent.com/dccote/Enseignement/master/SRC/dccote-errorbars.mplstyle')
 
         for channel in channels:
             waveform = self.getWaveform(channel)
@@ -50,20 +48,9 @@ class OscilloscopeDevice(PhysicalDevice):
                 marker = 'k--'
             plt.plot(x,y,marker)
         
-        plt.style.use('https://raw.githubusercontent.com/dccote/Enseignement/master/SRC/dccote-errorbars.mplstyle')
         plt.ylabel("Voltage [V]")
         plt.xlabel("Time [s]")
         plt.show()
-
-    def doInitializeDevice(self):
-        if self.port is not None:
-            self.port.open(baudRate=9600, timeout=5.0, rtscts=True)
-            self.doGetTektronikStatus()
-            # self.model = self.doSendQuery("ID?\n", "ID (TEK.*?),.+")
-
-    def doShutdownDevice(self):
-        if self.port is not None:
-            self.port.close()
 
     def getWaveform(self, channel):
         self.doSendCommand("SELECT:{0} ON\n".format(channel.value))
@@ -80,6 +67,20 @@ class OscilloscopeDevice(PhysicalDevice):
         values = self.doReadBinaryBlock()
 
         return [(xZero + xIncr*(i-ptOffset), yZero + (value-yOffset)*yMul ) for i,value in enumerate(values) ]
+
+    def doInitializeDevice(self):
+        if self.port is not None:
+            self.port.open(baudRate=9600, timeout=5.0, rtscts=True)
+            self.doGetTektronikStatus()
+            # self.model = self.doSendQuery("ID?\n", "ID (TEK.*?),.+")
+
+    def doShutdownDevice(self):
+        if self.port is not None:
+            self.port.close()
+
+    def wait(self):
+        if self.delay is not None:
+            time.sleep(self.delay)
 
     def doSendQuery(self, query, replyPattern):
         try:
@@ -135,7 +136,7 @@ class OscilloscopeDevice(PhysicalDevice):
 
         stb = None
         esr = None
-        errors = {}
+        errors = []
 
         while True:
             try:
@@ -173,12 +174,7 @@ class OscilloscopeDevice(PhysicalDevice):
 
     @classmethod
     def showHelp(cls, err=None):
-        print("This should work with Tektronik scopes (tested on TDS-1002)")
-
-        # Well, how about that? This does not work in Windows
-        # https://stackoverflow.com/questions/2330245/python-change-text-color-in-shell
-        # if sys.stdout.isatty:
-        #     err = '\x1b[{0}m{1}\x1b[0m'.format(';'.join(['33','1']), err)
+        print("This OscilloscopeDevice works with Tektronik scopes only (and was tested with a TDS-1002)")
 
         print("""    There was an error when starting: '{0}'.
     See above for help.""".format(err))
