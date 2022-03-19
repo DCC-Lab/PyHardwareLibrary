@@ -18,7 +18,7 @@ class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
         self.dev.close()
 
     def setConfiguration(self, parameters:dict):
-        pass
+        raise NotImplementedError("You must use default parameters or call the U3's labjack.dev functions directly")
 
     def configuration(self):
         return self.dev.configU3()

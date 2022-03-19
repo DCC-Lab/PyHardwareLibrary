@@ -97,5 +97,12 @@ class TestLabjackDevice(unittest.TestCase):
 
             expectedValue = not expectedValue
 
+    def testConfiguration(self):
+        self.assertIsNotNone(self.device.configuration())
+
+    def testSetConfiguration(self):
+        with self.assertRaises(NotImplementedError):
+            self.device.setConfiguration(None)
+
 if __name__ == '__main__':
     unittest.main()
