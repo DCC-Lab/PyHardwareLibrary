@@ -22,7 +22,7 @@ setuptools.setup(
     license='MIT',
     keywords='hardware devices usb communication app control spectrometer powermeter camera',
     packages=setuptools.find_packages(),
-    install_requires=['numpy','matplotlib','PySerial','PyUSB','pyftdi','opencv-python'],
+    install_requires=['numpy','matplotlib','PySerial','PyUSB','pyftdi','opencv-python','LabJackPython'],
     python_requires='>=3.7',
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
