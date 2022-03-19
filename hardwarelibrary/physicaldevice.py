@@ -41,7 +41,7 @@ class PhysicalDevice:
             idVendor = self.classIdVendor
 
         if not self.isCompatibleWith(serialNumber, idProduct, idVendor):
-            raise PhysicalDevice.ClassIncompatibleWithRequestedDevice()
+            raise PhysicalDevice.ClassIncompatibleWithRequestedDevice("You must define classIdVendor classIdProduct")
 
         self.idVendor = idVendor
         self.idProduct = idProduct
