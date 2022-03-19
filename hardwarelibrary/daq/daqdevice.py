@@ -37,3 +37,22 @@ class DigitalIOProtocol(Protocol):
     def setDigitalValue(self, value, channel):
         pass
 
+class CounterProtocol(Protocol):
+    def configureCounters(self, parameters:dict):
+        pass
+
+    def getCounterValue(self, channel):
+        pass
+
+class TimerProtocol(Protocol):
+    def configureTimers(self, parameters:dict):
+        pass
+
+    def getTimerValue(self, channel):
+        pass
+
+    def startTimer(self, channel):
+        pass
+
+    def stopTimer(self, channel):
+        pass
