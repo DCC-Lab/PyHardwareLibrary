@@ -40,7 +40,7 @@ class TestTektronik(unittest.TestCase):
         self.device.shutdownDevice()
 
 
-@unittest.skip("For understanding earlier on")
+@unittest.skip("For understanding earlier on, not necessary anymore")
 class TestTektronikSerialCommands(unittest.TestCase):
     idVendor = 0x0403
     idProduct = 0x6001
