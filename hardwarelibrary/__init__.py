@@ -12,6 +12,7 @@ from hardwarelibrary.communication import *
 
 # We want these modules in their namespace
 import hardwarelibrary.spectrometers
+import hardwarelibrary.oscilloscope
 import hardwarelibrary.motion
 import hardwarelibrary.cameras
 
