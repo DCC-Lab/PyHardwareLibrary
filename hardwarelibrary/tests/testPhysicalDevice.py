@@ -1,3 +1,4 @@
+import env
 import unittest
 
 from hardwarelibrary.devicemanager import *
@@ -5,7 +6,7 @@ from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.powermeters import IntegraDevice
-from hardwarelibrary.cameras import OpenCVCamera
+# from hardwarelibrary.cameras import OpenCVCamera
 from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
 
 
@@ -202,6 +203,15 @@ class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No powermeter connected"))
+
+class TestTektronikPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        try:
+            self.device = OscilloscopeDevice()
+            self.assertIsNotNone(self.device)
+        except Exception as err:
+            raise (unittest.SkipTest("No oscilloscope connected"))
 
 class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):

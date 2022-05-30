@@ -8,6 +8,7 @@ from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer
 from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
+from hardwarelibrary.oscilloscope import OscilloscopeDevice
 from hardwarelibrary.communication.diagnostics import *
 
 class DeviceManagerNotification(Enum):
@@ -214,13 +215,16 @@ class DeviceManager:
         candidates = PhysicalDevice.candidates(descriptor.idVendor, descriptor.idProduct)
         for candidateClass in candidates:
             # This may throw if incompatible
-            deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
+            try:
+                deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
                                             idProduct=descriptor.idProduct,
                                             idVendor=descriptor.idVendor)
-            deviceInstance.initializeDevice()
-            deviceInstance.shutdownDevice()
-            self.addDevice(deviceInstance)
-
+                deviceInstance.initializeDevice()
+                deviceInstance.shutdownDevice()
+                self.addDevice(deviceInstance)
+            except Exception as err:
+                pass
+                
     def usbDeviceDisconnected(self, usbDevice):
         descriptor = None
         for aDescriptor in self.usbDeviceDescriptors:

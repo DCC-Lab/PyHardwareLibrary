@@ -149,7 +149,7 @@ class SerialPort(CommunicationPort):
                 return True
         return False
 
-    def open(self, baudRate=57600, timeout=0.3):
+    def open(self, baudRate=57600, timeout=0.3, rtscts=False, dsrdtr=False):
         if self.port is None:
             if self.portPathIsURL:
                 # See https://eblot.github.io/pyftdi/api/uart.html
@@ -157,7 +157,7 @@ class SerialPort(CommunicationPort):
                 # print(self.portPath)
                 self.port = pyftdi.serialext.serial_for_url(self.portPath, baudrate=baudRate, timeout=timeout)
             else:
-                self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)
+                self.port = serial.Serial(self.portPath, baudRate, timeout=timeout, rtscts=rtscts, dsrdtr=dsrdtr)
         else:
             self.port.open()
 
