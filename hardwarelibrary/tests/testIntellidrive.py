@@ -86,6 +86,7 @@ class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
 
     def testHome(self):
         ports = SerialPort.matchPorts(serialNumber="AH06UKI3", idVendor=0x0403, idProduct = 0x6001)
+
         port = SerialPort(portPath=ports[0])
         port.open(baudRate=9600)
         port.terminator = b'\r'
