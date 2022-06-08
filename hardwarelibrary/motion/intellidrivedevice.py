@@ -87,7 +87,7 @@ class IntellidriveDevice(RotationDevice):
             reply, steps = self.port.writeStringReadFirstMatchingGroup('g r0x32\r', replyPattern=r'v\s(\d+)')
             self._steps = steps
 
-        self.theta = self._steps / self.stepsPerDegree
+        return self._steps / self.stepsPerDegree
 
     def doMoveTo(self, angle):
         self.port.writeStringExpectMatchingString('s r0xc8 0\r', replyPattern='ok')

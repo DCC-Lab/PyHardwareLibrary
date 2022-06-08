@@ -162,6 +162,8 @@ class TestIntellidrivePhysicalDevice(unittest.TestCase):
 
         for angle in [0, 180, 360, 720]:
             dev.moveTo(angle)
+            actualOrientation = dev.orientation()
+            self.assertAlmostEqual(angle, actualOrientation, 2)
 
         dev.shutdownDevice()
 

@@ -6,7 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="60">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/communication/serialport.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/motion/intellidrivedevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/motion/intellidrivedevice.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testIntellidrive.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testIntellidrive.py" afterDir="false" />
     </list>
@@ -85,7 +84,7 @@
       <recent name="$PROJECT_DIR$/hardwarelibrary/tests/deprecated" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests for testIntellidrive.TestIntellidrivePhysicalDevice.testSpinAround">
+  <component name="RunManager" selected="Python tests.Unittests for testIntellidrive">
     <configuration name="hardwarelibrary" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -216,8 +215,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python tests.Python tests for testIntellidrive.TestIntellidrivePhysicalDevice.testSpinAround" />
         <item itemvalue="Python tests.Unittests for testIntellidrive" />
+        <item itemvalue="Python tests.Python tests for testIntellidrive.TestIntellidrivePhysicalDevice.testSpinAround" />
         <item itemvalue="Python tests.Python tests for testIntellidrive.TestIntellidriveBasicCommandsWithPySerial" />
         <item itemvalue="Python tests.Python tests for testIntellidrive.TestIntellidrivePhysicalDevice.testOrientation" />
         <item itemvalue="Python tests.Python tests for testIntellidrive.TestIntellidrivePhysicalDevice" />
@@ -244,7 +243,7 @@
       <workItem from="1634084413305" duration="2217000" />
       <workItem from="1647633677538" duration="830000" />
       <workItem from="1647700959054" duration="7073000" />
-      <workItem from="1654650591492" duration="11139000" />
+      <workItem from="1654650591492" duration="11500000" />
     </task>
     <servers />
   </component>
@@ -359,6 +358,11 @@
           <line>85</line>
           <option name="timeStamp" value="108" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/hardwarelibrary/motion/intellidrivedevice.py</url>
+          <line>115</line>
+          <option name="timeStamp" value="110" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
@@ -371,7 +375,7 @@
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testDeviceManager.coverage" NAME="Unittests for testDeviceManager Coverage Results" MODIFIED="1633291099266" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerSynchronously.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerSynchronously Coverage Results" MODIFIED="1633319357042" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1633237489450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
-    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1654664265350" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
+    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1654664641401" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testLinearMotionDevice.coverage" NAME="Unittests for testLinearMotionDevice Coverage Results" MODIFIED="1633280168464" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testConfiguredStateAfterInitialize.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testConfiguredStateAfterInitialize Coverage Results" MODIFIED="1633293814434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice.coverage" NAME="Unittests for testPhysicalDevice Coverage Results" MODIFIED="1633662737770" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
