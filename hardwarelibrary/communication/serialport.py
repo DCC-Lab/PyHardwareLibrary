@@ -149,6 +149,7 @@ class SerialPort(CommunicationPort):
                 return True
         return False
 
+    def open(self, baudRate=57600, timeout=0.3, rtscts=False, dsrdtr=False):
         if self.port is None:
             if self.portPathIsURL:
                 # See https://eblot.github.io/pyftdi/api/uart.html
