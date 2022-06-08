@@ -152,7 +152,7 @@ class TestIntellidrivePhysicalDevice(unittest.TestCase):
         dev = IntellidriveDevice(serialNumber="AH06UKI3")
         self.assertIsNotNone(dev)
         dev.initializeDevice()
-        print(dev.doGetOrientation())
+        print(dev.orientation())
         dev.shutdownDevice()
 
     def testSpinAround(self):
@@ -160,7 +160,7 @@ class TestIntellidrivePhysicalDevice(unittest.TestCase):
         self.assertIsNotNone(dev)
         dev.initializeDevice()
 
-        for angle in [0, 360]:
+        for angle in [0, 180, 360, 720]:
             dev.moveTo(angle)
 
         dev.shutdownDevice()

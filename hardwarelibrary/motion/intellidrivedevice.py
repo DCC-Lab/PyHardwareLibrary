@@ -25,10 +25,9 @@ class IntellidriveDevice(RotationDevice):
 
     def __init__(self, serialNumber):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
-        self.orientation = None
-        self.internalState = State.notInit
         self._steps = None
-        self.stepsPerDegree = 1050/360 # 138.888
+        self.internalState = State.notInit
+        self.stepsPerDegree = 138.888*6 # I don't know where I got this number from. The *6 is a quick fix.
         self.hasEncoder = False
 
     def doInitializeDevice(self):
