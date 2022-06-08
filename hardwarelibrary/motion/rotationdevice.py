@@ -18,18 +18,18 @@ class RotationDevice(PhysicalDevice):
         self.theta = None
 
     def moveTo(self, angle):
-        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=angle)
         self.doMoveTo(angle)
-        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self, userInfo=angle)
 
     def moveBy(self, deltaTheta):
-        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=displacement)
+        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=deltaTheta)
         self.doMoveBy(deltaTheta)
-        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self, userInfo=displacement)
+        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self, userInfo=deltaTheta)
 
     def orientation(self) -> ():
         orientation = self.doGetOrientation()
-        NotificationCenter().postNotification(RotationMotionNotification.didGetOrientation, notifyingObject=self, userInfo=position)
+        NotificationCenter().postNotification(RotationMotionNotification.didGetOrientation, notifyingObject=self, userInfo=orientation)
         return orientation
 
     def home(self) -> ():

@@ -149,7 +149,6 @@ class SerialPort(CommunicationPort):
                 return True
         return False
 
-    def open(self, baudRate=57600, timeout=0.3, rtscts=False, dsrdtr=False):
         if self.port is None:
             if self.portPathIsURL:
                 # See https://eblot.github.io/pyftdi/api/uart.html
@@ -182,6 +181,12 @@ class SerialPort(CommunicationPort):
             self.port.flushInput()
             self.port.flushOutput()
             time.sleep(0.02)
+
+    def readString(self, endPoint=0):
+        with self.portLock:
+            data = self.port.read_until(expected=self.terminator)
+
+        return data.decode()
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
