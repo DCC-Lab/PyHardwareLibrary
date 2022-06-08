@@ -5,15 +5,16 @@ import unittest
 from hardwarelibrary.communication.serialport import *
 from hardwarelibrary.motion.intellidrivedevice import IntellidriveDevice
 
+serialNumber = "A103LLZD"
+
 class TestIntellidriveBasicCommandsWithPySerial(unittest.TestCase):
     def setUp(self):
         self.port = None
         self.portPath = None
-
         ports = serial.tools.list_ports.comports()
         for port in ports:
             if port.vid == 0x0403 and port.pid == 0x6001: # Sutter Instruments
-                self.portPath = "/dev/cu.usbserial-AH06UKI3"
+                self.portPath = "/dev/cu.usbserial-{0}".format(serialNumber)
 
         if self.portPath is None:
             raise(unittest.SkipTest("No Intellidrive connected. Skipping."))
@@ -64,18 +65,18 @@ class TestIntellidriveBasicCommandsWithPySerial(unittest.TestCase):
 class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
 
     def testPort(self):
-        port = SerialPort.matchPorts(serialNumber="AH06UKI3", idVendor=0x0403, idProduct = 0x6001)
+        port = SerialPort.matchPorts(serialNumber=serialNumber, idVendor=0x0403, idProduct = 0x6001)
         self.assertIsNotNone(port)
 
     def testOpenPort(self):
-        ports = SerialPort.matchPorts(serialNumber="AH06UKI3", idVendor=0x0403, idProduct = 0x6001)
+        ports = SerialPort.matchPorts(serialNumber=serialNumber, idVendor=0x0403, idProduct = 0x6001)
         port = SerialPort(portPath=ports[0])
         port.open(baudRate=9600)
         self.assertIsNotNone(port)
         port.close()
 
     def testWritePort(self):
-        ports = SerialPort.matchPorts(serialNumber="AH06UKI3", idVendor=0x0403, idProduct = 0x6001)
+        ports = SerialPort.matchPorts(serialNumber=serialNumber, idVendor=0x0403, idProduct = 0x6001)
         port = SerialPort(portPath=ports[0])
         port.open(baudRate=9600)
         port.terminator = b'\r'
@@ -85,7 +86,7 @@ class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
         port.close()
 
     def testHome(self):
-        ports = SerialPort.matchPorts(serialNumber="AH06UKI3", idVendor=0x0403, idProduct = 0x6001)
+        ports = SerialPort.matchPorts(serialNumber=serialNumber, idVendor=0x0403, idProduct = 0x6001)
         port = SerialPort(portPath=ports[0])
         port.open(baudRate=9600)
         port.terminator = b'\r'
@@ -110,7 +111,7 @@ class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
         port.close()
 
     def testHomeWithCommands(self):
-        ports = SerialPort.matchPorts(serialNumber="AH06UKI3", idVendor=0x0403, idProduct = 0x6001)
+        ports = SerialPort.matchPorts(serialNumber="A103LLZD", idVendor=0x0403, idProduct = 0x6001)
         port = SerialPort(portPath=ports[0])
         port.open(baudRate=9600)
         port.terminator = b'\r'
@@ -118,7 +119,7 @@ class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
         port.writeStringExpectMatchingString('s r0x24 31\n', replyPattern='ok')
         port.writeStringExpectMatchingString('s r0xc2 514\n', replyPattern='ok')
         port.writeStringExpectMatchingString('t 2\n', replyPattern='ok')
-        reply, statusStr = port.writeStringReadFirstMatchingGroup('g r0xc9\n', replyPattern=r'v\s(-?\d+)')
+        reply, statusStr = port.writeStringReadxFirstMatchingGroup('g r0xc9\n', replyPattern=r'v\s(-?\d+)')
 
         status = int(statusStr)
         self.assertFalse( status & (1 << 14) )
@@ -129,34 +130,34 @@ class TestIntellidrivePhysicalDevice(unittest.TestCase):
         self.assertIsNotNone(IntellidriveDevice(serialNumber="AH06UKI3"))
 
     def testDeviceInitialize(self):
-        dev = IntellidriveDevice(serialNumber="AH06UKI3")
+        dev = IntellidriveDevice(serialNumber=serialNumber)
         self.assertIsNotNone(dev)
         dev.initializeDevice()
         dev.shutdownDevice()
 
     def testDeviceHome(self):
-        dev = IntellidriveDevice(serialNumber="AH06UKI3")
+        dev = IntellidriveDevice(serialNumber=serialNumber)
         self.assertIsNotNone(dev)
         dev.initializeDevice()
         dev.doHome()
         dev.shutdownDevice()
 
     def testDeviceMove(self):
-        dev = IntellidriveDevice(serialNumber="AH06UKI3")
+        dev = IntellidriveDevice(serialNumber=serialNumber)
         self.assertIsNotNone(dev)
         dev.initializeDevice()
         dev.doMoveTo(1000)
         dev.shutdownDevice()
 
     def testOrientation(self):
-        dev = IntellidriveDevice(serialNumber="AH06UKI3")
+        dev = IntellidriveDevice(serialNumber=serialNumber)
         self.assertIsNotNone(dev)
         dev.initializeDevice()
         print(dev.orientation())
         dev.shutdownDevice()
 
     def testSpinAround(self):
-        dev = IntellidriveDevice(serialNumber="AH06UKI3")
+        dev = IntellidriveDevice(serialNumber=serialNumber)
         self.assertIsNotNone(dev)
         dev.initializeDevice()
 
