@@ -12,7 +12,7 @@ rm dist/*; python setup.py sdist bdist_wheel; python -m twine upload dist/*
 
 setuptools.setup(
     name="hardwarelibrary",
-    version="0.9.9",
+    version="1.0.0",
     url="https://github.com/DCC-Lab/PyHardwareLibrary",
     author="Daniel Cote",
     author_email="dccote@cervo.ulaval.ca",

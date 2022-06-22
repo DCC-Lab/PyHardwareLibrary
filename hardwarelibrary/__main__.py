@@ -49,7 +49,7 @@ if decrypt == True:
         if completedProcess.returncode != 0:
             print("There was an error when unzipping and decrypting the stellarnet.zip file")
     else:
-        print('Cannot unzip stellarnet file')
+        print('Cannot unzip stellarnet file, you must unzip it manually : {0}'.format(zipFile))
 
 if displaySpectrum == True:
     spectro.displayAny()
@@ -63,6 +63,6 @@ if debugUSB == True:
     from hardwarelibrary.communication import validateUSBBackend
     backend = validateUSBBackend(verbose=True)
     if backend is not None:
-        print("PyUSB found and is using backend {0}".format(backend.lib))
+        print("PyUSB found and uses backend from: {0}".format(backend.lib))
     else:
         print("PyUSB has not found a backend to operate.")
