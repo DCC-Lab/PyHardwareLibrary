@@ -1,3 +1,4 @@
+import env
 import unittest
 
 import hardwarelibrary.communication.serialport as s_ports

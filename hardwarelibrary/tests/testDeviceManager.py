@@ -1,3 +1,4 @@
+import env
 import unittest
 
 from hardwarelibrary.communication.diagnostics import *

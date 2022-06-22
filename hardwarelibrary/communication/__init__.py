@@ -24,7 +24,7 @@ def validateUSBBackend():
         rootHardwareLibrary = PureWindowsPath(os.path.abspath(__file__)).parents[1]
         candidates = [rootHardwareLibrary.joinpath('communication/libusb/MS64/libusb-1.0.dll'),
                          rootHardwareLibrary.joinpath('communication/libusb/MS32/libusb-1.0.dll')]
-    elif os.name == 'Darwin':
+    elif platform.system() == 'Darwin':
         rootHardwareLibrary = PurePosixPath(os.path.abspath(__file__)).parents[1]
         candidates = [rootHardwareLibrary.joinpath('communication/libusb/Darwin/libusb-1.0.0.dylib')]
     else:
