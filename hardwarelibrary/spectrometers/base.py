@@ -294,5 +294,6 @@ def getAllSubclasses(aClass):
 
 
 if __name__ == "__main__":
-    print(Spectrometer)
-    print(getAllSubclasses(Spectrometer))
+    devices = getAllSubclasses(Spectrometer)
+    for dev in devices:
+        print("{0}".format(dev))

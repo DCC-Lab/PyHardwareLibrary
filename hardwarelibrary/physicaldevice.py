@@ -5,6 +5,9 @@ import typing
 import time
 import re
 
+
+debugClassIdVendor = 0xffff # My special vendorId for debug classes
+
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
     Ready = 1        # Connected and initialized
@@ -94,6 +97,10 @@ class PhysicalDevice:
             else:
                 print("'{0}' [{1}]".format(name, command.payload))
 
+    @classmethod
+    def isDebugClass(cls):
+        return cls.classIdVendor == debugClassIdVendor
+
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
@@ -177,3 +184,4 @@ class PhysicalDevice:
             raise PhysicalDevice.NotInitialized
 
         command.send(port=self.port)
+

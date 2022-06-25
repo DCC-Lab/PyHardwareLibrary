@@ -97,7 +97,7 @@ class LinearMotionDevice(PhysicalDevice):
 
 class DebugLinearMotionDevice(LinearMotionDevice):
     classIdProduct = 0xfffd
-    classIdVendor = 0xffff
+    classIdVendor = debugClassIdVendor
     def __init__(self):
         super().__init__("debug", DebugLinearMotionDevice.classIdProduct, DebugLinearMotionDevice.classIdVendor )
         (self.x, self.y, self.z) = (0, 0, 0)
