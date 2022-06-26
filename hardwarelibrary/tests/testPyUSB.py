@@ -38,6 +38,14 @@ class PyUSBTestCase(unittest.TestCase):
         devices = utils.connectedUSBDevices( [(0x1532,0x0067)])
         self.assertTrue(len(devices) == 1)
 
+    def testUtilsUniqueRazrConnectedDevices(self):
+        device = utils.uniqueUSBDevice( [(0x1532,0x0067)])
+        self.assertIsNotNone(device)
+
+    def testUtilsAnyRazrConnectedDevices(self):
+        device = utils.anyUSBDevice( [(0x1532,0x0067)])
+        self.assertIsNotNone(device)
+
     def testUtilsFakeConnectedDevices(self):
         devices = utils.connectedUSBDevices( [(0x1532,0x0000)])
         self.assertEqual(len(devices), 0)

@@ -60,9 +60,9 @@ def connectedUSBDevices(vidpids = None, serialNumberPattern=None):
 
     Parameters
     ----------
-    vidpid: list of (int, int) Default: None
+    vidpids: list of (int, int) Default: None
         A tuple (idVendor, idProduct) to match
-    serialNumber: str Default: None
+    serialNumberPattern: str Default: None
         The serial number to match, when there are still more than one device after
         filtering out the idProduct.  If there is a single match, the serial number
         is disregarded.
@@ -91,7 +91,7 @@ def connectedUSBDevices(vidpids = None, serialNumberPattern=None):
 
     return devices
 
-def uniqueUSBDevice(vidpid = None, serialNumberPattern=None):
+def uniqueUSBDevice(vidpids = None, serialNumberPattern=None):
     """ A class method to find a unique device that matches the criteria provided. If there
     is a single device connected, then the default parameters will make it return
     that single device. The idProduct is used to filter out unwanted products. If
@@ -101,7 +101,7 @@ def uniqueUSBDevice(vidpid = None, serialNumberPattern=None):
 
     Parameters
     ----------
-    vidpid: (int,int) Default: None
+    vidpids: (int,int) Default: None
         The USB idVendor, idProduct to match
     serialNumberPattern: str Default: None
         The serial number to match, when there are still more than one after
@@ -119,7 +119,7 @@ def uniqueUSBDevice(vidpid = None, serialNumberPattern=None):
         RuntimeError if a single device cannot be found.
     """
 
-    devices = connectedUSBDevices(vidpid=vidpid, serialNumberPattern=serialNumber)
+    devices = connectedUSBDevices(vidpids=vidpids, serialNumberPattern=serialNumberPattern)
 
     device = None
     if len(devices) == 1:
@@ -127,15 +127,15 @@ def uniqueUSBDevice(vidpid = None, serialNumberPattern=None):
     elif len(devices) > 1:
         raise TooManyMatchingUSBDevicesConnected('Several devices with the appropriate vid/pid were found, cannot select one from the list of devices {0}'.format(devices))
     else:
-        raise NoUSBDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpid, serialNumber, devices))
+        raise NoUSBDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpid, serialNumberPattern, devices))
 
     return device
 
-def anyUSBDevice(vidpid = None, serialNumberPattern=None):
+def anyUSBDevice(vidpids = None, serialNumberPattern=None):
     """
     Parameters
     ----------
-    vidpid: (int,int) Default: None
+    vidpids: (int,int) Default: None
         The USB idVendor, idProduct to match
     serialNumberPattern: str Default: None
         The serial number to match, when there are still more than one after
@@ -153,8 +153,8 @@ def anyUSBDevice(vidpid = None, serialNumberPattern=None):
         RuntimeError if a device cannot be found.
     """
 
-    devices = connectedUSBDevices(vidpid=vidpid, serialNumberPattern=serialNumberPattern)
+    devices = connectedUSBDevices(vidpids=vidpids, serialNumberPattern=serialNumberPattern)
     if len(devices) >= 1:
         return devices[0]
     else:
-        raise NoUSBDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpid, serialNumber, devices))
+        raise NoUSBDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpids, serialNumberPattern, devices))
