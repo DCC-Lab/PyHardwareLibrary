@@ -63,12 +63,12 @@ class PhysicalDevice:
         self.refreshInterval = 1.0
 
     @classmethod
-    def vidpid(cls):
+    def vidpids(cls):
         return [(cls.classIdVendor, cls.classIdProduct)]
 
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
-        for compatibleIdVendor, compatibleIdProduct in cls.vidpid():
+        for compatibleIdVendor, compatibleIdProduct in cls.vidpids():
             if idVendor == compatibleIdVendor and idProduct == compatibleIdProduct:
                 return True
 
@@ -95,6 +95,10 @@ class PhysicalDevice:
     @classmethod
     def isDebugClass(cls):
         return cls.classIdVendor == debugClassIdVendor
+
+    @classmethod
+    def isAbstractClass(cls):
+        return (cls.classIdVendor == None) or (cls.classIdProduct == None)
 
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
@@ -182,5 +186,29 @@ class PhysicalDevice:
 
     @classmethod
     def any(cls):
+        vidpids = utils.getAllUSBIds(cls)
+        utils.connectedUSBDevices(vidpids)
+
+    @classmethod
+    def connectedDevices(cls, vidpids = None, serialNumberPattern=None):
+        if vidpids is None:
+            vidpids = utils.getAllUSBIds(cls)
+        usbDevices = utils.connectedUSBDevices(vidpids=vidpids, serialNumberPattern=serialNumberPattern)
+        print(vidpids)
+        print(usbDevices)
+
+        devices = []
+        for usbDevice in usbDevices:
+            possibleClasses = utils.getCandidateDeviceClasses(cls, usbDevice.idVendor, usbDevice.idProduct)
+            devices.append( (usbDevice.idVendor, usbDevice.idProduct, possibleClasses) )
+
+        return devices
+
+    @classmethod
+    def uniqueDevice(cls, vidpids=None, serialNumberPattern=None):
+        pass
+
+    @classmethod
+    def anyDevice(cls, vidpids=None, serialNumberPattern=None):
         vidpids = utils.getAllUSBIds(cls)
         utils.connectedUSBDevices(vidpids)

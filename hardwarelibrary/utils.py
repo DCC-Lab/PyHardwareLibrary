@@ -35,9 +35,9 @@ def getAllUSBIds(rootClass, abstractClasses=False, debugDevices=False):
     vidpids = []
     for aClass in classes:
         if aClass.classIdProduct is not None:
-            vidpids.append((aClass.classIdVendor, aClass.classIdProduct))
+            vidpids.extend(aClass.vidpids())
         elif abstractClasses:
-            vidpids.append((aClass.classIdVendor, aClass.classIdProduct))
+            vidpids.extend(aClass.vidpids())
 
     return vidpids
 

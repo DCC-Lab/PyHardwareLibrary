@@ -6,7 +6,7 @@ from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice, Intell
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.powermeters import IntegraDevice
-from hardwarelibrary.spectrometers import USB2000, USB4000, USB2000Plus
+from hardwarelibrary.spectrometers import USB2000, USB4000, USB2000Plus, StellarNet
 # from hardwarelibrary.cameras import OpenCVCamera
 from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
 
@@ -289,6 +289,24 @@ class TestPhysicalDeviceCompatibilityClasses(unittest.TestCase):
         self.assertTrue(0x2457 in allIdVendors)
         self.assertTrue(0x0bd7 in allIdVendors)
         self.assertTrue(debugClassIdVendor not in allIdVendors)
+
+    def testGetConnectedDevices(self):
+        devices = PhysicalDevice.connectedDevices()
+        for idVendor, idProduct, possibleClasses in devices:
+            print("{0:x} {1:x} {2}".format(idVendor, idProduct, possibleClasses))
+
+    def testGetStellarNetDevices(self):
+        devices = PhysicalDevice.connectedDevices()
+        self.assertEqual(len(devices), 1)
+
+    def testInstantiateStellarNetDevice(self):
+        # devices = PhysicalDevice.connectedDevices()
+        # for idVendor, idProduct, possibleClasses in devices:
+        #     print("{0:x} {1:x} {2}".format(idVendor, idProduct, possibleClasses))
+        StellarNet.loadFirmwareOnConnectedDevices()
+        dev = StellarNet()
+        self.assertIsNotNone(dev)
+        dev.display()
 
 if __name__ == '__main__':
     unittest.main()
