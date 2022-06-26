@@ -7,17 +7,17 @@ class NoUSBDeviceConnected(Exception):
 class TooManyMatchingUSBDevicesConnected(Exception):
     pass
 
-def getAllSubclasses(aClass):
+def getAllSubclasses(rootClass):
     allSubclasses = []
-    for subclass in aClass.__subclasses__():
+    for subclass in rootClass.__subclasses__():
         allSubclasses.append(subclass)
         if len(subclass.__subclasses__()) != 0:
             allSubclasses.extend(getAllSubclasses(subclass))
 
     return allSubclasses
 
-def getAllDeviceClasses(aClass, abstractClasses=False, debugDevices=False):
-    allPossibleSubClasses = getAllSubclasses(aClass)
+def getAllDeviceClasses(rootClass, abstractClasses=False, debugDevices=False):
+    allPossibleSubClasses = getAllSubclasses(rootClass)
     allDeviceClasses = []
     for aClass in allPossibleSubClasses:
         if aClass.classIdProduct is not None:
@@ -30,19 +30,19 @@ def getAllDeviceClasses(aClass, abstractClasses=False, debugDevices=False):
 
     return allDeviceClasses
 
-def getAllUSBIds(aClass, debugDevices=False):
-    classes = getAllDeviceClasses(aClass, abstractClasses=False, debugDevices=debugDevices)
-    usbIds = []
+def getAllUSBIds(rootClass, abstractClasses=False, debugDevices=False):
+    classes = getAllDeviceClasses(rootClass, abstractClasses=abstractClasses, debugDevices=debugDevices)
+    vidpids = []
     for aClass in classes:
         if aClass.classIdProduct is not None:
-            usbIds.append((aClass.classIdVendor, aClass.classIdProduct))
+            vidpids.append((aClass.classIdVendor, aClass.classIdProduct))
         elif abstractClasses:
-            usbIds.append((aClass.classIdVendor, aClass.classIdProduct))
+            vidpids.append((aClass.classIdVendor, aClass.classIdProduct))
 
-    return usbIds
+    return vidpids
 
-def getCandidateDeviceClasses(aClass, idVendor, idProduct):
-    allClasses = getAllDeviceClasses(aClass)
+def getCandidateDeviceClasses(rootClass, idVendor, idProduct):
+    allClasses = getAllDeviceClasses(rootClass)
 
     candidateClasses = []
     for aClass in allClasses:
