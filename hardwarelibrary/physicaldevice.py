@@ -1,5 +1,7 @@
 from enum import Enum, IntEnum
 from threading import Thread, RLock
+
+import utils
 from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
 import time
@@ -29,10 +31,6 @@ class PhysicalDevice:
     class ClassIncompatibleWithRequestedDevice(Exception):
         pass
     class NotInitialized(Exception):
-        pass
-    class NoPhysicalDeviceConnected(Exception):
-        pass
-    class TooManyPhysicalDevicesConnected(Exception):
         pass
 
     classIdVendor = None
@@ -182,3 +180,7 @@ class PhysicalDevice:
 
         command.send(port=self.port)
 
+    @classmethod
+    def any(cls):
+        vidpids = utils.getAllUSBIds(cls)
+        utils.connectedUSBDevices(vidpids)

@@ -1,6 +1,11 @@
-import hardwarelibrary.physicaldevice
 import usb.util
 import re
+
+
+class NoUSBDeviceConnected(Exception):
+    pass
+class TooManyMatchingUSBDevicesConnected(Exception):
+    pass
 
 def getAllSubclasses(aClass):
     allSubclasses = []
@@ -86,7 +91,7 @@ def connectedUSBDevices(vidpids = None, serialNumberPattern=None):
 
     return devices
 
-def matchUniqueUSBDevice(vidpid = None, serialNumberPattern=None):
+def uniqueUSBDevice(vidpid = None, serialNumberPattern=None):
     """ A class method to find a unique device that matches the criteria provided. If there
     is a single device connected, then the default parameters will make it return
     that single device. The idProduct is used to filter out unwanted products. If
@@ -120,8 +125,36 @@ def matchUniqueUSBDevice(vidpid = None, serialNumberPattern=None):
     if len(devices) == 1:
         device = devices[0] # only (len==1) or any (len>1 and serial None)
     elif len(devices) > 1:
-        raise PhysicalDevice.TooManyPhysicalDevicesConnected('Several devices with the appropriate vid/pid were found, cannot select one from the list of devices {0}'.format(devices))
+        raise TooManyMatchingUSBDevicesConnected('Several devices with the appropriate vid/pid were found, cannot select one from the list of devices {0}'.format(devices))
     else:
-        raise PhysicalDevice.NoPhysicalDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpid, serialNumber, devices))
+        raise NoUSBDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpid, serialNumber, devices))
 
     return device
+
+def anyUSBDevice(vidpid = None, serialNumberPattern=None):
+    """
+    Parameters
+    ----------
+    vidpid: (int,int) Default: None
+        The USB idVendor, idProduct to match
+    serialNumberPattern: str Default: None
+        The serial number to match, when there are still more than one after
+        filtering out the idVendor and idProduct.  if there is a single match, the serial number
+        is disregarded.
+
+    Returns
+    -------
+
+    device: Device
+        The first device matching the criteria
+
+    Raises
+    ------
+        RuntimeError if a device cannot be found.
+    """
+
+    devices = connectedUSBDevices(vidpid=vidpid, serialNumberPattern=serialNumberPattern)
+    if len(devices) >= 1:
+        return devices[0]
+    else:
+        raise NoUSBDeviceConnected('Device with the appropriate idVendor and idProduct {0}, serial number ({1}) was not found in the list of devices {2}'.format( vidpid, serialNumber, devices))
