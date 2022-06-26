@@ -283,5 +283,12 @@ class TestPhysicalDeviceCompatibilityClasses(unittest.TestCase):
         allIdVendors = set([ usbId[0] for usbId in usbIds ])
         self.assertTrue(debugClassIdVendor in allIdVendors)
 
+    def testGetAllUSBVendorProductWithSpectrometers(self):
+        usbIds = getAllUSBIds(Spectrometer)
+        allIdVendors = set([ usbId[0] for usbId in usbIds ])
+        self.assertTrue(0x2457 in allIdVendors)
+        self.assertTrue(0x0bd7 in allIdVendors)
+        self.assertTrue(debugClassIdVendor not in allIdVendors)
+
 if __name__ == '__main__':
     unittest.main()

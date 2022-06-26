@@ -10,6 +10,7 @@ from hardwarelibrary.spectrometers import Spectrometer
 from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
 from hardwarelibrary.oscilloscope import OscilloscopeDevice
 from hardwarelibrary.communication.diagnostics import *
+import hardwarelibrary.utils as utils
 
 class DeviceManagerNotification(Enum):
     status              = "status"
@@ -212,11 +213,12 @@ class DeviceManager:
         if descriptor not in self.usbDeviceDescriptors:
             self.usbDeviceDescriptors.append(descriptor)
 
-        candidates = PhysicalDevice.candidates(descriptor.idVendor, descriptor.idProduct)
+        candidates = utils.getCandidateDeviceClasses(PhysicalDevice, descriptor.idVendor, descriptor.idProduct)
         for candidateClass in candidates:
-            # This may throw if incompatible
+            # This may throw if incompat:
+            #                 deviceInstanceible
             try:
-                deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
+                candidateClass(serialNumber=descriptor.serialNumber,
                                             idProduct=descriptor.idProduct,
                                             idVendor=descriptor.idVendor)
                 deviceInstance.initializeDevice()

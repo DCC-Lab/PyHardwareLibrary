@@ -30,6 +30,10 @@ class PhysicalDevice:
         pass
     class NotInitialized(Exception):
         pass
+    class NoPhysicalDeviceConnected(Exception):
+        pass
+    class TooManyPhysicalDevicesConnected(Exception):
+        pass
 
     classIdVendor = None
     classIdProduct = None
@@ -61,21 +65,14 @@ class PhysicalDevice:
         self.refreshInterval = 1.0
 
     @classmethod
-    def candidates(cls, idVendor, idProduct):
-        candidateClasses = []
-        
-        if cls.isCompatibleWith(serialNumber="*", idProduct=idProduct, idVendor=idVendor):
-            candidateClasses.append(cls) 
-
-        for aSubclass in cls.__subclasses__():
-            candidateClasses.extend(aSubclass.candidates(idVendor, idProduct))
-
-        return candidateClasses
+    def vidpid(cls):
+        return [(cls.classIdVendor, cls.classIdProduct)]
 
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
-        if idVendor == cls.classIdVendor and idProduct == cls.classIdProduct:
-            return True
+        for compatibleIdVendor, compatibleIdProduct in cls.vidpid():
+            if idVendor == compatibleIdVendor and idProduct == compatibleIdProduct:
+                return True
 
         return False
 
