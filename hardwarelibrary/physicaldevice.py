@@ -1,7 +1,7 @@
 from enum import Enum, IntEnum
 from threading import Thread, RLock
 
-import utils
+import hardwarelibrary.utils
 from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
 import time

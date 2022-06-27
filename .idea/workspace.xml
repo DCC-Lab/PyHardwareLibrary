@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="60">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/spectrometers/stellarnet.zip" beforeDir="false" />
-    </list>
+    <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="60" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -207,11 +204,11 @@
     <list>
       <item itemvalue="Python.hardwarelibrary" />
       <item itemvalue="Python.test" />
-      <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
-      <item itemvalue="Python tests.Python tests for testPyUSB.PyUSBTestCase" />
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testGetConnectedDevices" />
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testGetStellarNetDevices" />
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testInstantiateStellarNetDevice" />
+      <item itemvalue="Python tests.Python tests for testPyUSB.PyUSBTestCase" />
+      <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
     </list>
     <recent_temporary>
       <list>
@@ -247,7 +244,7 @@
       <workItem from="1655919181403" duration="2830000" />
       <workItem from="1656018359548" duration="14482000" />
       <workItem from="1656249319552" duration="3372000" />
-      <workItem from="1656254916479" duration="2540000" />
+      <workItem from="1656254916479" duration="2746000" />
     </task>
     <servers />
   </component>
@@ -358,11 +355,6 @@
           <option name="timeStamp" value="113" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/hardwarelibrary/spectrometers/stellarnet.py</url>
-          <line>136</line>
-          <option name="timeStamp" value="114" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/devicemanager.py</url>
           <line>215</line>
           <option name="timeStamp" value="120" />
@@ -376,16 +368,6 @@
           <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py</url>
           <line>293</line>
           <option name="timeStamp" value="124" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/hardwarelibrary/spectrometers/stellarnet.py</url>
-          <line>134</line>
-          <option name="timeStamp" value="127" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/hardwarelibrary/spectrometers/stellarnet.py</url>
-          <line>557</line>
-          <option name="timeStamp" value="128" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
