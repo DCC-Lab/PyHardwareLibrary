@@ -10,6 +10,9 @@ stellarDecrypted = rootHardwareLibrary.joinpath('spectrometers/stellarnet.py')
 if not os.path.exists(stellarDecrypted):
     # We only warn the user if they try to use the StellarNet class
     class StellarNet:
+        classIdVendor = 0x0BD7
+        classIdProduct = 0xA012
+
         def __init__(self):
             print("The StellarNet module must be licenced and decrypted by StellarNet. Please contact them for info.")
             print("If you have the password, run `python -m hardwarelibrary --stellar` and enter it at the prompt. Do not distribute.")

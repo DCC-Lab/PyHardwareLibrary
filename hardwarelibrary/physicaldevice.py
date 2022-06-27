@@ -1,9 +1,14 @@
 from enum import Enum, IntEnum
 from threading import Thread, RLock
+
+import utils
 from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
 import time
 import re
+
+
+debugClassIdVendor = 0xffff # My special vendorId for debug classes
 
 class DeviceState(IntEnum):
     Unconfigured = 0 # Dont know anything
@@ -58,21 +63,14 @@ class PhysicalDevice:
         self.refreshInterval = 1.0
 
     @classmethod
-    def candidates(cls, idVendor, idProduct):
-        candidateClasses = []
-        
-        if cls.isCompatibleWith(serialNumber="*", idProduct=idProduct, idVendor=idVendor):
-            candidateClasses.append(cls) 
-
-        for aSubclass in cls.__subclasses__():
-            candidateClasses.extend(aSubclass.candidates(idVendor, idProduct))
-
-        return candidateClasses
+    def vidpids(cls):
+        return [(cls.classIdVendor, cls.classIdProduct)]
 
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
-        if idVendor == cls.classIdVendor and idProduct == cls.classIdProduct:
-            return True
+        for compatibleIdVendor, compatibleIdProduct in cls.vidpids():
+            if idVendor == compatibleIdVendor and idProduct == compatibleIdProduct:
+                return True
 
         return False
 
@@ -93,6 +91,14 @@ class PhysicalDevice:
                 print("'{0}' followed by {3} args in format {2} [{1}]".format(name, command.payload, match.groups(), command.numberOfArguments))
             else:
                 print("'{0}' [{1}]".format(name, command.payload))
+
+    @classmethod
+    def isDebugClass(cls):
+        return cls.classIdVendor == debugClassIdVendor
+
+    @classmethod
+    def isAbstractClass(cls):
+        return (cls.classIdVendor == None) or (cls.classIdProduct == None)
 
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
@@ -177,3 +183,32 @@ class PhysicalDevice:
             raise PhysicalDevice.NotInitialized
 
         command.send(port=self.port)
+
+    @classmethod
+    def any(cls):
+        vidpids = utils.getAllUSBIds(cls)
+        utils.connectedUSBDevices(vidpids)
+
+    @classmethod
+    def connectedDevices(cls, vidpids = None, serialNumberPattern=None):
+        if vidpids is None:
+            vidpids = utils.getAllUSBIds(cls)
+        usbDevices = utils.connectedUSBDevices(vidpids=vidpids, serialNumberPattern=serialNumberPattern)
+        print(vidpids)
+        print(usbDevices)
+
+        devices = []
+        for usbDevice in usbDevices:
+            possibleClasses = utils.getCandidateDeviceClasses(cls, usbDevice.idVendor, usbDevice.idProduct)
+            devices.append( (usbDevice.idVendor, usbDevice.idProduct, possibleClasses) )
+
+        return devices
+
+    @classmethod
+    def uniqueDevice(cls, vidpids=None, serialNumberPattern=None):
+        pass
+
+    @classmethod
+    def anyDevice(cls, vidpids=None, serialNumberPattern=None):
+        vidpids = utils.getAllUSBIds(cls)
+        utils.connectedUSBDevices(vidpids)

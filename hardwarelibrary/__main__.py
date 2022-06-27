@@ -28,11 +28,14 @@ ap.add_argument("-s", "--spectrometer", required=False, action='store_const',
                 const=True, help="Display any spectrometer")
 ap.add_argument("-dm", "--devicemanager", required=False, action='store_const',
                 const=True, help="Show notifications from DeviceManager")
+ap.add_argument("-d", "--debugusb", required=False, action='store_const',
+                const=True, help="Help debugging USB libraries issues")
 
 args = vars(ap.parse_args())
 decrypt = args['stellarnet']
 displaySpectrum = args['spectrometer']
 deviceManager = args['devicemanager']
+debugUSB = args['debugusb']
 
 if decrypt == True:
     rootHardwareLibrary = Path(os.path.abspath(__file__)).parents[1]
@@ -46,7 +49,7 @@ if decrypt == True:
         if completedProcess.returncode != 0:
             print("There was an error when unzipping and decrypting the stellarnet.zip file")
     else:
-        print('Cannot unzip stellarnet file')
+        print('Cannot unzip stellarnet file, you must unzip it manually : {0}'.format(zipFile))
 
 if displaySpectrum == True:
     spectro.displayAny()
@@ -56,3 +59,10 @@ if deviceManager == True:
     dm.showNotifications()
     dm.startMonitoring()
 
+if debugUSB == True:
+    from hardwarelibrary.communication import validateUSBBackend
+    backend = validateUSBBackend(verbose=True)
+    if backend is not None:
+        print("PyUSB found and uses backend from: {0}".format(backend.lib))
+    else:
+        print("PyUSB has not found a backend to operate.")

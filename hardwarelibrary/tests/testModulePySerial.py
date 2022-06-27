@@ -1,3 +1,4 @@
+import env
 import unittest
 
 from serial.tools.list_ports import comports

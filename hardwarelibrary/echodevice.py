@@ -30,7 +30,7 @@ class EchoDevice(PhysicalDevice):
 
 class DebugEchoDevice(EchoDevice):
     classIdProduct = 0xfffa
-    classIdVendor = 0xffff
+    classIdVendor = debugClassIdVendor
 
     def __init__(self, serialNumber='debug', idProduct=classIdProduct, idVendor=classIdVendor):
         PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)

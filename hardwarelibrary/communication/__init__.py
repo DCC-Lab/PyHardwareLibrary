@@ -9,26 +9,31 @@ import platform
 from pathlib import *
 import os
 
-def validateUSBBackend():
+def validateUSBBackend(verbose=False):
     backend = usb.backend.libusb1.get_backend()
     if backend is not None:
         try:
             usb.core.find(backend=backend)
-            return
+            return backend
         except:
-            pass
- 
+            if verbose:
+                print("The default backend search of PyUSB does not find a libusb backend")
+
     libusbPath = None
     candidates = []
     if platform.system() == 'Windows':
         rootHardwareLibrary = PureWindowsPath(os.path.abspath(__file__)).parents[1]
         candidates = [rootHardwareLibrary.joinpath('communication/libusb/MS64/libusb-1.0.dll'),
                          rootHardwareLibrary.joinpath('communication/libusb/MS32/libusb-1.0.dll')]
-    elif os.name == 'Darwin':
+    elif platform.system() == 'Darwin':
         rootHardwareLibrary = PurePosixPath(os.path.abspath(__file__)).parents[1]
         candidates = [rootHardwareLibrary.joinpath('communication/libusb/Darwin/libusb-1.0.0.dylib')]
     else:
-        print('Cannot validate libusb backend.')
+        if verbose:
+            otherDir = rootHardwareLibrary.joinpath('communication/libusb/other')
+            print("""Platform not recognized {1} and default PyUSB backend not found. You should try installing libusb.
+            If it does not work out of the box, you can try copying the library in the {0} directory""".format(otherDir, platform.system()))
+        candidates = os.listdir(otherDir)
 
     for libpath in candidates:
         if os.path.exists(libpath):
@@ -36,11 +41,13 @@ def validateUSBBackend():
             if backend is not None:
                 try:
                     usb.core.find(backend=backend)
-                    break
+                    return backend
                 except:
                     pass
         else:
-            print("File does not exist {0}".format(libpath))
+            if verbose:
+                print("Library candidate {0} does not exist".format(libpath))
 
+    return None
 
 validateUSBBackend()

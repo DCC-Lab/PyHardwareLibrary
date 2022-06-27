@@ -40,7 +40,7 @@ class RotationDevice(PhysicalDevice):
 
 class DebugRotationDevice(RotationDevice):
     classIdProduct = 0xfffd
-    classIdVendor = 0xffff
+    classIdVendor = debugClassIdVendor
     def __init__(self):
         super().__init__("debug", DebugLinearMotionDevice.classIdProduct, DebugLinearMotionDevice.classIdVendor )
         self.orientation = None

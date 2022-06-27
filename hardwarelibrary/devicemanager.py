@@ -4,12 +4,13 @@ from enum import Enum
 from typing import NamedTuple
 from threading import Thread, RLock
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
-from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
+from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, debugClassIdVendor
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer
 from hardwarelibrary.powermeters import PowerMeterDevice, IntegraDevice
 from hardwarelibrary.oscilloscope import OscilloscopeDevice
 from hardwarelibrary.communication.diagnostics import *
+import hardwarelibrary.utils as utils
 
 class DeviceManagerNotification(Enum):
     status              = "status"
@@ -26,7 +27,7 @@ class DeviceManagerNotification(Enum):
     usbDeviceDidDisconnect = "usbDeviceDidDisconnect"
 
 class DebugPhysicalDevice(PhysicalDevice):
-    classIdVendor = 0xffff
+    classIdVendor = debugClassIdVendor
     classIdProduct = 0xfffe
     def __init__(self):
         super().__init__("debug", DebugPhysicalDevice.classIdProduct, DebugPhysicalDevice.classIdVendor)
@@ -212,11 +213,12 @@ class DeviceManager:
         if descriptor not in self.usbDeviceDescriptors:
             self.usbDeviceDescriptors.append(descriptor)
 
-        candidates = PhysicalDevice.candidates(descriptor.idVendor, descriptor.idProduct)
+        candidates = utils.getCandidateDeviceClasses(PhysicalDevice, descriptor.idVendor, descriptor.idProduct)
         for candidateClass in candidates:
-            # This may throw if incompatible
+            # This may throw if incompat:
+            #                 deviceInstanceible
             try:
-                deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
+                candidateClass(serialNumber=descriptor.serialNumber,
                                             idProduct=descriptor.idProduct,
                                             idVendor=descriptor.idVendor)
                 deviceInstance.initializeDevice()

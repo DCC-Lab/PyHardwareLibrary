@@ -6,12 +6,14 @@ from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice, Intell
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.powermeters import IntegraDevice
+from hardwarelibrary.spectrometers import USB2000, USB4000, USB2000Plus, StellarNet
 # from hardwarelibrary.cameras import OpenCVCamera
 from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
 
+from hardwarelibrary.utils import *
 
 class DebugPhysicalDevice(PhysicalDevice):
-    classIdVendor = 0xffff
+    classIdVendor = debugClassIdVendor
     classIdProduct = 0xfffe
 
     def __init__(self):
@@ -111,7 +113,7 @@ class BaseTestCases:
             nc.removeObserver(self)
 
         def testPhysicalDeviceRecognizedByDeviceManager(self):
-            if self.device.idVendor == 0xffff or self.device.serialNumber == 'debug':
+            if self.device.idVendor == debugClassIdVendor or self.device.serialNumber == 'debug':
                 raise (unittest.SkipTest("Debug devices not recognized by DM"))
 
             classType = type(self.device)
@@ -131,7 +133,7 @@ class BaseTestCases:
             dm.stopMonitoring()
 
         def testPhysicalDeviceRecognizedByDeviceManagerSynchronously(self):
-            if self.device.idVendor == 0xffff or self.device.serialNumber == 'debug':
+            if self.device.idVendor == debugClassIdVendor or self.device.serialNumber == 'debug':
                 raise (unittest.SkipTest("Debug devices not recognized by DM"))
 
             classType = type(self.device)
@@ -254,6 +256,57 @@ class TestCameraPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.assertIsNotNone(self.device)
         except Exception as err:
             raise (unittest.SkipTest("No Facetime Camera connected"))
+
+class TestPhysicalDeviceCompatibilityClasses(unittest.TestCase):
+    def testGetDeviceClasses(self):
+        classes = getAllDeviceClasses(PhysicalDevice)
+        self.assertIsNotNone(classes)
+        self.assertTrue(SutterDevice in classes)
+        self.assertTrue(USB2000 in classes)
+        self.assertFalse(LinearMotionDevice in classes)
+
+    def testGetDeviceClassesWithAbstract(self):
+        classes = getAllDeviceClasses(PhysicalDevice, abstractClasses=True)
+        self.assertIsNotNone(classes)
+        self.assertTrue(SutterDevice in classes)
+        self.assertTrue(USB2000 in classes)
+        self.assertTrue(LinearMotionDevice in classes)
+
+    def testGetAllUSBVendorProductNoDebug(self):
+        usbIds = getAllUSBIds(PhysicalDevice, debugDevices=False)
+        self.assertTrue( (SutterDevice.classIdVendor, SutterDevice.classIdProduct) in usbIds)
+        for id in usbIds:
+            self.assertTrue(id[0] != debugClassIdVendor)
+
+    def testGetAllUSBVendorProductWithDebugDevices(self):
+        usbIds = getAllUSBIds(PhysicalDevice, debugDevices=True)
+        allIdVendors = set([ usbId[0] for usbId in usbIds ])
+        self.assertTrue(debugClassIdVendor in allIdVendors)
+
+    def testGetAllUSBVendorProductWithSpectrometers(self):
+        usbIds = getAllUSBIds(Spectrometer)
+        allIdVendors = set([ usbId[0] for usbId in usbIds ])
+        self.assertTrue(0x2457 in allIdVendors)
+        self.assertTrue(0x0bd7 in allIdVendors)
+        self.assertTrue(debugClassIdVendor not in allIdVendors)
+
+    def testGetConnectedDevices(self):
+        devices = PhysicalDevice.connectedDevices()
+        for idVendor, idProduct, possibleClasses in devices:
+            print("{0:x} {1:x} {2}".format(idVendor, idProduct, possibleClasses))
+
+    def testGetStellarNetDevices(self):
+        devices = PhysicalDevice.connectedDevices()
+        self.assertEqual(len(devices), 1)
+
+    def testInstantiateStellarNetDevice(self):
+        # devices = PhysicalDevice.connectedDevices()
+        # for idVendor, idProduct, possibleClasses in devices:
+        #     print("{0:x} {1:x} {2}".format(idVendor, idProduct, possibleClasses))
+        StellarNet.loadFirmwareOnConnectedDevices()
+        dev = StellarNet()
+        self.assertIsNotNone(dev)
+        dev.display()
 
 if __name__ == '__main__':
     unittest.main()
