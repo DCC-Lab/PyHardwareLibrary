@@ -12,7 +12,7 @@ rm dist/*; python setup.py sdist bdist_wheel; python -m twine upload dist/*
 
 setuptools.setup(
     name="hardwarelibrary",
-    version="1.0.1",
+    version="1.0.3",
     url="https://github.com/DCC-Lab/PyHardwareLibrary",
     author="Daniel Cote",
     author_email="dccote@cervo.ulaval.ca",
@@ -24,10 +24,12 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=['numpy','matplotlib','PySerial','PyUSB','pyftdi','opencv-python','LabJackPython'],
     python_requires='>=3.7',
+    include_package_data=True,
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.png'],
-        "doc": ['*.html']
+        "doc": ['*.html'],
+        "zip": ['*.zip']
     },
     classifiers=[
         'Development Status :: 4 - Beta',
