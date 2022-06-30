@@ -1,4 +1,4 @@
-__version__ = "1.0.2"
+__version__ = "1.0.4"
 __author__ = "Daniel Cote <dccote@cervo.ulaval.ca>"
 
 __all__ = ["communication","motion","oscilloscope","powermeters","spectrometers"]
@@ -14,6 +14,6 @@ from hardwarelibrary.communication import *
 import hardwarelibrary.spectrometers
 import hardwarelibrary.oscilloscope
 import hardwarelibrary.motion
-import hardwarelibrary.cameras
 
-#import sources #TODO: Not much to see here yet
+#import hardwarelibrary.cameras #TODO: Not much to see here yet
+#import hardwarelibrary.sources #TODO: Not much to see here yet
