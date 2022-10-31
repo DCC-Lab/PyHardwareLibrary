@@ -1,5 +1,4 @@
-from hardwarelibrary.spectrometers import getAllSubclasses, Spectrometer
+from hardwarelibrary.spectrometers import getAllSubclasses, Spectrometer, SAS
+from hardwarelibrary.utils import *
 
-devices = getAllSubclasses(Spectrometer)
-for dev in devices:
-    print("{0}".format(dev))
+device = SAS()

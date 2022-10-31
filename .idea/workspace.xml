@@ -6,13 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="e1a2b906-4e8f-4edb-8efe-d2e272bf62ab" name="Default Changelist" comment="60">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testIntegraDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testIntegraDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testIntellidrive.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testIntellidrive.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testLabjackU3.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testLabjackU3.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testLinearMotionDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testLinearMotionDevice.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testOscilloscope.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testOscilloscope.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/daq/labjackdevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/daq/labjackdevice.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/devicemanager.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/devicemanager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/spectrometers/oceaninsight.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/spectrometers/oceaninsight.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,7 +88,7 @@
       <recent name="$PROJECT_DIR$/hardwarelibrary/tests/deprecated" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests for testOscilloscope.TestTektronik">
+  <component name="RunManager" selected="Python tests.Python tests for testDeviceManager.TestDeviceManager">
     <configuration name="hardwarelibrary" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -135,6 +133,21 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="Python tests for testDeviceManager.TestDeviceManager" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="PyHardwareLibrary" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;testDeviceManager.TestDeviceManager&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
     <configuration name="Python tests for testOscilloscope.TestTektronik" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -150,7 +163,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in testModulePySerial.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in testPhysicalDevice.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -161,11 +174,11 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testModulePySerial.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in testNotificationCenter.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in tests" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -176,56 +189,41 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testNotificationCenter.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in testOptotuneDevice.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Unittests for testPhysicalDevice" type="tests" factoryName="Unittests" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
+      <option name="SDK_HOME" value="/usr/bin/python3" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testOptotuneDevice.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Python tests in testOscilloscope.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
-      <module name="PyHardwareLibrary" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/hardwarelibrary/tests" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testOscilloscope.py&quot;" />
-      <option name="_new_targetType" value="&quot;PATH&quot;" />
+      <option name="_new_target" value="&quot;testPhysicalDevice&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
     <list>
       <item itemvalue="Python.hardwarelibrary" />
       <item itemvalue="Python.test" />
-      <item itemvalue="Python tests.Python tests in testModulePySerial.py" />
-      <item itemvalue="Python tests.Python tests in testNotificationCenter.py" />
-      <item itemvalue="Python tests.Python tests in testOptotuneDevice.py" />
-      <item itemvalue="Python tests.Python tests in testOscilloscope.py" />
       <item itemvalue="Python tests.Python tests for testOscilloscope.TestTektronik" />
+      <item itemvalue="Python tests.Python tests in tests" />
+      <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
+      <item itemvalue="Python tests.Unittests for testPhysicalDevice" />
+      <item itemvalue="Python tests.Python tests for testDeviceManager.TestDeviceManager" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests for testDeviceManager.TestDeviceManager" />
+        <item itemvalue="Python tests.Unittests for testPhysicalDevice" />
+        <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
+        <item itemvalue="Python tests.Python tests in tests" />
         <item itemvalue="Python tests.Python tests for testOscilloscope.TestTektronik" />
-        <item itemvalue="Python tests.Python tests in testOscilloscope.py" />
-        <item itemvalue="Python tests.Python tests in testOptotuneDevice.py" />
-        <item itemvalue="Python tests.Python tests in testNotificationCenter.py" />
-        <item itemvalue="Python tests.Python tests in testModulePySerial.py" />
       </list>
     </recent_temporary>
   </component>
@@ -253,7 +251,8 @@
       <workItem from="1655919181403" duration="2830000" />
       <workItem from="1656018359548" duration="14482000" />
       <workItem from="1656249319552" duration="3372000" />
-      <workItem from="1656254916479" duration="4473000" />
+      <workItem from="1656254916479" duration="6850000" />
+      <workItem from="1662658045679" duration="361000" />
     </task>
     <servers />
   </component>
@@ -364,11 +363,6 @@
           <option name="timeStamp" value="113" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/hardwarelibrary/devicemanager.py</url>
-          <line>215</line>
-          <option name="timeStamp" value="120" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py</url>
           <line>298</line>
           <option name="timeStamp" value="123" />
@@ -382,6 +376,16 @@
           <url>file://$PROJECT_DIR$/hardwarelibrary/tests/testIntegraDevice.py</url>
           <line>11</line>
           <option name="timeStamp" value="129" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/hardwarelibrary/spectrometers/oceaninsight.py</url>
+          <line>804</line>
+          <option name="timeStamp" value="131" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/test.py</url>
+          <line>3</line>
+          <option name="timeStamp" value="132" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -397,7 +401,7 @@
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testPhysicalDeviceRecognizedByDeviceManagerSynchronously.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testPhysicalDeviceRecognizedByDeviceManagerSynchronously Coverage Results" MODIFIED="1633319357042" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1633237489450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPyUSB_PyUSBTestCase.coverage" NAME="Unittests for testPyUSB.PyUSBTestCase Coverage Results" MODIFIED="1656216273536" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
-    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1656429386903" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
+    <SUITE FILE_PATH="coverage/PyHardwareLibrary$.coverage" NAME=" Coverage Results" MODIFIED="1662658263127" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testLinearMotionDevice.coverage" NAME="Unittests for testLinearMotionDevice Coverage Results" MODIFIED="1633280168464" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice_TestSpectrometerPhysicalDevice_testConfiguredStateAfterInitialize.coverage" NAME="Unittests for testPhysicalDevice.TestSpectrometerPhysicalDevice.testConfiguredStateAfterInitialize Coverage Results" MODIFIED="1633293814434" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />
     <SUITE FILE_PATH="coverage/PyHardwareLibrary$Unittests_for_testPhysicalDevice.coverage" NAME="Unittests for testPhysicalDevice Coverage Results" MODIFIED="1633662737770" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/hardwarelibrary/tests" />

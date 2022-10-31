@@ -33,13 +33,13 @@ class BaseTestCases:
     class TestPhysicalDeviceBase(unittest.TestCase):
         def setUp(self):
             super().setUp()
-            DeviceManager().updateConnectedDevices()
+            # DeviceManager().updateConnectedDevices()
 
             self.device = None
             self.isRunning = False
             self.notificationReceived = None
 
-            DeviceManager().destroy()
+            # DeviceManager().destroy()
             NotificationCenter().destroy()
 
         def tearDown(self):
@@ -47,7 +47,7 @@ class BaseTestCases:
                 self.device.shutdownDevice()
                 self.device = None
 
-            DeviceManager().removeAllDevices()
+            # DeviceManager().removeAllDevices()
             super().tearDown()
 
         def testIsRunning(self):
@@ -200,7 +200,7 @@ class TestSpectrometerPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.device = DeviceManager().anySpectrometerDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
-            raise (unittest.SkipTest("No spectrometer connected"))
+            self.skipTest("No Spectro connected")
 
 class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
@@ -209,7 +209,7 @@ class TestPowerMeterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.device = IntegraDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
-            raise (unittest.SkipTest("No powermeter connected"))
+            self.skipTest("No powermeter connected")
 
 class TestTektronikPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
@@ -218,7 +218,7 @@ class TestTektronikPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.device = OscilloscopeDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
-            raise (unittest.SkipTest("No oscilloscope connected"))
+            self.skipTest("No Oscilloscope connected")
 
 class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
@@ -227,7 +227,7 @@ class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.device = EchoDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
-            raise (unittest.SkipTest("No ECHO connected"))
+            self.skipTest("No ECHO connected")
 
     def testEchoCommands(self):
         self.device.initializeDevice()
@@ -245,7 +245,7 @@ class TestDebugEchoPhysicalDevice(TestEchoPhysicalDevice):
             self.device = DebugEchoDevice()
             self.assertIsNotNone(self.device)
         except Exception as err:
-            raise (unittest.SkipTest("No ECHO connected"))
+            self.skipTest("No ECHO connected")
 
 
 class TestCameraPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
@@ -255,7 +255,7 @@ class TestCameraPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
             self.device = OpenCVCamera()
             self.assertIsNotNone(self.device)
         except Exception as err:
-            raise (unittest.SkipTest("No Facetime Camera connected"))
+            self.skipTest("No Facetime connected")
 
 class TestPhysicalDeviceCompatibilityClasses(unittest.TestCase):
     def testGetDeviceClasses(self):
