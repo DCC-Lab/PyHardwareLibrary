@@ -5,20 +5,20 @@ from time import sleep
 
 from hardwarelibrary.communication.usbport import *
 
-# class TestHamamatsuUSBPortBase(unittest.TestCase):
-#     def setUp(self):
-#         self.port = USBPort(idVendor=0x0661, idProduct = 0x3705)
-#         self.assertIsNotNone(self.port)
-#         self.port.open()
-#         self.assertTrue(self.port.isOpen)
+class TestHamamatsuUSBPortBase(unittest.TestCase):
+    def setUp(self):
+        self.port = USBPort(idVendor=0x0661, idProduct = 0x3705)
+        self.assertIsNotNone(self.port)
+        self.port.open()
+        self.assertTrue(self.port.isOpen)
 
-#         self.port.writeData(b'\r')
-#         self.port.flush()
+        self.port.writeData(b'\r')
+        self.port.flush()
         
-#     def tearDown(self):
-#         # self.port.writeData(b"ZV")
-#         # self.assertEqual("ZV", self.readStringFromPMT())
-#         self.port.close()
+    def tearDown(self):
+        # self.port.writeData(b"ZV")
+        # self.assertEqual("ZV", self.readStringFromPMT())
+        self.port.close()
 
 
 #     # def test01CreatePort(self):
@@ -203,7 +203,7 @@ from hardwarelibrary.communication.usbport import *
 
 #     # #     self.port.writeData(b"\r")
 
-#     # def test08StartCounting(self):
+#     # def test08start_counting(self):
 #     #     """
 #     #     Here, I printed the read data for a while and noticed
 #     #     an indexed value going up by one. And some weird garbage values after.
@@ -261,7 +261,7 @@ from hardwarelibrary.communication.usbport import *
 
 #     #     print(index, photonCount)
 
-#     # def test10StartCountingProperly(self):
+#     # def test10start_countingProperly(self):
 #     #     """
 #     #     Finally, this appears perfect. 
 #     #     """
@@ -324,7 +324,7 @@ from hardwarelibrary.communication.usbport import *
 
 #         return string
 
-#     # def test900StartCounting(self):
+#     # def test900start_counting(self):
 #     #     index, count = sendCommand(self.port, b"C")
 #     #     self.assertEqual(index, 0)
 #     #     print(count)
@@ -341,20 +341,32 @@ class PhotonCounter(PhysicalDevice):
     def doInitializeDevice(self):
         self.port = USBPort(idVendor=0x0661, idProduct = 0x3705)
         self.port.open()
-        self.stopCounting()
+        self.stop_counting() # We must stop counting first
+        self.turn_on()
+        self.set_integration_time(time_in_10us=1000)
 
     def doShutdownDevice(self):
-        self.stopCounting()
+        self.stop_counting()
+        self.turn_off()
         self.port.close()
 
     def sendCommand(self, commandName, payload=None):
+        commandInt = None
         if payload is None:
             commandData = commandName.encode("utf-8")
         else:
+            commandInt = ord(commandName)
             commandData = pack("<II",ord(commandName), payload)
 
         self.port.writeData(commandData)
-        return self.readReply()
+        replyInt, value = self.readReply()
+        # if replyInt == 0x4342:
+        #     raise ValueError("Bad command")
+        # elif commandInt is not None:
+        #     if commandInt != replyInt:
+        #         raise ValueError("Reply error: {0:x}".format(replyint))
+
+        return replyInt, value
 
     def readReply(self):
         replyData = self.port.readData(64)
@@ -370,10 +382,27 @@ class PhotonCounter(PhysicalDevice):
     def get_repetition(self):
         return self.sendCommand(commandName='R')
 
-    def set_repetition(self, repetitions):
+    def set_repetition(self, repetitions=0):
         return self.sendCommand(commandName="R", payload=repetitions)
 
-    def startCounting(self, correction=True):
+    def turn_on(self):
+        self.set_high_voltage()
+
+    def turn_off(self):
+        self.set_high_voltage(value=0)
+
+    def get_high_voltage(self):
+        return self.sendCommand("V")
+
+    def set_high_voltage(self, value=None):
+        if value is None: 
+            return self.sendCommand("DV") # Default high voltage
+        if value == 0: 
+            return self.sendCommand("ZV") # Turn off high voltage
+
+        return self.sendCommand("V", value)
+
+    def start_counting(self, correction=True):
         if correction:
             return self.port.writeData(b'M')
         else:
@@ -389,12 +418,21 @@ class PhotonCounter(PhysicalDevice):
         return counts
 
     def fetchOne(self):
+        idx = None
+        count = None
+
         try:
-            return self.readReply()
-        except Exception as err:
+            idx, count = self.readReply()
+        except usb.core.USBTimeoutError as err:
             return None, None
 
-    def stopCounting(self):
+        if (count & 0x8000) != 0:
+            raise ValueError("PMT overload")
+
+        return idx, count
+
+
+    def stop_counting(self):
         self.port.writeData(b'\r')
         self.port.flush()
 
@@ -418,40 +456,50 @@ class TestHamamatsuClass(unittest.TestCase):
         self.assertEqual(actualRepetitions, 123)
 
     def testStartStop(self):
-        self.device.startCounting()
-        self.device.stopCounting()
+        self.device.start_counting()
+        self.device.stop_counting()
 
     def testStartFetchStop(self):
         self.device.set_repetition(0)
         self.device.set_integration_time(10000)
-        self.device.startCounting()
+        self.device.start_counting()
         self.device.fetchOne()
-        self.device.stopCounting()
+        self.device.stop_counting()
 
     def testStartFetchAllStop(self):
         self.device.set_repetition(10)
         self.device.set_integration_time(10000)
-        self.device.startCounting()
+        self.device.start_counting()
         counts = self.device.fetchAll(maxIndex=10)
         for i, (idx, c) in enumerate(counts):
             self.assertEqual(i, idx)
             self.assertTrue(c > 0)
-        self.device.stopCounting()
+        self.device.stop_counting()
 
     def testStartWaitFetchAllStop(self):
         self.device.set_repetition(10)
         self.device.set_integration_time(10000)
-        self.device.startCounting()
+        self.device.start_counting()
         counts = self.device.fetchAll(maxIndex=10)
-        print(counts)
         for i, (idx, c) in enumerate(counts):
             self.assertEqual(i, idx)
             self.assertTrue(c > 0,"{0}".format(c))
-        self.device.stopCounting()
+            self.assertTrue(c & 0x8000 == 0)
+        self.device.stop_counting()
 
     def testStopStop(self):
-        self.device.stopCounting()
-        self.device.stopCounting()
+        self.device.stop_counting()
+        self.device.stop_counting()
+
+    def testTurnOn(self):        
+        self.device.turn_on()
+
+    def testTurnOff(self):        
+        print(self.device.sendCommand("ZV"))
+        print(self.device.sendCommand("DV"))
+        print(self.device.sendCommand("ZV"))
+        print(self.device.sendCommand("V"))
+        print(self.device.sendCommand(commandName="V", payload=800))
 
 if __name__ == '__main__':
     unittest.main()

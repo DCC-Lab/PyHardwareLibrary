@@ -81,7 +81,7 @@
       <recent name="$PROJECT_DIR$/hardwarelibrary/tests/deprecated" />
     </key>
   </component>
-  <component name="RunManager" selected="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testInstantiateStellarNetDevice">
+  <component name="RunManager" selected="Python tests.Python tests in testHamamatsuSerial.py">
     <configuration name="hardwarelibrary" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -186,7 +186,7 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests in testPhysicalDevice.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in testHamamatsuSerial.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PyHardwareLibrary" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -197,7 +197,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testPhysicalDevice.py&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/hardwarelibrary/tests/testHamamatsuSerial.py&quot;" />
       <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
@@ -208,15 +208,15 @@
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testGetStellarNetDevices" />
       <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testInstantiateStellarNetDevice" />
       <item itemvalue="Python tests.Python tests for testPyUSB.PyUSBTestCase" />
-      <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
+      <item itemvalue="Python tests.Python tests in testHamamatsuSerial.py" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests in testHamamatsuSerial.py" />
         <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testInstantiateStellarNetDevice" />
         <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testGetStellarNetDevices" />
         <item itemvalue="Python tests.Python tests for testPhysicalDevice.TestPhysicalDeviceCompatibilityClasses.testGetConnectedDevices" />
         <item itemvalue="Python tests.Python tests for testPyUSB.PyUSBTestCase" />
-        <item itemvalue="Python tests.Python tests in testPhysicalDevice.py" />
       </list>
     </recent_temporary>
   </component>
