@@ -41,10 +41,9 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
                 break
             count = count -1
 
-    @unittest.expectedFailure
     def test04SendDVZVCommand(self):
         """
-        This never worked.
+        This never worked: ZV is not a good command.
         """
 
         self.port.writeString(string="DV")
@@ -62,6 +61,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
         while count > 0:
            try:
                print(count, self.port.readData(1))
+               # This will print 'B', 'C' etc...
            except Exception as err:
                print(err)
                break
@@ -108,13 +108,15 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
         commands = self.extendCommand("DV")
         self.validate(commands)
 
+    @unittest.expectedFailure
     def test07TurnOff(self):
         """
-        This never worked, I figured out it was not a command.
+        This never really worked, I figured out it ZV was not a command.
         I checked with various suffixes, but but nothing worked
-    """
+        """=
         commands = self.extendCommand("ZV")
-        are_valid = self.validate(commands)
+        all_commands, are_valid = self.validate(commands)
+        print(are_valid)
         self.assertTrue(any(are_valid))
 
         commands = self.extendCommand("zv")
@@ -124,6 +126,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
         for i, is_valid in enumerate(are_valid):
             print(commands[i], is_valid)
 
+    @unittest.skip("Long test only useful once: brute force attempting to find commands")
     def testFind2Letter_Commands(self):
         """
         I brute forced it: what are the 2-letter commands?
@@ -141,6 +144,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
                     if is_valid:
                         print(commands[i], replies[i])
 
+    @unittest.skip("Long test only useful once: brute force attempting to find commands")
     def testFind1Letter_Commands(self):
         """
         I noticed that after 'C' I started getting stuff regularly.
@@ -155,6 +159,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
                 if is_valid:
                     print(commands[i], replies[i])
 
+    @unittest.skip("Long test only useful once: brute force attempting to find commands")
     def testFind1Byte_Commands(self):
         """
         Just in case, checked binary but no: nothing new
@@ -176,6 +181,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
 
         print(valid)
 
+    @unittest.skip("Long test only useful once: brute force attempting to find commands")
     def testFind2Byte_Commands(self):
         """
         Same
@@ -234,7 +240,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
                 pass
 
 
-    def test08GetIntegrationTimeself(self):
+    def test08GetIntegrationTime(self):
         """
         Here, I noticed the 'I' command appeared valid in my long list of attempts.
         I printed the reply data for a while and noticed
@@ -256,7 +262,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
 
         print(chr(index), photonCount)
 
-    def test09SetIntegrationTimeself(self):
+    def test09SetIntegrationTime(self):
         """
         Knowing that 'I' replied with 'I',0x00,0x00,0x00,0xa0,0x86,0x01,0x00
         I decided to try to send the same command back: it worked.
@@ -271,7 +277,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
 
         print(index, photonCount)
 
-    def test10start_countingProperly(self):
+    def test90start_countingProperly(self):
         """
         Finally, this appears perfect.
         """
