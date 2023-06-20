@@ -1,11 +1,8 @@
 #
 # uniblitzai25device.py
 #
-# Allows controlling the Uniblitz AI25 Auto Iris, using a custom driver via an AI25B1 breakout board.
-# See "ai25-direct-control-v1-2.pdf" in the manuals folder.
-#
-# Their weird communication "standard" is really dumb and pointlessly requires custom hardware.
-# I'm not quite sure what they were smoking, simply putting an FTDI chip would have sufficed...
+# Allows controlling the Uniblitz AI25 Auto Iris using a custom driver.
+# See "driverAI25" in the "irises" folder and "ai25-direct-control-v1-2.pdf" in the "manuals" folder.
 #
 
 from serial.tools.list_ports_common import ListPortInfo
