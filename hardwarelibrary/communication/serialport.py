@@ -195,7 +195,7 @@ class SerialPort(CommunicationPort):
         with self.portLock:
             data = self.port.read_until(expected=self.terminator)
 
-        return data.decode()
+        return data.decode('utf-8', 'replace')
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
