@@ -55,6 +55,7 @@ class UniblitzAI25Device(IrisDevice):
                 self.port.open(baudRate=9600, timeout=3)
 
             self.port.readMatchingGroups('^(driverAI25 )?Ready\r')
+            self.isHomed = False
             # self.doMoveBy(-1)
             # self.doMoveBy(1)
 
