@@ -7,6 +7,7 @@
 
 from serial.tools.list_ports_common import ListPortInfo
 from hardwarelibrary.irises.irisdevice import *
+from hardwarelibrary.communication.communicationport import CommunicationPort
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.debugport import DebugPort
 
@@ -23,7 +24,7 @@ class UniblitzAI25Device(IrisDevice):
         self.minAperture = 1500  # microns when closed
         # self.incrementMicrons = 440
 
-        self.port = None
+        self.port: CommunicationPort = None
         self.isHomed = False
         self.lastSetStep = 0
 
@@ -71,6 +72,7 @@ class UniblitzAI25Device(IrisDevice):
         if self.port is None or not self.port.isOpen:
             self.initializeDevice()
 
+        self.port.flush()
         self.port.writeStringExpectMatchingString(command + '\r\n', replyPattern='^!\r')
 
     def doGetCurrentStep(self):
