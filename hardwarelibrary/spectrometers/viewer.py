@@ -4,6 +4,7 @@ import usb.core
 import usb.util
 import usb.backend.libusb1
 import numpy as np
+import time
 
 import matplotlib.backends as backends
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ class SpectraViewer:
     def __init__(self, spectrometer):
         """ A matplotlib-based window to display and manage a spectrometer
         to replace the insanely inept OceanView software from OceanInsight or 
-        the dude-wtf?1 software from Stellarnet.
+        the dude-wtf? software from Stellarnet.
         If anybody reads this from Ocean Insight, you can direct people
         to this Python script.  It is simpler to call it directly from the
         spectrometer object with its own display function that will instantiate
@@ -244,24 +245,29 @@ the text "{0}" converts to 0.')
         with python.
         """
 
-        self.animation.event_source.stop()
+        self.animation.pause()
         filepath = "spectrum.csv"
+        time.sleep(1.0)
         try:
-            filepath = backends.backend_macosx._macosx.choose_save_file('Save the data',filepath)
-        except:
-            import tkinter as tk
-            from tkinter import filedialog
+            filepath = backends.backend_macosx._macosx.choose_save_file('Save the data',".", filepath)
+        except Exception as err:
+            print(f"{err} Falling back to tk")
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
 
-            root = tk.Tk()
-            root.withdraw()
-            filepath = filedialog.asksaveasfilename()
+                root = tk.Tk()
+                root.withdraw()
+                filepath = filedialog.asksaveasfilename()
+            except Exception as err:
+                print(f"{err} fail to display save dialog")
 
         if filepath is not None:
             self.spectrometer.saveSpectrum(filepath, spectrum=self.lastSpectrum, 
                                            whiteReference=self.whiteReference,
                                            darkReference=self.darkReference)
 
-        self.animation.event_source.start()
+        self.animation.resume()
 
     def clickQuit(self, event):
         """ Event-handling function to quit nicely."""
