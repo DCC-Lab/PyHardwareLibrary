@@ -1,4 +1,4 @@
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __author__ = "Daniel Cote <dccote@cervo.ulaval.ca>"
 
 __all__ = ["communication","motion","oscilloscope","powermeters","spectrometers"]
