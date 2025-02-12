@@ -228,6 +228,7 @@ class OISpectrometer(Spectrometer):
         This commands needs to be sent only once per session as soon as 
         the communication is started.
         """
+
         try:
 
             if self.serialNumber == "*" or self.serialNumber == ".*":
@@ -609,11 +610,12 @@ class USB2000(OISpectrometer):
             available in self.wavelength.
         """
         spectrum = []
+
         for packet in range(32):
             bytesReadLow = self.epMainIn.read(size_or_buffer=64, timeout=200)
             bytesReadHi = self.epMainIn.read(size_or_buffer=64, timeout=200)
             
-            spectrum.extend(np.array(bytesReadLow)+256*np.array(bytesReadHi))
+            spectrum.extend(np.array(bytesReadLow, dtype=np.uint16)+256*np.array(bytesReadHi, dtype=np.uint16))
 
         confirmation = self.epMainIn.read(size_or_buffer=1, timeout=200)
         spectrum[0] = spectrum[1]
@@ -784,6 +786,21 @@ class USB4000_2000Plus(OISpectrometer):
                 return False
 
         return True
+
+class USB650(USB2000):
+    classIdProduct = 0x1014
+
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        super().__init__(serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
+        self.model="USB650"
+        """
+        After discussion with a representative, the USB650 is essentially a USB2000 but the endpoints
+        are different.  After trial an error, I found these work, and everything worked immediately.
+        """
+        self.epCommandOutIdx = 0
+        self.epMainInIdx = 0
+        self.epStatusIdx = 1
+        self.epSecondaryInIdx = self.epStatusIdx
 
 class USB4000(USB4000_2000Plus):
     classIdProduct = 0x1022
