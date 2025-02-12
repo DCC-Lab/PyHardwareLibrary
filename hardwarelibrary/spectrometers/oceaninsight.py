@@ -791,7 +791,11 @@ class USB650(USB2000):
     classIdProduct = 0x1014
 
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
-        super().__init__(serialNumber=serialNumber, idProduct=self.classIdProduct, idVendor=idVendor)
+        super().__init__(serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
+        """
+        After discussion with a representative, the USB650 is essentially a USB2000 but the endpoints
+        are different.  After trial an error, I found these work, and everything worked immediately.
+        """
         self.epCommandOutIdx = 0
         self.epMainInIdx = 0
         self.epStatusIdx = 1
