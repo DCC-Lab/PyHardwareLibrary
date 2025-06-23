@@ -13,8 +13,8 @@ class Direction(Enum):
 
 class LinearMotionDevice(PhysicalDevice):
 
-    def __init__(self, serialNumber:str, productId:int, vendorId:int):
-        super().__init__(serialNumber, productId, vendorId)
+    def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
+        super().__init__(serialNumber, idProduct, idVendor)
         self.x = None
         self.y = None
         self.z = None
@@ -96,8 +96,10 @@ class LinearMotionDevice(PhysicalDevice):
 
 
 class DebugLinearMotionDevice(LinearMotionDevice):
+    classIdProduct = 0xfffd
+    classIdVendor = debugClassIdVendor
     def __init__(self):
-        super().__init__("debug", 0xffff, 0xfffd)
+        super().__init__("debug", DebugLinearMotionDevice.classIdProduct, DebugLinearMotionDevice.classIdVendor )
         (self.x, self.y, self.z) = (0, 0, 0)
         self.nativeStepsPerMicrons = 16
 

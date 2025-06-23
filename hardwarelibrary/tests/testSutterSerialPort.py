@@ -1,15 +1,9 @@
-import env # modifies path
+import env
 import unittest
-import time
-from threading import Thread, Lock
 from struct import *
 
-import pyftdi.serialext
-import pyftdi.ftdi 
-from pyftdi.ftdi import Ftdi
-
-from hardwarelibrary.motion.sutterdevice import SutterDevice
 from hardwarelibrary.communication.serialport import *
+from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 
 class TestSutterSerialPortBase:

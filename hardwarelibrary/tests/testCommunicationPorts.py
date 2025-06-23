@@ -1,19 +1,16 @@
-import env # modifies path
+import env
 import unittest
-import time
 from threading import Thread, Lock
-import random
-import array
-import os
-
-from hardwarelibrary.communication import *
 
 import usb.util as util
+
+from hardwarelibrary.communication import *
 
 payloadData = b'1234'
 payloadString = '1234\n'
 globalLock = Lock()
 threadFailed = -1
+
 
 class BaseTestCases:
     class TestEchoPort(unittest.TestCase):
@@ -27,7 +24,7 @@ class BaseTestCases:
 
         def testCantReopen(self):
             self.assertTrue(self.port.isOpen)
-            with self.assertRaises(Exception) as context:
+            with self.assertRaises(Exception):
                 self.port.open()
 
         def testCloseReopen(self):
@@ -56,7 +53,7 @@ class BaseTestCases:
             self.assertTrue(nBytes == len(payloadData))
 
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
+            self.assertTrue(data == payloadData, "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoSequence(self):
             nBytes = self.port.writeData(payloadData)
@@ -65,9 +62,9 @@ class BaseTestCases:
             self.assertTrue(nBytes == len(payloadData))
 
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
+            self.assertTrue(data == payloadData, "Data {0}, payload:{1}".format(data, payloadData))
             data = self.port.readData(length=len(payloadData))
-            self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
+            self.assertTrue(data == payloadData, "Data {0}, payload:{1}".format(data, payloadData))
 
         def testWriteDataReadEchoLarge(self):
             for i in range(100):
@@ -76,7 +73,7 @@ class BaseTestCases:
 
             for i in range(100):
                 data = self.port.readData(length=len(payloadData))
-                self.assertTrue(data == payloadData,  "Data {0}, payload:{1}".format(data, payloadData))
+                self.assertTrue(data == payloadData, "Data {0}, payload:{1}".format(data, payloadData))
 
         # def testWriteString(self):
         #     nBytes = self.port.writeString(payloadString)
@@ -107,64 +104,64 @@ class BaseTestCases:
 
             for i in range(100):
                 string = self.port.readString()
-                self.assertTrue(string == payloadString,"{0} is not {1}".format(string, payloadString))
+                self.assertTrue(string == payloadString, "{0} is not {1}".format(string, payloadString))
 
         def testTimeoutReadData(self):
-            with self.assertRaises(CommunicationReadTimeout) as context:
+            with self.assertRaises(CommunicationReadTimeout):
                 self.port.readData(1)
 
             self.port.writeData(payloadData)
-            with self.assertRaises(CommunicationReadTimeout) as context:
-                self.port.readData(len(payloadData)+1)
+            with self.assertRaises(CommunicationReadTimeout):
+                self.port.readData(len(payloadData) + 1)
 
         def testWriteStringReadMatchingEcho(self):
             reply = self.port.writeStringExpectMatchingString(
-                        payloadString,
-                        replyPattern=payloadString)
+                payloadString,
+                replyPattern=payloadString)
             self.assertEqual(reply, payloadString)
 
         def testWriteStringReadMatchingPattern(self):
             reply = self.port.writeStringExpectMatchingString(
-                        "abcd1234\n",
-                        replyPattern="abc.\\d{4}")
+                "abcd1234\n",
+                replyPattern="abc.\\d{4}")
             self.assertEqual(reply, "abcd1234\n")
 
         def testWriteStringReadMatchingPatternFirstCaptureGroup(self):
             reply, firstGroup = self.port.writeStringReadFirstMatchingGroup(
-                        "abcd1234\n",
-                        replyPattern="abc.(\\d{4})")
+                "abcd1234\n",
+                replyPattern="abc.(\\d{4})")
             self.assertEqual(firstGroup, "1234")
 
         def testWriteStringReadMatchingPatternAllCaptureGroups(self):
             reply, groups = self.port.writeStringReadMatchingGroups(
-                        "abcd1234\n",
-                        replyPattern="(abc.)(\\d{4})")
+                "abcd1234\n",
+                replyPattern="(abc.)(\\d{4})")
             self.assertEqual(groups[0], "abcd")
             self.assertEqual(groups[1], "1234")
 
         def testFailedWriteStringReadMatchingPattern(self):
-            with self.assertRaises(CommunicationReadNoMatch) as context:
-                reply = self.port.writeStringExpectMatchingString(
-                            "abcd1234\n",
-                            replyPattern="abc.\\d{5}")
+            with self.assertRaises(CommunicationReadNoMatch):
+                _ = self.port.writeStringExpectMatchingString(
+                    "abcd1234\n",
+                    replyPattern="abc.\\d{5}")
 
         def testFailedWriteStringReadMatchingPatternFirstCaptureGroup(self):
-            with self.assertRaises(CommunicationReadNoMatch) as context:
-                firstGroup = self.port.writeStringReadFirstMatchingGroup(
-                            "abcd1234\n",
-                            replyPattern="abc.(\\d{5})")
+            with self.assertRaises(CommunicationReadNoMatch):
+                _ = self.port.writeStringReadFirstMatchingGroup(
+                    "abcd1234\n",
+                    replyPattern="abc.(\\d{5})")
 
         def testFailedWriteStringReadMatchingPatternWithoutGroupFirstCaptureGroup(self):
-            with self.assertRaises(CommunicationReadNoMatch) as context:
-                firstGroup = self.port.writeStringReadFirstMatchingGroup(
-                            "abcd1234\n",
-                            replyPattern="abc.\\d{4}")
+            with self.assertRaises(CommunicationReadNoMatch):
+                _ = self.port.writeStringReadFirstMatchingGroup(
+                    "abcd1234\n",
+                    replyPattern="abc.\\d{4}")
 
         def testFailedWriteStringReadMatchingPatternAllCaptureGroups(self):
-            with self.assertRaises(CommunicationReadNoMatch) as context:
-                (firstGroup, secondGroup) = self.port.writeStringReadMatchingGroups(
-                            "abcd1234\n",
-                            replyPattern="(abc.)(\\d{5})")
+            with self.assertRaises(CommunicationReadNoMatch):
+                (_, _) = self.port.writeStringReadMatchingGroups(
+                    "abcd1234\n",
+                    replyPattern="(abc.)(\\d{5})")
 
         def testThreadSafety(self):
             global threadFailed, globalLock
@@ -177,14 +174,14 @@ class BaseTestCases:
             for process in threadPool:
                 process.start()
 
-            for i,p in enumerate(threadPool):
+            for i, p in enumerate(threadPool):
                 p.join(timeout=1)
 
                 with globalLock:
                     if threadFailed != -1:
                         self.fail("Thread {0}?".format(threadFailed))
 
-            for i,p in enumerate(threadPool):
+            for i, p in enumerate(threadPool):
                 p.join(timeout=1)
 
             with globalLock:
@@ -208,7 +205,7 @@ class BaseTestCases:
             self.assertFalse(command.hasError)
 
         def testDataCommandNoReply(self):
-            command = DataCommand(b"Test", data=b"1234\n")
+            command = DataCommand("Test", data=b"1234\n")
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port))
             self.assertTrue(command.isSentSuccessfully)
@@ -216,20 +213,21 @@ class BaseTestCases:
             self.assertFalse(command.hasError)
 
         def testDataCommand(self):
-            command = DataCommand(b"Test", data=b"1234\n", replyDataLength=5)
+            command = DataCommand("Test", data=b"1234\n", replyDataLength=5)
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port), msg="Exceptions were {0}".format(command.exceptions))
             self.assertTrue(command.isSentSuccessfully)
-            self.assertTrue(command.reply == b"1234\n",msg="Reply was: {0}".format(command.reply))
+            self.assertTrue(command.reply == b"1234\n", msg="Reply was: {0}".format(command.reply))
             self.assertFalse(command.hasError)
 
         def testDataCommandError(self):
-            command = DataCommand(b"Test", data=b"1234\n", replyDataLength=6)
+            command = DataCommand("Test", data=b"1234\n", replyDataLength=6)
             self.assertIsNotNone(command)
             with self.assertRaises(Exception):
                 command.send(self.port)
             self.assertFalse(command.isSentSuccessfully)
             self.assertTrue(command.hasError)
+
 
 def threadReadWrite(port, index):
     global threadFailed, globalLock
@@ -237,10 +235,9 @@ def threadReadWrite(port, index):
     with globalLock:
         try:
             port.writeStringExpectMatchingString(payload, replyPattern=payload)
-        except:
+        except Exception:
             if threadFailed != -1:
-                threadFailed = index        
-
+                threadFailed = index
 
 
 class TestDebugEchoPort(BaseTestCases.TestEchoPort):
@@ -255,6 +252,7 @@ class TestDebugEchoPort(BaseTestCases.TestEchoPort):
     def tearDown(self):
         self.port.close()
         self.assertFalse(self.port.isOpen)
+
 
 class TestDebugPortDefaultsToECho(BaseTestCases.TestEchoPort):
 
@@ -297,7 +295,7 @@ class TestFTDIAdaptor(unittest.TestCase):
         dev.set_configuration()
         cfg = dev.get_active_configuration()
         self.assertIsNotNone(cfg)
-        itf = cfg[(0,0)]
+        itf = cfg[(0, 0)]
         epIn = itf[0]
         epOut = itf[1]
         self.assertTrue(epIn.bEndpointAddress & 0x80 != 0)
@@ -316,9 +314,10 @@ class TestFTDIAdaptor(unittest.TestCase):
         epOut.write(text)
         data = util.create_buffer(maxPacket)
         nBytes = epIn.read(size_or_buffer=data, timeout=1000)
-        print(nBytes,data[:nBytes])
+        print(nBytes, data[:nBytes])
         for c in data[:nBytes]:
-            print("{0:08b} ".format(c),end='')
+            print("{0:08b} ".format(c), end='')
+
 
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
@@ -343,7 +342,7 @@ class TestRealEchoSerialPort(BaseTestCases.TestEchoPort):
             self.port.open()
             self.port.flush()
         except Exception as err:
-            raise(unittest.SkipTest("No ECHO device connected {0}".format(err)))
+            raise (unittest.SkipTest("No ECHO device connected {0}".format(err)))
 
     def tearDown(self):
         if self.port is not None:

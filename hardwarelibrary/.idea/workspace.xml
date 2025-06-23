@@ -2,11 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="90ca4116-5fad-4c16-b2e5-e7165d36af6f" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../.idea/PyHardwareLibrary.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/PyHardwareLibrary.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/communication/serialport.py" beforeDir="false" afterPath="$PROJECT_DIR$/communication/serialport.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/motion/sutterdevice.py" beforeDir="false" afterPath="$PROJECT_DIR$/motion/sutterdevice.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

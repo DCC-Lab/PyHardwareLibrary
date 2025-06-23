@@ -10,10 +10,14 @@ import re
 import time
 from struct import *
 
+from pyftdi.ftdi import Ftdi #FIXME: should not be here.
+
 class SutterDevice(LinearMotionDevice):
+    classIdVendor = 4930
+    classIdProduct = 1
 
     def __init__(self, serialNumber: str = None):
-        super().__init__(serialNumber=serialNumber, vendorId=4930, productId=1)
+        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
         self.port = None
         self.nativeStepsPerMicrons = 16
 
@@ -37,7 +41,11 @@ class SutterDevice(LinearMotionDevice):
             if self.serialNumber == "debug":
                 self.port = self.DebugSerialPort()
             else:
-                self.port = SerialPort(portPath="ftdi://0x1342:0x0001:SI8YCLBE/1")
+                portPath = SerialPort.matchAnyPort(idVendor=self.idVendor, idProduct=self.idProduct, serialNumber=self.serialNumber)
+                if portPath is None:
+                    raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
+
+                self.port = SerialPort(portPath=portPath)
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
@@ -55,12 +63,13 @@ class SutterDevice(LinearMotionDevice):
         self.port.close()
         self.port = None
 
-    def sendCommand(self, commandBytes):
+    def sendCommandBytes(self, commandBytes):
         """ The function to write a command to the endpoint. It will initialize the device 
         if it is not alread initialized. On failure, it will warn and shutdown."""
         if self.port is None:
-            self.doInitializeDevice()
+            self.initializeDevice()
         
+        time.sleep(0.1)
         nBytesWritten = self.port.writeData(commandBytes)
         if nBytesWritten != len(commandBytes):
             raise Exception(f"Unable to send command {commandBytes} to device.")
@@ -76,6 +85,7 @@ class SutterDevice(LinearMotionDevice):
         if self.port is None:
             self.initializeDevice()
 
+        time.sleep(0.1)
         replyBytes = self.port.readData(size)
         if len(replyBytes) != size:
             raise Exception(f"Not enough bytes read in readReply {replyBytes}")
@@ -90,7 +100,7 @@ class SutterDevice(LinearMotionDevice):
     def doGetPosition(self) -> (int, int, int):
         """ Returns the position in microsteps """
         commandBytes = pack('<cc', b'C', b'\r')
-        self.sendCommand(commandBytes)
+        self.sendCommandBytes(commandBytes)
         (x, y, z) = self.readReply(size=14, format='<xlllx')
 
         return (x, y, z)
@@ -99,7 +109,7 @@ class SutterDevice(LinearMotionDevice):
         """ Move to a position in microsteps """
         x, y, z = position
         commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
-        self.sendCommand(commandBytes)
+        self.sendCommandBytes(commandBytes)
         reply = self.readReply(size=1, format='<c')
 
         if reply != (b'\r',):
@@ -115,7 +125,7 @@ class SutterDevice(LinearMotionDevice):
 
     def doHome(self):
         commandBytes = pack('<cc', b'H', b'\r')
-        self.sendCommand(commandBytes)
+        self.sendCommandBytes(commandBytes)
         replyBytes = self.readReply(1, '<c')
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
@@ -125,7 +135,7 @@ class SutterDevice(LinearMotionDevice):
     def work(self):
         self.home()
         commandBytes = pack('<cc', b'Y', b'\r')
-        self.sendCommand(commandBytes)
+        self.sendCommandBytes(commandBytes)
         replyBytes = self.readReply(1, '<c')
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
@@ -141,8 +151,6 @@ class SutterDevice(LinearMotionDevice):
             self.zSteps = 0
 
         def processInputBuffers(self, endPointIndex):
-            # We default to ECHO for simplicity
-
             inputBytes = self.inputBuffers[endPointIndex]
 
             if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:

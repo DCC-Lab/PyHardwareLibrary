@@ -12,17 +12,17 @@ rm dist/*; python setup.py sdist bdist_wheel; python -m twine upload dist/*
 
 setuptools.setup(
     name="hardwarelibrary",
-    version="0.9.5",
+    version="1.0.5",
     url="https://github.com/DCC-Lab/PyHardwareLibrary",
     author="Daniel Cote",
     author_email="dccote@cervo.ulaval.ca",
-    description="Library to control various hardware devices mostly for scientific applications.",
+    description="Cross-platform (macOS, Windows, Linux, etc...) library to control various hardware devices mostly for scientific applications.",
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     license='MIT',
-    keywords='hardware devices usb communication app control spectrometer powermeter',
+    keywords='hardware devices usb communication app control spectrometer powermeter camera',
     packages=setuptools.find_packages(),
-    install_requires=['numpy','matplotlib','PySerial','PyUSB','pyftdi'],
+    install_requires=['numpy','matplotlib','PySerial','PyUSB','pyftdi','LabJackPython'],
     python_requires='>=3.7',
     package_data = {
         # If any package contains *.txt or *.rst files, include them:

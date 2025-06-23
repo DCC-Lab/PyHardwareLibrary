@@ -1,17 +1,27 @@
-import env # modifies path
+import env
 import unittest
 
-from hardwarelibrary.communication import *
 from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice, LinearMotionNotification
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 from hardwarelibrary.notificationcenter import NotificationCenter
 
+
 class BaseTestCases:
     class TestLinearMotionDevice(unittest.TestCase):
         def setUp(self):
-            self.device = None
+            # Set self.device in subclass
             self.willNotificationReceived = False
             self.didNotificationReceived = False
+            if self.device is None:
+                raise (unittest.SkipTest("No device defined in subclass of BaseTestCase"))
+
+            try:
+                self.device.initializeDevice()
+            except Exception as err:
+                raise (unittest.SkipTest("No devices connected"))
+
+        def tearDown(self):
+            self.device.shutdownDevice()
 
         def testDevicePosition(self):
             (x, y, z) = self.device.position()
@@ -105,7 +115,7 @@ class BaseTestCases:
         def testPositionNotifications(self):
             NotificationCenter().addObserver(self, method=self.handleDid, notificationName=LinearMotionNotification.didGetPosition)
             (x, y, z) = self.device.position()
-            self.assertTrue(self.didNotificationReceived)        
+            self.assertTrue(self.didNotificationReceived)
             NotificationCenter().removeObserver(self)
 
         def testDeviceMoveNotifications(self):
@@ -154,14 +164,18 @@ class BaseTestCases:
 
 class TestDebugLinearMotionDeviceBase(BaseTestCases.TestLinearMotionDevice):
     def setUp(self):
-        super().setUp()
         self.device = DebugLinearMotionDevice()
+        super().setUp()
 
 class TestDebugSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
     def setUp(self):
-        super().setUp()
         self.device = SutterDevice("debug")
+        super().setUp()
 
+class TestRealSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
+    def setUp(self):
+        self.device = SutterDevice()
+        super().setUp()
 
 if __name__ == '__main__':
     unittest.main()
