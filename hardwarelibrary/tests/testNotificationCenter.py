@@ -1,7 +1,9 @@
-import env # modifies path
+import env
 import unittest
 from enum import Enum
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification, ObserverInfo
+
+from hardwarelibrary.notificationcenter import NotificationCenter, ObserverInfo
+
 
 class TestNotificationName(Enum):
     test       = "test"

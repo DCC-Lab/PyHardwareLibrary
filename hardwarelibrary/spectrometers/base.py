@@ -30,11 +30,11 @@ class SpectrumRequestTimeoutError(RuntimeError):
 class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
-    def __init__(self, serialNumber=None):
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.model = ""
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
-        self.serialNumber = serialNumber
 
     def getSerialNumber(self):
         fctName = inspect.currentframe().f_code.co_name
@@ -96,9 +96,18 @@ class Spectrometer(PhysicalDevice):
             print("Unable to save data: {0}".format(err))
 
     @classmethod
+    def supportedClasses(cls):
+        supportedClasses = []
+        for c in getAllSubclasses(Spectrometer):
+            classSearch = re.search(r'\.(USB.*?)\W', "{0}".format(c), re.IGNORECASE)
+            if classSearch:
+                supportedClasses.append(c)
+        return supportedClasses
+
+    @classmethod
     def supportedClassNames(cls):
         supportedClasses = []
-        for c in cls.__subclasses__():
+        for c in getAllSubclasses(Spectrometer):
             classSearch = re.search(r'\.(USB.*?)\W', "{0}".format(c), re.IGNORECASE)
             if classSearch:
                 supportedClasses.append(classSearch.group(1))
@@ -138,7 +147,7 @@ class Spectrometer(PhysicalDevice):
        speed, etc...). More spectrometers will be supported in the future.
        Look at the class USB2000 to see what you have to provide to support
        a new spectrometer (it is not that much work, but you need one to test).
-""".format(__file__, ', '.join(cls.supportedClassNames())))
+""".format(__file__, ', '.join(Spectrometer.supportedClassNames)))
 
         # Well, how about that? This does not work in Windows
         # https://stackoverflow.com/questions/2330245/python-change-text-color-in-shell
@@ -165,13 +174,11 @@ class Spectrometer(PhysicalDevice):
             An instance of a supported spectrometer that can be used immediately.
         """
 
-        supportedClasses = cls.__subclasses__()
-
         devices = cls.connectedUSBDevices()
         for device in devices:
-            for aClass in supportedClasses:
-                if device.idProduct == aClass.idProduct:
-                    return aClass()
+            for aClass in cls.supportedClasses():
+                if device.idProduct == aClass.classIdProduct:
+                    return aClass(serialNumber="*", idProduct=device.idProduct, idVendor=device.idVendor)
 
         if len(devices) == 0:
             raise NoSpectrometerConnected('No spectrometer connected.')
@@ -201,12 +208,18 @@ class Spectrometer(PhysicalDevice):
         devices: list of Device
             A list of connected devices matching the criteria provided
         """
+        idVendors = set()
+        for aClass in cls.supportedClasses():
+            if aClass is not None:
+                idVendors.add(aClass.classIdVendor)
+
+        devices = []
         if idProduct is None:
-            devices = list(usb.core.find(find_all=True, idVendor=cls.idVendor))
+            for idVendor in idVendors:
+                devices.extend(list(usb.core.find(find_all=True, idVendor=idVendor)))
         else:
-            devices = list(usb.core.find(find_all=True, 
-                                    idVendor=cls.idVendor, 
-                                    idProduct=idProduct))
+            for idVendor in idVendors:
+                devices.extend(list(usb.core.find(find_all=True, idVendor=idVendor, idProduct=idProduct)))
 
         if serialNumber is not None: # A serial number was provided, try to match
             for device in devices:
@@ -248,7 +261,7 @@ class Spectrometer(PhysicalDevice):
         """
 
         devices = cls.connectedUSBDevices(idProduct=idProduct, 
-                                                  serialNumber=serialNumber)
+                                          serialNumber=serialNumber)
 
         device = None
         if len(devices) == 1:
@@ -269,4 +282,18 @@ class Spectrometer(PhysicalDevice):
 
         return device
 
+def getAllSubclasses(aClass):
+    allSubclasses = []
+    for subclass in aClass.__subclasses__():
+        if len(subclass.__subclasses__()) == 0:
+            allSubclasses.append(subclass)
+        else:
+            allSubclasses.extend(getAllSubclasses(subclass))
 
+    return allSubclasses
+
+
+if __name__ == "__main__":
+    devices = getAllSubclasses(Spectrometer)
+    for dev in devices:
+        print("{0}".format(dev))

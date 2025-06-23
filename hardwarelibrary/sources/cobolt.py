@@ -12,7 +12,7 @@ class CoboltCantTurnOnWithAutostartOn(Exception):
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
 
     def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
-                 productId: int = None, vendorId: int = None):
+                 idProduct: int = None, idVendor: int = None):
 
         self.laserPower = 0
         self.requestedPower = 0
@@ -28,7 +28,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         else:
             self.portPath = None
 
-        PhysicalDevice.__init__(self, serialNumber, vendorId, productId)
+        PhysicalDevice.__init__(self, serialNumber, idVendor, idProduct)
         LaserSourceDevice.__init__(self)
         self.port = None
 

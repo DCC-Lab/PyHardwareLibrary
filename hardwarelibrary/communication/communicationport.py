@@ -25,6 +25,7 @@ class CommunicationPort:
     def __init__(self):
         self.portLock = RLock()
         self.transactionLock = RLock()
+        self.terminator = b'\n'
 
     @property
     def isOpen(self):
@@ -63,11 +64,14 @@ class CommunicationPort:
         with self.portLock:
             byte = None
             data = bytearray(0)
-            while (byte != b''):
-                byte = self.readData(1, endPoint)
-                data += byte
-                if byte == b'\n':
-                    break
+            try:
+                while (byte != b''):
+                    byte = self.readData(1, endPoint)
+                    data += byte
+                    if byte == self.terminator:
+                        break
+            except CommunicationReadTimeout as err:
+                raise CommunicationReadTimeout("Only obtained {0}".format(data))
 
             string = data.decode(encoding='utf-8')
 

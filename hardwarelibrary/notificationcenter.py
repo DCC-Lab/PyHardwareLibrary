@@ -37,6 +37,12 @@ class ObserverInfo:
 
 class NotificationCenter:
     _instance = None
+
+    def destroy(self):
+        nc = NotificationCenter()
+        NotificationCenter._instance = None
+        del(nc)
+
     def __init__(self):
         if not hasattr(self, 'observers'):
             self.observers = {}

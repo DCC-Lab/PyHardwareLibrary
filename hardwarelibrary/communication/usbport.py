@@ -48,11 +48,6 @@ class USBPort(CommunicationPort):
         self.defaultTimeout = 500
         self._internalBuffer = bytearray()
 
-    def __del__(self):
-        """ We need to make sure that the device is free for others to use """
-        if self.device is not None:
-            self.device.reset()
-
     @property
     def isOpen(self):
         if self.device is None:
@@ -93,7 +88,7 @@ class USBPort(CommunicationPort):
             self._internalBuffer = None
             
             if self.device is not None:
-                self.device.reset()
+                usb.util.dispose_resources(self.device)
                 self.device = None
                 self.configuration = None
                 self.interface = None        

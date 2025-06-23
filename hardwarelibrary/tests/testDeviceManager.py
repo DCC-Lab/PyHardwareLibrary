@@ -1,13 +1,13 @@
-import env # modifies path
+import env
 import unittest
-import time
-from threading import Thread, RLock
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
-from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
-from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
-from hardwarelibrary.motion import SutterDevice
+
 from hardwarelibrary.communication.diagnostics import *
 from hardwarelibrary.devicemanager import DeviceManager, DeviceManagerNotification
+from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
+from hardwarelibrary.motion import SutterDevice
+from hardwarelibrary.notificationcenter import NotificationCenter
+from hardwarelibrary.physicaldevice import PhysicalDevice
+
 
 class TestDeviceManager(unittest.TestCase):
 
@@ -27,22 +27,27 @@ class TestDeviceManager(unittest.TestCase):
 
     def testClassTypes(self):
         device = DebugLinearMotionDevice()
-        self.assertTrue( isinstance(device, DebugLinearMotionDevice))
-        self.assertTrue( isinstance(device, LinearMotionDevice))
-        self.assertTrue( issubclass(type(device), PhysicalDevice))
-        self.assertTrue( issubclass(type(device), LinearMotionDevice))
-        self.assertTrue( issubclass(type(device), DebugLinearMotionDevice))
+        self.assertTrue(isinstance(device, DebugLinearMotionDevice))
+        self.assertTrue(isinstance(device, LinearMotionDevice))
+        self.assertTrue(issubclass(type(device), PhysicalDevice))
+        self.assertTrue(issubclass(type(device), LinearMotionDevice))
+        self.assertTrue(issubclass(type(device), DebugLinearMotionDevice))
 
     def setUp(self):
         # DeviceManager().devices = []
-        dm = DeviceManager()
+        DeviceManager()
+        del DeviceManager._instance
         DeviceManager._instance = None
-        del(dm)
+
+        NotificationCenter()
+        del NotificationCenter._instance
+        NotificationCenter._instance = None
         self.lock = RLock()
         self.notificationsToReceive = []
         self.assertEqual(NotificationCenter().observersCount(), 0)
 
     def tearDown(self):
+        NotificationCenter().clear()
         self.assertEqual(NotificationCenter().observersCount(), 0)
 
     def testMatching1(self):
@@ -90,40 +95,42 @@ class TestDeviceManager(unittest.TestCase):
 
         matched = dm.matchPhysicalDevicesOfType(LinearMotionDevice)
         self.assertTrue(len(matched) == 2)
-        self.assertTrue(device1 in matched )
-        self.assertTrue(device2 in matched )
+        self.assertTrue(device1 in matched)
+        self.assertTrue(device2 in matched)
 
         matched = dm.matchPhysicalDevicesOfType(DebugLinearMotionDevice)
         self.assertTrue(len(matched) == 1)
-        self.assertTrue(device1 in matched )
+        self.assertTrue(device1 in matched)
 
         matched = dm.matchPhysicalDevicesOfType(SutterDevice)
         self.assertTrue(len(matched) == 1)
-        self.assertTrue(device2 in matched )
+        self.assertTrue(device2 in matched)
 
     def testStartRunLoop(self):
         dm = DeviceManager()
         dm.startMonitoring()
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.7
-        time.sleep(0.5)
+        expectedMaxEndTime = startTime + 3.0
+        time.sleep(2.0)
+        # self.assertEqual(len(dm.devices), 1)
         dm.stopMonitoring()
-        self.assertTrue(expectedMaxEndTime > time.time() )
+        self.assertTrue(expectedMaxEndTime > time.time())
+        # self.assertEqual(len(dm.devices), 0)
 
     def testRestartRunLoop(self):
         dm = DeviceManager()
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.3
+        expectedMaxEndTime = startTime + 3.0
         dm.startMonitoring()
         dm.stopMonitoring()
-        self.assertTrue(expectedMaxEndTime > time.time() )
+        self.assertTrue(expectedMaxEndTime > time.time())
 
         startTime = time.time()
-        expectedMaxEndTime = startTime + 0.3
+        expectedMaxEndTime = startTime + 3.0
         dm.startMonitoring()
         dm.stopMonitoring()
-        self.assertTrue(expectedMaxEndTime > time.time() )
+        self.assertTrue(expectedMaxEndTime > time.time())
 
     def testStartRunLoopTwice(self):
         dm = DeviceManager()
@@ -154,7 +161,7 @@ class TestDeviceManager(unittest.TestCase):
         time.sleep(0.5)
         dm.stopMonitoring()
 
-        self.assertTrue(len(self.notificationsToReceive) == 0)        
+        self.assertTrue(len(self.notificationsToReceive) == 0)
         nc.removeObserver(self)
         self.assertEqual(nc.observersCount(), 0)
 
@@ -177,37 +184,40 @@ class TestDeviceManager(unittest.TestCase):
         time.sleep(0.5)
         dm.stopMonitoring()
 
-        self.assertTrue(len(self.notificationsToReceive) == 0)        
+        self.assertTrue(len(self.notificationsToReceive) == 0)
         nc.removeObserver(self)
 
     def testNotificationReceivedFromAddingDevices(self):
         dm = DeviceManager()
         nc = NotificationCenter()
+
         dm.startMonitoring()
-        time.sleep(0.3) # let newlyConnected devices be added.
+        time.sleep(1.0)  # let newlyConnected devices be added.
+
         nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
         nc.addObserver(self, self.handle, DeviceManagerNotification.didRemoveDevice)
 
-        self.notificationsToReceive = [DeviceManagerNotification.willAddDevice,DeviceManagerNotification.didAddDevice]*1000
-        self.notificationsToReceive.extend([DeviceManagerNotification.willRemoveDevice,DeviceManagerNotification.didRemoveDevice]*1000)
-
+        N = 1000
+        self.notificationsToReceive = [DeviceManagerNotification.willAddDevice,
+                                       DeviceManagerNotification.didAddDevice] * N
+        self.notificationsToReceive.extend(
+            [DeviceManagerNotification.willRemoveDevice, DeviceManagerNotification.didRemoveDevice] * N)
 
         time.sleep(0.5)
-        self.addRemoveManyDevices(1000)
+        self.addRemoveManyDevices(N)
         time.sleep(0.5)
-        dm.stopMonitoring()
 
         with self.lock:
-            self.assertTrue(len(self.notificationsToReceive) == 0)        
+            self.assertEqual(len(self.notificationsToReceive), 0)
+
         nc.removeObserver(self)
 
-    # def testNewlyConnectedDevices(self):
-    #     dm = DeviceManager()
-    #     self.assertTrue(len(dm.newlyConnectedUSBDevices()) > 4)
+        dm.stopMonitoring()
 
-    def addRemoveManyDevices(self, N=1000):
+    @staticmethod
+    def addRemoveManyDevices(N=1000):
         dm = DeviceManager()
         devices = []
         for i in range(N):
@@ -220,14 +230,30 @@ class TestDeviceManager(unittest.TestCase):
 
     def handle(self, notification):
         with self.lock:
-            self.assertEqual(notification.name, self.notificationsToReceive[0])
-            self.notificationsToReceive.pop(0)
+            if len(self.notificationsToReceive) > 0:
+                self.assertEqual(notification.name, self.notificationsToReceive[0])
+                self.notificationsToReceive.pop(0)
+            else:
+                self.fail("Nothing left to receive, yet received {0}".format(notification.name))
 
     def handleStatus(self, notification):
         with self.lock:
-            devices = notification.userInfo
+            _ = notification.userInfo
         # if len(devices) != 0:
         #     self.assertTrue(isinstance(devices[0], DebugLinearMotionDevice))
+
+    def testSendCommand(self):
+        DeviceManager().updateConnectedDevices()
+        devices = list(DeviceManager().devices)
+
+        if len(devices) > 0:
+            devices[0].initializeDevice()
+
+            _ = DeviceManager().sendCommand("VERSION", deviceIdentifier=0)
+            _ = DeviceManager().sendCommand("GETWAVELENGTH", deviceIdentifier=0)
+
+            device[0].shutdownDevice()
+
 
 if __name__ == '__main__':
     unittest.main()

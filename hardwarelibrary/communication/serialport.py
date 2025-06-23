@@ -67,12 +67,12 @@ class SerialPort(CommunicationPort):
         # or              idVendor and idProduct
         # or              idVendor
 
-        # We must add custom vendors when rewquired
+        # We must add custom vendors when required
         try:
             if idVendor is not None and idProduct is not None:
                 # print("Adding custom product")
                 pyftdi.ftdi.Ftdi.add_custom_product(vid=idVendor, pid=idProduct, pidname='VID {0}: PID {1}'.format(idVendor, idProduct))
-            elif idVendor is not None :
+            elif idVendor is not None:
                 # print("Adding custom vendor")
                 pyftdi.ftdi.Ftdi.add_custom_vendor(vid=idVendor, vidname='VID {0}'.format(idVendor))
 
@@ -99,7 +99,7 @@ class SerialPort(CommunicationPort):
                     portObjects.append(port)
             else:
                 if port.vid == idVendor and port.pid == idProduct:
-                    if re.match(serialNumber, port.serial_number, re.IGNORECASE):
+                    if re.search(serialNumber, port.serial_number, re.IGNORECASE):
                         portObjects.append(port)
 
 
@@ -115,22 +115,25 @@ class SerialPort(CommunicationPort):
 
     @classmethod
     def ftdiPorts(cls):
-        portList = StringIO()
-        Ftdi.show_devices()
-        everything = portList.getvalue()
-        # print(everything)
-        urls = []
-        for someText in everything.split():
-            match = re.match("ftdi://(.+):(.+):(.+)/",someText,re.IGNORECASE)
-            if match is not None:
-                groups = match.groups()
-                thePort = ListPortInfo(device="")
-                thePort.vid = groups[0]
-                thePort.pid = groups[1]
-                thePort.serial_number = groups[2]
-                thePort.device = someText
+        # FIXME: for some reason, I can't get the Sutter URls with the
+        # wildcard and I must handcode the following. It appears the wildcard
+        # ftdi:///? does not work for some reason.
+        vidpids = [(4930, 1)] # Must add custom pairs in the future.
 
-                urls.append(thePort)
+        urls = []
+
+        try:
+            for vid, pid in vidpids:
+                pyftdidevices = Ftdi.list_devices(url="ftdi://{0}:{1}/1".format(vid, pid))
+                for device, address in pyftdidevices:
+                    thePort = ListPortInfo(device="")
+                    thePort.vid = device.vid
+                    thePort.pid = device.pid
+                    thePort.serial_number = device.sn
+                    thePort.device = "ftdi://{0}:{1}:{2}/{3}".format(device.vid, device.pid, device.sn, address)
+                    urls.append(thePort)
+        except Exception as err:
+            pass
 
         return urls
 
@@ -150,7 +153,7 @@ class SerialPort(CommunicationPort):
                 return True
         return False
 
-    def open(self, baudRate=57600, timeout=0.3):
+    def open(self, baudRate=57600, timeout=0.3, rtscts=False, dsrdtr=False):
         if self.port is None:
             if self.portPathIsURL:
                 # See https://eblot.github.io/pyftdi/api/uart.html
@@ -158,7 +161,7 @@ class SerialPort(CommunicationPort):
                 # print(self.portPath)
                 self.port = pyftdi.serialext.serial_for_url(self.portPath, baudrate=baudRate, timeout=timeout)
             else:
-                self.port = serial.Serial(self.portPath, baudRate, timeout=timeout)
+                self.port = serial.Serial(self.portPath, baudRate, timeout=timeout, rtscts=rtscts, dsrdtr=dsrdtr)
         else:
             self.port.open()
 
@@ -183,6 +186,12 @@ class SerialPort(CommunicationPort):
             self.port.flushInput()
             self.port.flushOutput()
             time.sleep(0.02)
+
+    def readString(self, endPoint=0):
+        with self.portLock:
+            data = self.port.read_until(expected=self.terminator)
+
+        return data.decode()
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:

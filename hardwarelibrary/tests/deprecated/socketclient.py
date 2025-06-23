@@ -1,7 +1,7 @@
 import socket
 import sys
-from struct import *
 import time
+from struct import *
 
 HOST, PORT = "10.211.55.4", 9999
 data = bytearray(b'\x01')

@@ -1,9 +1,37 @@
-import env # modifies path
+import env
 import unittest
 import time
+import unittest
 
-from hardwarelibrary.communication import USBPort, TextCommand
-import usb.core
+from hardwarelibrary.communication import USBPort, TextCommand, MultilineTextCommand
+from hardwarelibrary.powermeters import *
+
+
+class TestIntegraDevice(unittest.TestCase):
+    device = None
+    def setUp(self):
+        self.device = IntegraDevice()
+        self.assertIsNotNone(self.device)
+        self.device.initializeDevice()
+
+    def tearDown(self):
+        self.device.shutdownDevice()
+
+    def testDeviceVersion(self):
+        self.device.doGetVersion()
+        self.assertTrue(self.device.version == 'Integra Version 2.00.08')
+
+    def testPower(self):
+        self.assertTrue(self.device.measureAbsolutePower() > -0.5)
+        print(self.device.measureAbsolutePower())
+
+    def testCalibration(self):
+        self.assertTrue(self.device.getCalibrationWavelength() > 100)
+        print(self.device.getCalibrationWavelength())
+
+    def testSetCalibration(self):
+        self.device.setCalibrationWavelength(900)
+        self.assertEqual(self.device.getCalibrationWavelength(), 900)
 
 class TestIntegraPort(unittest.TestCase):
     port = None
@@ -49,13 +77,12 @@ class TestIntegraPort(unittest.TestCase):
         commands = [
          TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+?)\r\n"),
          TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+?)\r\n"),
-         TextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", finalReplyPattern=":100000000"),
+         MultilineTextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", lastLinePattern=":100000000"),
          TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
         ]
 
         for command in commands:
             self.assertFalse(command.send(port=self.port),msg=command.exceptions)
-
             with self.assertRaises(Exception):
                 leftover = self.port.readString()
                 print("Characters left after command {1}: {0}".format(leftover, command.name))
