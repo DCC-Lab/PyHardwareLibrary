@@ -4,6 +4,7 @@ import usb.core
 import usb.util
 import usb.backend.libusb1
 import numpy as np
+from threading import Lock
 
 import matplotlib.backends as backends
 import matplotlib.pyplot as plt
@@ -41,7 +42,7 @@ class SpectraViewer:
         self.darkBtn = None
         self.integrationTimeBox = None
         self.animation = None
-        self.is_uising_gui = Lock()
+        self.lock_gui = Lock()
 
     def display(self):
         """Display the spectrum in free-running mode, with simple
@@ -153,7 +154,7 @@ class SpectraViewer:
         This function is also responsible for determining if the user asked to quit.
         """
 
-        if not self.is_saving:
+        with self.lock_gui:
             try:
                 self.lastSpectrum = self.spectrometer.getSpectrum()
                 if self.darkReference is not None:
@@ -259,24 +260,20 @@ the text "{0}" converts to 0.'
         with python.
         """
 
-        try:
-            self.is_saving = True
-            self.animation.event_source.stop()
-            filepath = "spectrum.csv"
+        with self.lock_gui:
+            try:
+                filepath = "spectrum.csv"
 
-            filepath = backends.backend_macosx._macosx.choose_save_file(
-                "Save the data", filepath
-            )
-        except:
-            import tkinter as tk
-            from tkinter import filedialog
+                filepath = backends.backend_macosx._macosx.choose_save_file(
+                    "Save the data", filepath
+                )
+            except:
+                import tkinter as tk
+                from tkinter import filedialog
 
-            root = tk.Tk()
-            root.withdraw()
-            filepath = filedialog.asksaveasfilename()
-        finally:
-            self.animation.event_source.start()
-            self.is_saving = False
+                root = tk.Tk()
+                root.withdraw()
+                filepath = filedialog.asksaveasfilename()
 
         if filepath is not None:
             self.spectrometer.saveSpectrum(
