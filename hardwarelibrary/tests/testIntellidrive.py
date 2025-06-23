@@ -13,7 +13,7 @@ class TestIntellidriveBasicCommandsWithPySerial(unittest.TestCase):
         self.portPath = None
         ports = serial.tools.list_ports.comports()
         for port in ports:
-            if port.vid == 0x0403 and port.pid == 0x6001: # Sutter Instruments
+            if port.vid == 0x0403 and port.pid == 0x6001:
                 self.portPath = "/dev/cu.usbserial-{0}".format(serialNumber)
 
         if self.portPath is None:

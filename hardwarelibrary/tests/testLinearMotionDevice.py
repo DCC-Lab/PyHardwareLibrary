@@ -174,8 +174,14 @@ class TestDebugSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
 
 class TestRealSutterDeviceBase(BaseTestCases.TestLinearMotionDevice):
     def setUp(self):
-        self.device = SutterDevice()
+
+        try:
+            self.device = SutterDevice()
+        except Exception as err:
+            self.skipTest("No Sutter device connected")
+
         super().setUp()
+
 
 if __name__ == '__main__':
     unittest.main()

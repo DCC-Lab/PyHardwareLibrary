@@ -10,34 +10,26 @@ from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.oscilloscope import *
 
 class TestTektronik(unittest.TestCase):
-
-    def testCreate(self):
+    def setUp(self) -> None:
         self.device = OscilloscopeDevice()
         self.assertIsNotNone(self.device)
+        try :
+            self.device.initializeDevice()
+        except Exception as err:
+            self.skipTest("No Tektronik connected")
 
-    def testInit(self):
-        self.device = OscilloscopeDevice()
-        self.device.initializeDevice()
+    def tearDown(self) -> None:
         self.device.shutdownDevice()
 
     def testGetWaveform(self):
-        self.device = OscilloscopeDevice()
-        self.device.initializeDevice()
         self.device.getWaveform(Channels.CH1)
         self.device.getWaveform(Channels.CH2)
-        self.device.shutdownDevice()
 
     def testDisplayWaveform(self):
-        self.device = OscilloscopeDevice()
-        self.device.initializeDevice()
         self.device.displayWaveforms([Channels.CH1, Channels.CH2])
-        self.device.shutdownDevice()
 
     def testDisplayWaveform(self):
-        self.device = OscilloscopeDevice()
-        self.device.initializeDevice()
         self.device.displayWaveforms([Channels.CH1, Channels.CH2])
-        self.device.shutdownDevice()
 
 
 @unittest.skip("For understanding earlier on, not necessary anymore")

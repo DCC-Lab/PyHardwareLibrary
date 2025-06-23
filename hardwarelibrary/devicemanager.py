@@ -218,7 +218,7 @@ class DeviceManager:
             # This may throw if incompat:
             #                 deviceInstanceible
             try:
-                candidateClass(serialNumber=descriptor.serialNumber,
+                deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
                                             idProduct=descriptor.idProduct,
                                             idVendor=descriptor.idVendor)
                 deviceInstance.initializeDevice()
