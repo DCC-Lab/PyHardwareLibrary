@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 import platform
 import hardwarelibrary.spectrometers as spectro
-from hardwarelibrary import DeviceManager
+from hardwarelibrary import DeviceManager, connectedUSBDevices
 
 import signal
 import sys
@@ -26,6 +26,8 @@ ap.add_argument("-stellar", "--stellarnet", required=False, action='store_const'
                 const=True, help="Decrypt the StellarnNet driver.  Contact StellarNet for info.")
 ap.add_argument("-s", "--spectrometer", required=False, action='store_const',
                 const=True, help="Display any spectrometer")
+ap.add_argument("-l", "--list", required=False, action='store_const',
+                const=True, help="List all USB devices")
 ap.add_argument("-dm", "--devicemanager", required=False, action='store_const',
                 const=True, help="Show notifications from DeviceManager")
 ap.add_argument("-d", "--debugusb", required=False, action='store_const',
@@ -36,6 +38,12 @@ decrypt = args['stellarnet']
 displaySpectrum = args['spectrometer']
 deviceManager = args['devicemanager']
 debugUSB = args['debugusb']
+listAll = args['list']
+
+if listAll == True:
+    devices = connectedUSBDevices()
+    for device in devices:
+        print(device)
 
 if decrypt == True:
     rootHardwareLibrary = Path(os.path.abspath(__file__)).parents[1]

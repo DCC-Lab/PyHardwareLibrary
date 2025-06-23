@@ -1,7 +1,7 @@
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __author__ = "Daniel Cote <dccote@cervo.ulaval.ca>"
 
-__all__ = ["communication","motion","oscilloscope","powermeters","spectrometers"]
+__all__ = ["communication", "motion", "oscilloscope", "powermeters", "spectrometers"]
 
 # We want the modules at the top level
 from .devicemanager import *
@@ -15,5 +15,5 @@ import hardwarelibrary.spectrometers
 import hardwarelibrary.oscilloscope
 import hardwarelibrary.motion
 
-#import hardwarelibrary.cameras #TODO: Not much to see here yet
-#import hardwarelibrary.sources #TODO: Not much to see here yet
+# import hardwarelibrary.cameras #TODO: Not much to see here yet
+# import hardwarelibrary.sources #TODO: Not much to see here yet
