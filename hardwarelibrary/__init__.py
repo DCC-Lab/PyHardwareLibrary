@@ -14,6 +14,7 @@ from hardwarelibrary.communication import *
 import hardwarelibrary.spectrometers
 import hardwarelibrary.oscilloscope
 import hardwarelibrary.motion
+import hardwarelibrary.photoncounters
 # import hardwarelibrary.cameras
 
 #import sources #TODO: Not much to see here yet
