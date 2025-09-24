@@ -163,7 +163,7 @@ class APTTest(unittest.TestCase):
 			if status != prev_status:
 				print(f"Status {status}")
 			prev_status = status
-			if status == 'connected':
+			if status == 'connected' and abs(dev.get_position() - target) < 0.01:
 				break
 		print(f"Done {dev.get_position()}")
 
