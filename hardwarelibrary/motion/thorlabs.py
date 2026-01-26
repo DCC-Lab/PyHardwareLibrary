@@ -171,3 +171,46 @@ class ThorlabsDevice(LinearMotionDevice):
                 print("Unrecognized command (not everything is implemented): {0}".format(inputBytes))
 
             self.inputBuffers[endPointIndex] = bytearray()
+
+
+class ThorlabsKinesisDevice(LinearMotionDevice):
+    classIdVendor = 0x0403
+    classIdProduct = 0xfaf0
+
+    def __init__(self, serialNumber: str = None):
+        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct):
+                from pylablib.devices.Thorlabs import kinesis, KinesisMotor
+
+        self.dev = KinesisMotor(serialNumber, scale=(34554.96, 772981.3692, 263.8443072))
+
+    def __del__(self):
+        try:
+            self.dev.close()
+        except:
+            # ignore if already closed
+            return
+
+    def doInitializeDevice(self): 
+        self.dev.home()
+
+    def doShutdownDevice(self):
+        self.dev.close()
+        self.dev = None
+
+
+    def positionInMicrosteps(self) -> (int, int, int):  # for compatibility
+        return self.doGetPosition()
+
+    def doGetPosition(self) -> (int, int, int):
+        x = self.dev.get_position()
+        return (x, None, None)
+
+    def doMoveTo(self, position):
+        """ Move to a position in microsteps """
+        x, y, z = position
+
+        dev.move_to(x)
+
+    def doHome(self):
+        self.dev.home()
+        
