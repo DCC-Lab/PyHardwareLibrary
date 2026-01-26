@@ -16,17 +16,24 @@ class APTTest(unittest.TestCase):
 		to install (these assume you have copied the distribution’s D2XX
 		folder to the desktop):
 
-		1. Open a Terminal window (Finder->Go->Utilities->Terminal). 2. If
-		the /usr/local/lib directory does not exist, create it: sudo
-		mkdir /usr/local/lib 3. if the /usr/local/include directory does
-		not exist, create it: sudo mkdir /usr/local/include 4. Copy the
-		dylib file to /usr/local/lib: sudo cp
+		1. Open a Terminal window (Finder->Go->Utilities->Terminal). 
+
+		2. If the /usr/local/lib directory does not exist, create it: sudo
+		mkdir /usr/local/lib 
+
+		3. if the /usr/local/include directory does
+		not exist, create it: sudo mkdir /usr/local/include 
+
+		4. Copy the dylib file to /usr/local/lib: sudo cp
 		Desktop/release/build/libftd2xx.1.4.30.dylib /usr/local/lib/libftd2xx.1.4.30.dylib
+		
 		5. Make a symbolic link: sudo
 		ln -sf /usr/local/lib/libftd2xx.1.4.30.dylib /usr/local/lib/libftd2xx.dylib
+		
 		6. Copy the D2XX include file: sudo cp
-		Desktop/release/ftd2xx.h /usr/local/include/ftd2xx.h 7. Copy the
-		WinTypes include file: sudo cp
+		Desktop/release/ftd2xx.h /usr/local/include/ftd2xx.h 
+
+		7. Copy the WinTypes include file: sudo cp
 		Desktop/release/WinTypes.h /usr/local/include/WinTypes.h 8. You
 		have now successfully installed the D2XX library.
 
@@ -67,7 +74,12 @@ class APTTest(unittest.TestCase):
 
 	@classmethod
 	def setUpClass(cls):
-		cls.add_thorlabs_vidpid()
+		try:
+			cls.add_thorlabs_vidpid()
+		except Exception as err:
+			print(f"Error when adding vid_pid: {err}\n\n")
+
+			print(cls.add_libftd2xx_and_path_instructions)
 
 	def test_001_start_here_the_problem(self):
 		"""
