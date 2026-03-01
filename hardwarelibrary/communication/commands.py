@@ -361,7 +361,8 @@ class DataCommand(Command):
 
     def __init__(self, name, data=None, replyHexRegex = None, replyDataLength = 0, unpackingMask = None, endPoints = (None, None),
                  prefix = None, requestFormat = None, responseFormat = None,
-                 requestFields = None, responseFields = None):
+                 requestFields = None, responseFields = None,
+                 sendFormat = None, sendFields = None, sendDefaults = None):
         Command.__init__(self, name, endPoints=endPoints)
         self.data : bytearray = data
         self.replyHexRegex: str = replyHexRegex
@@ -372,6 +373,9 @@ class DataCommand(Command):
         self.responseFormat: str = responseFormat
         self.requestFields: tuple = requestFields
         self.responseFields: tuple = responseFields
+        self.sendFormat: str = sendFormat
+        self.sendFields: tuple = sendFields
+        self.sendDefaults: dict = sendDefaults
 
     @property
     def payload(self):
@@ -425,6 +429,23 @@ class DataCommand(Command):
             data = struct.pack(self.responseFormat, *result)
             return bytearray(data)
         return super().formatResponse(result)
+
+    def buildSendData(self, **params):
+        """Build send bytes from named params merged with defaults.
+        Falls back to self.data if sendFormat is not set."""
+        if self.sendFormat is None:
+            return self.data
+        merged = dict(self.sendDefaults) if self.sendDefaults else {}
+        merged.update(params)
+        values = tuple(merged[f] for f in self.sendFields)
+        return struct.pack(self.sendFormat, *values)
+
+    def unpackReply(self, replyBytes):
+        """Unpack reply bytes using unpackingMask.
+        Returns raw bytes if unpackingMask is not set."""
+        if self.unpackingMask is None:
+            return replyBytes
+        return struct.unpack(self.unpackingMask, replyBytes)
 
     def send(self, port) -> bool:
         try:

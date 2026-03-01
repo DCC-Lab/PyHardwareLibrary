@@ -17,14 +17,22 @@ class SutterDevice(LinearMotionDevice):
     classIdProduct = 1
 
     commands = {
-        "MOVE": DataCommand(name="MOVE", prefix=b'M', requestFormat='<xlllx',
-                            requestFields=('x', 'y', 'z'),
+        "MOVE": DataCommand(name="MOVE", prefix=b'M',
+                            sendFormat='<clllc',
+                            sendFields=('header', 'x', 'y', 'z', 'terminator'),
+                            sendDefaults={'header': b'M', 'terminator': b'\r'},
+                            requestFormat='<xlllx', requestFields=('x', 'y', 'z'),
                             replyDataLength=1, unpackingMask='<c'),
         "GET_POSITION": DataCommand(name="GET_POSITION", prefix=b'C',
+                                    data=pack('<cc', b'C', b'\r'),
                                     replyDataLength=14, unpackingMask='<xlllx',
                                     responseFormat='<clllc',
                                     responseFields=('header', 'x', 'y', 'z', 'terminator')),
         "HOME": DataCommand(name="HOME", prefix=b'H',
+                            data=pack('<cc', b'H', b'\r'),
+                            replyDataLength=1, unpackingMask='<c'),
+        "WORK": DataCommand(name="WORK", prefix=b'Y',
+                            data=pack('<cc', b'Y', b'\r'),
                             replyDataLength=1, unpackingMask='<c'),
     }
 
@@ -87,8 +95,8 @@ class SutterDevice(LinearMotionDevice):
             raise Exception(f"Unable to send command {commandBytes} to device.")
 
     def readReply(self, size, format) -> tuple:
-        """ The function to read a reply from the endpoint. It will initialize the device 
-        if it is not already initialized. On failure, it will warn and shutdown. 
+        """ The function to read a reply from the endpoint. It will initialize the device
+        if it is not already initialized. On failure, it will warn and shutdown.
         It will unpack the reply into a tuple.
         """
         if format is None:
@@ -106,24 +114,27 @@ class SutterDevice(LinearMotionDevice):
         # print(unpack(format, replyBytes))
         return unpack(format, replyBytes)
 
+    def sendCommand(self, name, **params):
+        """Send a command from the commands dict and return the unpacked reply."""
+        cmd = self.commands[name]
+        data = cmd.buildSendData(**params)
+        self.sendCommandBytes(data)
+        if cmd.replyDataLength > 0:
+            return self.readReply(cmd.replyDataLength, cmd.unpackingMask)
+        return None
+
     def positionInMicrosteps(self) -> (int, int, int):  # for compatibility
         return self.doGetPosition()
 
     def doGetPosition(self) -> (int, int, int):
         """ Returns the position in microsteps """
-        commandBytes = pack('<cc', b'C', b'\r')
-        self.sendCommandBytes(commandBytes)
-        (x, y, z) = self.readReply(size=14, format='<xlllx')
-
+        (x, y, z) = self.sendCommand("GET_POSITION")
         return (x, y, z)
 
     def doMoveTo(self, position):
         """ Move to a position in microsteps """
         x, y, z = position
-        commandBytes = pack('<clllc', b'M', int(x), int(y), int(z), b'\r')
-        self.sendCommandBytes(commandBytes)
-        reply = self.readReply(size=1, format='<c')
-
+        reply = self.sendCommand("MOVE", x=int(x), y=int(y), z=int(z))
         if reply != (b'\r',):
             raise Exception(f"Expected carriage return, but got '{reply}' instead.")
 
@@ -136,23 +147,15 @@ class SutterDevice(LinearMotionDevice):
             raise Exception("Unable to read position from device")
 
     def doHome(self):
-        commandBytes = pack('<cc', b'H', b'\r')
-        self.sendCommandBytes(commandBytes)
-        replyBytes = self.readReply(1, '<c')
-        if replyBytes is None:
-            raise Exception(f"Nothing received in respnse to {commandBytes}")
-        if replyBytes != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")     
-        
+        reply = self.sendCommand("HOME")
+        if reply != (b'\r',):
+            raise Exception(f"Expected carriage return, but got {reply} instead.")
+
     def work(self):
         self.home()
-        commandBytes = pack('<cc', b'Y', b'\r')
-        self.sendCommandBytes(commandBytes)
-        replyBytes = self.readReply(1, '<c')
-        if replyBytes is None:
-            raise Exception(f"Nothing received in respnse to {commandBytes}")
-        if replyBytes != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
+        reply = self.sendCommand("WORK")
+        if reply != (b'\r',):
+            raise Exception(f"Expected carriage return, but got {reply} instead.")
 
 
     class DebugSerialPort(TableDrivenDebugPort):
@@ -174,4 +177,6 @@ class SutterDevice(LinearMotionDevice):
                         'terminator': b'\r'}
             elif name == 'HOME':
                 self.xSteps = self.ySteps = self.zSteps = 0
+                return b'\r'
+            elif name == 'WORK':
                 return b'\r'

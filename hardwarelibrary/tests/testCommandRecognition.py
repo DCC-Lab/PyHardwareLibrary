@@ -167,5 +167,36 @@ class TestDataCommandRecognition(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
+class TestDataCommandSendSide(unittest.TestCase):
+    def testBuildSendDataWithParams(self):
+        cmd = DataCommand(name="MOVE", prefix=b'M',
+                          sendFormat='<clllc',
+                          sendFields=('header', 'x', 'y', 'z', 'terminator'),
+                          sendDefaults={'header': b'M', 'terminator': b'\r'})
+        data = cmd.buildSendData(x=10, y=20, z=30)
+        expected = pack('<clllc', b'M', 10, 20, 30, b'\r')
+        self.assertEqual(data, expected)
+
+    def testBuildSendDataFallbackToData(self):
+        raw = pack('<cc', b'C', b'\r')
+        cmd = DataCommand(name="GET", data=raw)
+        self.assertEqual(cmd.buildSendData(), raw)
+
+    def testBuildSendDataNoFormatNoData(self):
+        cmd = DataCommand(name="EMPTY")
+        self.assertIsNone(cmd.buildSendData())
+
+    def testUnpackReplyWithMask(self):
+        cmd = DataCommand(name="test", unpackingMask='<lll')
+        replyBytes = pack('<lll', 100, 200, 300)
+        result = cmd.unpackReply(replyBytes)
+        self.assertEqual(result, (100, 200, 300))
+
+    def testUnpackReplyNoMask(self):
+        cmd = DataCommand(name="test")
+        raw = b'\x01\x02\x03'
+        self.assertEqual(cmd.unpackReply(raw), raw)
+
+
 if __name__ == '__main__':
     unittest.main()
