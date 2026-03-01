@@ -149,6 +149,23 @@ class TestDataCommandRecognition(unittest.TestCase):
         self.assertIsNone(cmd.effectivePrefix)
         self.assertFalse(cmd.matches(b'anything'))
 
+    def testNamedFieldExtractParams(self):
+        cmd = DataCommand(name="test", prefix=b'M', requestFormat='<xlllx',
+                          requestFields=('x', 'y', 'z'))
+        payload = pack('<clllc', b'M', 10, 20, 30, b'\r')
+        params = cmd.extractParams(payload)
+        self.assertIsInstance(params, dict)
+        self.assertEqual(params['x'], 10)
+        self.assertEqual(params['y'], 20)
+        self.assertEqual(params['z'], 30)
+
+    def testNamedFieldFormatResponse(self):
+        cmd = DataCommand(name="test", prefix=b'G', responseFormat='<cl',
+                          responseFields=('tag', 'value'))
+        result = cmd.formatResponse({'tag': b'g', 'value': 99})
+        expected = bytearray(pack('<cl', b'g', 99))
+        self.assertEqual(result, expected)
+
 
 if __name__ == '__main__':
     unittest.main()

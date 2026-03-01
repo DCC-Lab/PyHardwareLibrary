@@ -215,7 +215,8 @@ class MultilineTextCommand(Command):
 
 class DataCommand(Command):
     def __init__(self, name, data=None, replyHexRegex = None, replyDataLength = 0, unpackingMask = None, endPoints = (None, None),
-                 prefix = None, requestFormat = None, responseFormat = None):
+                 prefix = None, requestFormat = None, responseFormat = None,
+                 requestFields = None, responseFields = None):
         Command.__init__(self, name, endPoints=endPoints)
         self.data : bytearray = data
         self.replyHexRegex: str = replyHexRegex
@@ -224,6 +225,8 @@ class DataCommand(Command):
         self._prefix: bytes = prefix
         self.requestFormat: str = requestFormat
         self.responseFormat: str = responseFormat
+        self.requestFields: tuple = requestFields
+        self.responseFields: tuple = responseFields
 
     @property
     def payload(self):
@@ -250,10 +253,17 @@ class DataCommand(Command):
         if self.requestFormat is not None:
             unpackLen = struct.calcsize(self.requestFormat)
             if len(inputBytes) >= unpackLen:
-                return struct.unpack(self.requestFormat, bytes(inputBytes[:unpackLen]))
+                values = struct.unpack(self.requestFormat, bytes(inputBytes[:unpackLen]))
+                if self.requestFields is not None:
+                    return dict(zip(self.requestFields, values))
+                return values
         return ()
 
     def formatResponse(self, result):
+        if isinstance(result, dict) and self.responseFormat is not None and self.responseFields is not None:
+            values = tuple(result[f] for f in self.responseFields)
+            data = struct.pack(self.responseFormat, *values)
+            return bytearray(data)
         if isinstance(result, tuple) and self.responseFormat is not None:
             data = struct.pack(self.responseFormat, *result)
             return bytearray(data)

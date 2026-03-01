@@ -18,10 +18,12 @@ class SutterDevice(LinearMotionDevice):
 
     commands = {
         "MOVE": DataCommand(name="MOVE", prefix=b'M', requestFormat='<xlllx',
+                            requestFields=('x', 'y', 'z'),
                             replyDataLength=1, unpackingMask='<c'),
         "GET_POSITION": DataCommand(name="GET_POSITION", prefix=b'C',
                                     replyDataLength=14, unpackingMask='<xlllx',
-                                    responseFormat='<clllc'),
+                                    responseFormat='<clllc',
+                                    responseFields=('header', 'x', 'y', 'z', 'terminator')),
         "HOME": DataCommand(name="HOME", prefix=b'H',
                             replyDataLength=1, unpackingMask='<c'),
     }
@@ -162,10 +164,14 @@ class SutterDevice(LinearMotionDevice):
 
         def process_command(self, name, params, endPointIndex):
             if name == 'MOVE':
-                self.xSteps, self.ySteps, self.zSteps = params
+                self.xSteps = params['x']
+                self.ySteps = params['y']
+                self.zSteps = params['z']
                 return b'\r'
             elif name == 'GET_POSITION':
-                return (b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
+                return {'header': b'c', 'x': self.xSteps,
+                        'y': self.ySteps, 'z': self.zSteps,
+                        'terminator': b'\r'}
             elif name == 'HOME':
                 self.xSteps = self.ySteps = self.zSteps = 0
                 return b'\r'
