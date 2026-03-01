@@ -24,14 +24,14 @@ class IntellidriveDevice(RotationDevice):
     classIdProduct = 0x6001
 
     commands = {
-        "SET_REGISTER": TextCommand(name="SET_REGISTER", text="s r{0} {1}\r",
-                                    matchPattern=r's r(0x[0-9a-fA-F]+) (-?\d+)[\r\n]',
+        "SET_REGISTER": TextCommand(name="SET_REGISTER", text="s r{register} {value}\r",
+                                    matchPattern=r's r(?P<register>0x[0-9a-fA-F]+) (?P<value>-?\d+)[\r\n]',
                                     replyPattern="ok", responseTemplate="ok\r"),
-        "GET_REGISTER": TextCommand(name="GET_REGISTER", text="g r{0}\n",
-                                    matchPattern=r'g r(0x[0-9a-fA-F]+)[\r\n]',
-                                    replyPattern=r'v\s(-?\d+)', responseTemplate="v {0}\r"),
-        "TRAJECTORY": TextCommand(name="TRAJECTORY", text="t {0}\n",
-                                  matchPattern=r't (\d+)[\r\n]',
+        "GET_REGISTER": TextCommand(name="GET_REGISTER", text="g r{register}\n",
+                                    matchPattern=r'g r(?P<register>0x[0-9a-fA-F]+)[\r\n]',
+                                    replyPattern=r'v\s(-?\d+)', responseTemplate="v {value}\r"),
+        "TRAJECTORY": TextCommand(name="TRAJECTORY", text="t {mode}\n",
+                                  matchPattern=r't (?P<mode>\d+)[\r\n]',
                                   replyPattern="ok", responseTemplate="ok\r"),
     }
 
@@ -138,15 +138,13 @@ class IntellidriveDevice(RotationDevice):
 
         def process_command(self, name, params, endPointIndex):
             if name == 'SET_REGISTER':
-                register, value = params
-                self.registers[register] = int(value)
+                self.registers[params["register"]] = int(params["value"])
                 return "ok\r"
             elif name == 'GET_REGISTER':
-                register = params[0]
-                value = self.registers.get(register, 0)
-                return "v {}\r".format(value)
+                value = self.registers.get(params["register"], 0)
+                return {"value": str(value)}
             elif name == 'TRAJECTORY':
-                mode = int(params[0])
+                mode = int(params["mode"])
                 if mode == 2:  # home
                     self.registers['0xca'] = 0
                     self.registers['0xc9'] = (1 << 12)  # referenced bit
