@@ -6,13 +6,16 @@ from hardwarelibrary.communication.usbport import *
 
 class TestHamamatsuUSBPortBase(unittest.TestCase):
     def setUp(self):
-        self.port = USBPort(idVendor=0x0661, idProduct = 0x3705)
-        self.assertIsNotNone(self.port)
-        self.port.open()
-        self.assertTrue(self.port.isOpen)
+        try:
+            self.port = USBPort(idVendor=0x0661, idProduct = 0x3705)
+            self.assertIsNotNone(self.port)
+            self.port.open()
+            self.assertTrue(self.port.isOpen)
 
-        self.port.writeData(b'\r')
-        self.port.flush()
+            self.port.writeData(b'\r')
+            self.port.flush()
+        except Exception:
+            self.skipTest("No Hamamatsu USB device connected")
         
     def tearDown(self):
         # self.port.writeData(b"ZV")
@@ -113,7 +116,7 @@ class TestHamamatsuUSBPortBase(unittest.TestCase):
         """
         This never really worked, I figured out it ZV was not a command.
         I checked with various suffixes, but but nothing worked
-        """=
+        """
         commands = self.extendCommand("ZV")
         all_commands, are_valid = self.validate(commands)
         print(are_valid)

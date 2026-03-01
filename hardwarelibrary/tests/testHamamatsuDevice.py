@@ -5,8 +5,11 @@ from hardwarelibrary.photoncounters.hamamatsu import HamamatsuH11890Device
 
 class TestHamamatsuClass(unittest.TestCase):
     def setUp(self):
-        self.device = HamamatsuH11890Device()
-        self.device.initializeDevice()
+        try:
+            self.device = HamamatsuH11890Device()
+            self.device.initializeDevice()
+        except Exception:
+            self.skipTest("No Hamamatsu device connected")
 
     def tearDown(self):
         self.device.shutdownDevice()
