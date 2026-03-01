@@ -129,6 +129,56 @@ class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
         self.assertFalse( status & (1 << 14) )
         port.close()
 
+class TestIntellidriveDebugDevice(unittest.TestCase):
+    def setUp(self):
+        self.device = IntellidriveDevice(serialNumber="debug")
+        self.device.initializeDevice()
+
+    def tearDown(self):
+        self.device.shutdownDevice()
+        self.device = None
+
+    def testDeviceInitializes(self):
+        self.assertIsNotNone(self.device)
+        self.assertEqual(self.device.internalState.name, 'ready')
+
+    def testDeviceHome(self):
+        self.device.home()
+        orientation = self.device.orientation()
+        self.assertAlmostEqual(orientation, 0, places=2)
+
+    def testDeviceMove(self):
+        angle = 90
+        self.device.moveTo(angle)
+        orientation = self.device.orientation()
+        self.assertAlmostEqual(orientation, angle, places=0)
+
+    def testDeviceMoveToZero(self):
+        self.device.moveTo(180)
+        self.device.moveTo(0)
+        orientation = self.device.orientation()
+        self.assertAlmostEqual(orientation, 0, places=2)
+
+    def testDeviceOrientation(self):
+        orientation = self.device.orientation()
+        self.assertIsNotNone(orientation)
+        self.assertAlmostEqual(orientation, 0, places=2)
+
+    def testRegistersSetDuringInit(self):
+        port = self.device.port
+        self.assertEqual(port.registers.get('0x24'), 31)
+        self.assertEqual(port.registers.get('0xc2'), 514)
+
+    def testIsReferenced(self):
+        self.assertTrue(self.device.isReferenced())
+
+    def testIsNotMoving(self):
+        self.assertFalse(self.device.isMoving())
+
+    def testIsNotHoming(self):
+        self.assertFalse(self.device.isHoming())
+
+
 class TestIntellidrivePhysicalDevice(unittest.TestCase):
     def setUp(self):
         try:

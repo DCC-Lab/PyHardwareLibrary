@@ -133,6 +133,7 @@ class IntellidriveDevice(RotationDevice):
     class DebugSerialPort(TableDrivenDebugPort):
         def __init__(self):
             super().__init__(commands=IntellidriveDevice.commands)
+            self.terminator = b'\r'
             self.registers = {'0xc9': 0}
 
         def process_command(self, name, params, endPointIndex):
