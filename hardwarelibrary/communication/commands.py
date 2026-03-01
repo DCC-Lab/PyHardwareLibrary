@@ -1,18 +1,27 @@
 """Command classes that describe a device's communication protocol.
 
-Each Command object serves two roles:
+Every PhysicalDevice can define a ``commands`` dictionary — a dict of
+Command objects that fully describes its protocol. For example, a
+Sutter micromanipulator defines MOVE, GET_POSITION, and HOME commands,
+while an Intellidrive rotation stage defines SET_REGISTER, GET_REGISTER,
+and TRAJECTORY commands.
 
-1. **Send side** (real device): build a payload, send it through a port,
-   and parse the reply. This is done via the `send()` method.
+This dictionary is useful in two complementary ways:
 
-2. **Recognition side** (mock/debug port): examine raw incoming bytes,
-   decide if they match this command, extract parameters, and format
-   a response. This is done via `matches()`, `extractParams()`, and
-   `formatResponse()`.
+1. **Talking to a real device**: each Command knows how to build a
+   payload, send it through a port, and parse the reply. The device
+   code calls ``send()`` and reads back ``reply`` / ``matchGroups``.
 
-By defining the protocol once in Command objects, the same definitions
-drive both real communication and mock ports (TableDrivenDebugPort),
-eliminating protocol duplication.
+2. **Creating a mock debug port**: the same Command objects can be
+   passed to a ``TableDrivenDebugPort``, which reverses the roles —
+   it *receives* those commands instead of sending them, extracts the
+   parameters from the incoming bytes, and replies in the correct
+   format. This makes it trivial to write a mock port for any device:
+   just pass its ``commands`` dict and implement ``process_command()``
+   with the device-specific logic.
+
+Because both sides share the same Command definitions, the protocol is
+defined once and cannot drift between real and mock implementations.
 
 Subclasses:
     TextCommand    — text-based protocols (e.g. "s r0x24 31\\r" → "ok\\r")
