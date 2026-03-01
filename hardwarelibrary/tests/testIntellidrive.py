@@ -63,6 +63,10 @@ class TestIntellidriveBasicCommandsWithPySerial(unittest.TestCase):
 
 
 class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
+    def setUp(self):
+        ports = SerialPort.matchPorts(serialNumber=serialNumber, idVendor=0x0403, idProduct=0x6001)
+        if not ports:
+            self.skipTest("No Intellidrive connected")
 
     def testPort(self):
         port = SerialPort.matchPorts(serialNumber=serialNumber, idVendor=0x0403, idProduct = 0x6001)
@@ -126,47 +130,36 @@ class TestIntellidriveDeviceWithSerialPort(unittest.TestCase):
         port.close()
 
 class TestIntellidrivePhysicalDevice(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.dev = IntellidriveDevice(serialNumber=serialNumber)
+            self.dev.initializeDevice()
+        except Exception:
+            self.skipTest("No Intellidrive connected")
+
+    def tearDown(self):
+        self.dev.shutdownDevice()
+
     def testDeviceCreate(self):
         self.assertIsNotNone(IntellidriveDevice(serialNumber="AH06UKI3"))
 
     def testDeviceInitialize(self):
-        dev = IntellidriveDevice(serialNumber=serialNumber)
-        self.assertIsNotNone(dev)
-        dev.initializeDevice()
-        dev.shutdownDevice()
+        self.assertIsNotNone(self.dev)
 
     def testDeviceHome(self):
-        dev = IntellidriveDevice(serialNumber=serialNumber)
-        self.assertIsNotNone(dev)
-        dev.initializeDevice()
-        dev.doHome()
-        dev.shutdownDevice()
+        self.dev.doHome()
 
     def testDeviceMove(self):
-        dev = IntellidriveDevice(serialNumber=serialNumber)
-        self.assertIsNotNone(dev)
-        dev.initializeDevice()
-        dev.doMoveTo(1000)
-        dev.shutdownDevice()
+        self.dev.doMoveTo(1000)
 
     def testOrientation(self):
-        dev = IntellidriveDevice(serialNumber=serialNumber)
-        self.assertIsNotNone(dev)
-        dev.initializeDevice()
-        print(dev.orientation())
-        dev.shutdownDevice()
+        print(self.dev.orientation())
 
     def testSpinAround(self):
-        dev = IntellidriveDevice(serialNumber=serialNumber)
-        self.assertIsNotNone(dev)
-        dev.initializeDevice()
-
         for angle in [0, 180, 360, 720]:
-            dev.moveTo(angle)
-            actualOrientation = dev.orientation()
+            self.dev.moveTo(angle)
+            actualOrientation = self.dev.orientation()
             self.assertAlmostEqual(angle, actualOrientation, 2)
-
-        dev.shutdownDevice()
 
 
 if __name__ == '__main__':
