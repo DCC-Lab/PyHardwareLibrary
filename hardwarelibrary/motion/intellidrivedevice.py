@@ -1,7 +1,7 @@
 from hardwarelibrary.motion.rotationdevice import *
 from hardwarelibrary.communication.serialport import SerialPort
-from hardwarelibrary.communication.commands import DataCommand
-from hardwarelibrary.communication.debugport import TableDrivenDebugPort, TextCommandEntry
+from hardwarelibrary.communication.commands import TextCommand
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 
 import time
 from struct import *
@@ -21,7 +21,19 @@ class State(Enum):
 
 class IntellidriveDevice(RotationDevice):
     classIdVendor = 0x0403
-    classIdProduct = 0x6001 
+    classIdProduct = 0x6001
+
+    commands = {
+        "SET_REGISTER": TextCommand(name="SET_REGISTER", text="s r{0} {1}\r",
+                                    matchPattern=r's r(0x[0-9a-fA-F]+) (-?\d+)[\r\n]',
+                                    replyPattern="ok", responseTemplate="ok\r"),
+        "GET_REGISTER": TextCommand(name="GET_REGISTER", text="g r{0}\n",
+                                    matchPattern=r'g r(0x[0-9a-fA-F]+)[\r\n]',
+                                    replyPattern=r'v\s(-?\d+)', responseTemplate="v {0}\r"),
+        "TRAJECTORY": TextCommand(name="TRAJECTORY", text="t {0}\n",
+                                  matchPattern=r't (\d+)[\r\n]',
+                                  replyPattern="ok", responseTemplate="ok\r"),
+    }
 
     def __init__(self, serialNumber):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
@@ -120,24 +132,19 @@ class IntellidriveDevice(RotationDevice):
 
     class DebugSerialPort(TableDrivenDebugPort):
         def __init__(self):
-            super().__init__()
+            super().__init__(commands=IntellidriveDevice.commands)
             self.registers = {'0xc9': 0}
-            self.text_commands = [
-                TextCommandEntry(name='set_register', pattern=r's r(0x[0-9a-fA-F]+) (-?\d+)[\r\n]'),
-                TextCommandEntry(name='get_register', pattern=r'g r(0x[0-9a-fA-F]+)[\r\n]'),
-                TextCommandEntry(name='trajectory', pattern=r't (\d+)[\r\n]'),
-            ]
 
         def process_command(self, name, params, endPointIndex):
-            if name == 'set_register':
+            if name == 'SET_REGISTER':
                 register, value = params
                 self.registers[register] = int(value)
                 return "ok\r"
-            elif name == 'get_register':
+            elif name == 'GET_REGISTER':
                 register = params[0]
                 value = self.registers.get(register, 0)
                 return "v {}\r".format(value)
-            elif name == 'trajectory':
+            elif name == 'TRAJECTORY':
                 mode = int(params[0])
                 if mode == 2:  # home
                     self.registers['0xca'] = 0

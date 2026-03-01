@@ -4,7 +4,7 @@ from hardwarelibrary.communication.communicationport import *
 from hardwarelibrary.communication.usbport import USBPort
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
-from hardwarelibrary.communication.debugport import TableDrivenDebugPort, BinaryCommandEntry
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 
 import re
 import time
@@ -15,6 +15,16 @@ from pyftdi.ftdi import Ftdi #FIXME: should not be here.
 class SutterDevice(LinearMotionDevice):
     classIdVendor = 4930
     classIdProduct = 1
+
+    commands = {
+        "MOVE": DataCommand(name="MOVE", prefix=b'M', requestFormat='<xlllx',
+                            replyDataLength=1, unpackingMask='<c'),
+        "GET_POSITION": DataCommand(name="GET_POSITION", prefix=b'C',
+                                    replyDataLength=14, unpackingMask='<xlllx',
+                                    responseFormat='<clllc'),
+        "HOME": DataCommand(name="HOME", prefix=b'H',
+                            replyDataLength=1, unpackingMask='<c'),
+    }
 
     def __init__(self, serialNumber: str = None):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
@@ -145,22 +155,17 @@ class SutterDevice(LinearMotionDevice):
 
     class DebugSerialPort(TableDrivenDebugPort):
         def __init__(self):
-            super().__init__()
+            super().__init__(commands=SutterDevice.commands)
             self.xSteps = 0
             self.ySteps = 0
             self.zSteps = 0
-            self.binary_commands = [
-                BinaryCommandEntry(name='move', prefix=b'M', request_format='<xlllx'),
-                BinaryCommandEntry(name='get_position', prefix=b'C', response_format='<clllc'),
-                BinaryCommandEntry(name='home', prefix=b'H'),
-            ]
 
         def process_command(self, name, params, endPointIndex):
-            if name == 'move':
+            if name == 'MOVE':
                 self.xSteps, self.ySteps, self.zSteps = params
                 return b'\r'
-            elif name == 'get_position':
+            elif name == 'GET_POSITION':
                 return (b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
-            elif name == 'home':
+            elif name == 'HOME':
                 self.xSteps = self.ySteps = self.zSteps = 0
                 return b'\r'

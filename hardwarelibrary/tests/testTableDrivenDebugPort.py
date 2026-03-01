@@ -2,19 +2,17 @@ import env
 import unittest
 from struct import pack, unpack
 
-from hardwarelibrary.communication.debugport import (
-    TableDrivenDebugPort, BinaryCommandEntry, TextCommandEntry
-)
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort
+from hardwarelibrary.communication.commands import DataCommand, TextCommand
 
 
 class BinaryFixture(TableDrivenDebugPort):
     def __init__(self):
-        super().__init__()
+        super().__init__(commands={
+            'set': DataCommand(name='set', prefix=b'S', requestFormat='<xl'),
+            'get': DataCommand(name='get', prefix=b'G', responseFormat='<cl'),
+        })
         self.value = 0
-        self.binary_commands = [
-            BinaryCommandEntry(name='set', prefix=b'S', request_format='<xl'),
-            BinaryCommandEntry(name='get', prefix=b'G', response_format='<cl'),
-        ]
 
     def process_command(self, name, params, endPointIndex):
         if name == 'set':
@@ -26,13 +24,14 @@ class BinaryFixture(TableDrivenDebugPort):
 
 class TextFixture(TableDrivenDebugPort):
     def __init__(self):
-        super().__init__()
+        super().__init__(commands={
+            'set': TextCommand(name='set', text='SET {0} {1}\r',
+                               matchPattern=r'SET (\w+) (-?\d+)\r'),
+            'get': TextCommand(name='get', text='GET {0}\r',
+                               matchPattern=r'GET (\w+)\r',
+                               responseTemplate='VAL {0}\r'),
+        })
         self.registers = {}
-        self.text_commands = [
-            TextCommandEntry(name='set', pattern=r'SET (\w+) (-?\d+)\r'),
-            TextCommandEntry(name='get', pattern=r'GET (\w+)\r',
-                             response='VAL {0}\r'),
-        ]
 
     def process_command(self, name, params, endPointIndex):
         if name == 'set':
@@ -46,14 +45,12 @@ class TextFixture(TableDrivenDebugPort):
 
 class MixedFixture(TableDrivenDebugPort):
     def __init__(self):
-        super().__init__()
+        super().__init__(commands={
+            'bin_set': DataCommand(name='bin_set', prefix=b'\x01', requestFormat='<xl'),
+            'text_get': TextCommand(name='text_get', text='GET\r',
+                                    matchPattern=r'GET\r'),
+        })
         self.state = 0
-        self.binary_commands = [
-            BinaryCommandEntry(name='bin_set', prefix=b'\x01', request_format='<xl'),
-        ]
-        self.text_commands = [
-            TextCommandEntry(name='text_get', pattern=r'GET\r'),
-        ]
 
     def process_command(self, name, params, endPointIndex):
         if name == 'bin_set':
@@ -178,10 +175,9 @@ class TestNoneResponse(unittest.TestCase):
     """When process_command returns None, no auto-response is written."""
 
     def setUp(self):
-        port = TableDrivenDebugPort()
-        port.binary_commands = [
-            BinaryCommandEntry(name='silent', prefix=b'X'),
-        ]
+        port = TableDrivenDebugPort(commands={
+            'silent': DataCommand(name='silent', prefix=b'X'),
+        })
         port.process_command = lambda name, params, ep: None
         self.port = port
         self.port.open()
