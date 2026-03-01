@@ -11,9 +11,12 @@ from typing import Union, Optional, Protocol
 class TestLabjackDevice(unittest.TestCase):
     def setUp(self):
         super().setUp()
-        self.device = LabjackDevice()
-        self.assertIsNotNone(self.device)
-        self.device.initializeDevice()
+        try:
+            self.device = LabjackDevice()
+            self.assertIsNotNone(self.device)
+            self.device.initializeDevice()
+        except Exception as err:
+            self.skipTest("No Labjack connected")
 
     def tearDown(self):
         super().tearDown()
