@@ -78,6 +78,47 @@ class DebugPort(CommunicationPort):
 
 
 class TableDrivenDebugPort(DebugPort):
+    """A mock port that recognizes incoming commands and produces responses,
+    driven by a dict of Command objects (TextCommand or DataCommand).
+
+    Each Command object knows how to recognize itself in raw input bytes
+    (matches/extractParams) and how to format a response (formatResponse).
+    This means the same Command objects used by a real device to *send*
+    commands can also be reused here to *recognize* them, eliminating
+    protocol duplication between device code and mock code.
+
+    To create a mock port for a device:
+
+    1. Pass the device's commands dict to __init__:
+
+        commands = {
+            "GET": TextCommand(name="GET", text="GET {key}\\r",
+                               matchPattern=r'GET (?P<key>\\w+)\\r',
+                               responseTemplate="VAL {value}\\r"),
+            "SET": DataCommand(name="SET", prefix=b'S',
+                               requestFormat='<xl',
+                               responseFormat='<cl'),
+        }
+        port = TableDrivenDebugPort(commands=commands)
+
+    2. Override process_command() to implement device-specific logic:
+
+        def process_command(self, name, params, endPointIndex):
+            if name == "GET":
+                key = params["key"]         # named group from matchPattern
+                return {"value": self.values[key]}  # named param for responseTemplate
+            elif name == "SET":
+                self.value = params[0]      # positional from struct.unpack
+                return b'\\x06'              # raw bytes returned as-is
+
+    The name argument matches the Command's name. The params come from
+    extractParams: a dict of named groups for TextCommand with (?P<name>...)
+    patterns, a positional tuple for anonymous groups or struct.unpack.
+    The return value is passed to formatResponse: dicts use named template
+    parameters, tuples use positional parameters, raw bytes/strings are
+    returned directly, None sends nothing.
+    """
+
     def __init__(self, delay=0, numberOfEndPoints=1, commands=None):
         super().__init__(delay=delay, numberOfEndPoints=numberOfEndPoints)
         self.commands = commands if commands is not None else {}
@@ -101,4 +142,22 @@ class TableDrivenDebugPort(DebugPort):
         self.inputBuffers[endPointIndex] = bytearray()
 
     def process_command(self, name, params, endPointIndex):
+        """Process a recognized command and return a result.
+
+        Subclasses must override this to implement device behavior.
+
+        Args:
+            name: the Command's name (matches a key in self.commands)
+            params: extracted parameters — a dict when using named regex
+                    groups (?P<name>...), a tuple for anonymous groups or
+                    struct.unpack fields
+            endPointIndex: the endpoint the command arrived on
+
+        Returns:
+            The return value is passed to the command's formatResponse():
+            - dict: formatted using named responseTemplate parameters
+            - tuple: formatted using positional responseTemplate/responseFormat
+            - bytes/str: written to the output buffer as-is
+            - None: no response is sent
+        """
         raise NotImplementedError("Subclasses must implement process_command")

@@ -68,6 +68,21 @@ class TestTextCommandRecognition(unittest.TestCase):
         cmd = TextCommand(name="test", text="cmd\r")
         self.assertIsNone(cmd.formatResponse(None))
 
+    def testNamedGroupExtractParams(self):
+        cmd = TextCommand(name="test", text="SET {key} {value}\r",
+                          matchPattern=r'SET (?P<key>\w+) (?P<value>-?\d+)\r')
+        params = cmd.extractParams(b'SET foo 42\r')
+        self.assertIsInstance(params, dict)
+        self.assertEqual(params["key"], "foo")
+        self.assertEqual(params["value"], "42")
+
+    def testNamedGroupFormatResponse(self):
+        cmd = TextCommand(name="test", text="GET {key}\r",
+                          matchPattern=r'GET (?P<key>\w+)\r',
+                          responseTemplate="VAL {value}\r")
+        result = cmd.formatResponse({"value": "99"})
+        self.assertEqual(result, bytearray(b'VAL 99\r'))
+
     def testEffectiveMatchPatternUsesExplicit(self):
         cmd = TextCommand(name="test", text="SET {0}\r",
                           matchPattern=r'SET (\w+)\r')

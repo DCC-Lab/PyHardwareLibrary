@@ -100,10 +100,15 @@ class TextCommand(Command):
             return ()
         match = re.match(self.effectiveMatchPattern, inputStr)
         if match:
+            if match.groupdict():
+                return match.groupdict()
             return match.groups()
         return ()
 
     def formatResponse(self, result):
+        if isinstance(result, dict) and self.responseTemplate is not None:
+            formatted = self.responseTemplate.format(**result)
+            return bytearray(formatted.encode('utf-8'))
         if isinstance(result, tuple) and self.responseTemplate is not None:
             formatted = self.responseTemplate.format(*result)
             return bytearray(formatted.encode('utf-8'))
