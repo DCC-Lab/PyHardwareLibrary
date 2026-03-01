@@ -815,6 +815,12 @@ class USB2000Plus(USB4000_2000Plus):
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
         USB4000_2000Plus.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, model="USB2000+")
 
+class SAS(USB4000_2000Plus):
+    classIdProduct = 0x1006
+
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        USB4000_2000Plus.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
+
 
 class DebugSpectro:
     class Emitter(NamedTuple):

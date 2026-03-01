@@ -5,8 +5,8 @@ import u3
 class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
     classIdVendor = 0x0cd5
     classIdProduct = 0x003
-    def __init__(self, serialNumber="*"):
-        super().__init__(serialNumber, idProduct=0x003, idVendor=0x0cd5)
+    def __init__(self, serialNumber="*", idProduct=0x003, idVendor=0x0cd5):
+        super().__init__(serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.dev = None
 
     def doInitializeDevice(self):

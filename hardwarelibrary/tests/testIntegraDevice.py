@@ -12,7 +12,10 @@ class TestIntegraDevice(unittest.TestCase):
     def setUp(self):
         self.device = IntegraDevice()
         self.assertIsNotNone(self.device)
-        self.device.initializeDevice()
+        try:
+            self.device.initializeDevice()
+        except Exception as err:
+            self.skipTest("No IntegraDevice connected")
 
     def tearDown(self):
         self.device.shutdownDevice()
@@ -39,8 +42,8 @@ class TestIntegraPort(unittest.TestCase):
         self.port = USBPort(idVendor=0x1ad5, idProduct=0x0300, interfaceNumber=0, defaultEndPoints=(1,2))
         try:
             self.port.open()
-        except:
-            raise (unittest.SkipTest("No devices connected"))
+        except Exception as err:
+            self.skipTest("No IntegraDevice connected")
 
     def tearDown(self):
         self.port.close()
