@@ -4,79 +4,57 @@ import random
 from hardwarelibrary.communication import *
 from threading import Thread, Lock
 
-class DebugDataCommand(Command):
-    def __init__(self, name, dataHexRegex = None, unpackingMask = None, endPoints = (None, None)):
-        Command.__init__(self, name, endPoints=endPoints)
-        self.data : bytearray = data
-        self.dataHexRegex: str = dataHexRegex
-        self.unpackingMask:str = unpackingMask
-
-    def send(self, port) -> bool:
-        try:
-            self.isSent = True
-            nBytes = port.writeData(data=self.data, endPoint=self.endPoints[0])
-            if self.replyDataLength > 0:
-                self.reply = port.readData(length=self.replyDataLength)
-            elif self.replyHexRegex is not None:
-                raise NotImplementedError("DataCommand reply pattern not implemented")
-                # self.reply = port.readData(length=self.replyDataLength)
-            self.isSentSuccessfully = True
-        except Exception as err:
-            
-            self.exceptions.append(err)
-            self.isSentSuccessfully = False
-            raise(err)
-
-        return False
-
 class DebugPort(CommunicationPort):
-    def __init__(self, delay=0):
-        self.inputBuffers = [bytearray()]
-        self.outputBuffers = [bytearray()]
+    def __init__(self, delay=0, numberOfEndPoints=1):
+        self.inputBuffers = [bytearray() for _ in range(numberOfEndPoints)]
+        self.outputBuffers = [bytearray() for _ in range(numberOfEndPoints)]
         self.delay = delay
+        self.defaultTimeout = 500
         self._isOpen = False
         super(DebugPort, self).__init__()
 
     @property
     def isOpen(self):
-        return self._isOpen    
+        return self._isOpen
 
     def open(self):
         if self._isOpen:
-            raise Exception()
+            raise Exception("Port already open")
 
         self._isOpen = True
-        return
 
     def close(self):
         self._isOpen = False
-        return
 
     def bytesAvailable(self, endPoint=0):
-        return len(self.outputBuffers[endPoint])
+        endPointIndex = endPoint if endPoint is not None else 0
+        return len(self.outputBuffers[endPointIndex])
 
     def flush(self):
-        self.buffers = [bytearray(),bytearray()]
+        for i in range(len(self.inputBuffers)):
+            self.inputBuffers[i] = bytearray()
+        for i in range(len(self.outputBuffers)):
+            self.outputBuffers[i] = bytearray()
 
     def readData(self, length, endPoint=None):
-        if endPoint is None:
-            endPointIndex = 0
+        endPointIndex = endPoint if endPoint is not None else 0
 
         with self.portLock:
-            time.sleep(self.delay*random.random())
+            if self.delay > 0:
+                time.sleep(self.delay * random.random())
+
             data = bytearray()
-            for i in range(0, length):
+            for i in range(length):
                 if len(self.outputBuffers[endPointIndex]) > 0:
                     byte = self.outputBuffers[endPointIndex].pop(0)
                     data.append(byte)
                 else:
-                    raise CommunicationReadTimeout("Unable to read data")
+                    raise CommunicationReadTimeout("Unable to read {0} bytes, only {1} available".format(length, len(data)))
 
         return data
 
     def writeData(self, data, endPoint=None):
-        if endPoint is None:
-            endPointIndex = 0
+        endPointIndex = endPoint if endPoint is not None else 0
 
         with self.portLock:
             self.inputBuffers[endPointIndex].extend(data)
@@ -85,12 +63,11 @@ class DebugPort(CommunicationPort):
 
         return len(data)
 
-    def writeToOutputBuffer(self, data, endPointIndex):
+    def writeToOutputBuffer(self, data, endPointIndex=0):
         self.outputBuffers[endPointIndex].extend(data)
 
     def processInputBuffers(self, endPointIndex):
         # We default to ECHO for simplicity
-
         inputBytes = self.inputBuffers[endPointIndex]
 
         # Do something, here we do an Echo
