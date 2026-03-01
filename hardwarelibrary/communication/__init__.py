@@ -2,7 +2,7 @@ from .communicationport import *
 from .serialport import SerialPort
 from .usbport import USBPort
 from .diagnostics import USBParameters, DeviceCommand, USBDeviceDescription
-from .debugport import DebugPort
+from .debugport import DebugPort, TableDrivenDebugPort, BinaryCommandEntry, TextCommandEntry
 from .echoport import DebugEchoPort
 import usb.backend.libusb1
 import platform

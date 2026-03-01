@@ -1,7 +1,7 @@
 from hardwarelibrary.motion.rotationdevice import *
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
-from hardwarelibrary.communication.debugport import DebugPort
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort, TextCommandEntry
 
 import time
 from struct import *
@@ -117,3 +117,29 @@ class IntellidriveDevice(RotationDevice):
 
         if not self.isReferenced():
             raise Exception("Homing failed")
+
+    class DebugSerialPort(TableDrivenDebugPort):
+        def __init__(self):
+            super().__init__()
+            self.registers = {'0xc9': 0}
+            self.text_commands = [
+                TextCommandEntry(name='set_register', pattern=r's r(0x[0-9a-fA-F]+) (-?\d+)[\r\n]'),
+                TextCommandEntry(name='get_register', pattern=r'g r(0x[0-9a-fA-F]+)[\r\n]'),
+                TextCommandEntry(name='trajectory', pattern=r't (\d+)[\r\n]'),
+            ]
+
+        def process_command(self, name, params, endPointIndex):
+            if name == 'set_register':
+                register, value = params
+                self.registers[register] = int(value)
+                return "ok\r"
+            elif name == 'get_register':
+                register = params[0]
+                value = self.registers.get(register, 0)
+                return "v {}\r".format(value)
+            elif name == 'trajectory':
+                mode = int(params[0])
+                if mode == 2:  # home
+                    self.registers['0xca'] = 0
+                    self.registers['0xc9'] = (1 << 12)  # referenced bit
+                return "ok\r"
