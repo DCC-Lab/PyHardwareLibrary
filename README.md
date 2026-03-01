@@ -28,11 +28,50 @@ We often need to control devices in the laboratory (linear stages, spectrometers
 
 Why Python? Python is object-oriented (essential) and offers reasonable performance. Python also has the quality of being a very nice team player: it is fairly easy to integrate Python with anything, on any platform and the community is extremely active.  It is obvious by the numerous Python SDKs from companies, the thousands of modules on PyPi.org, and the support from all vendors (Microsoft, Apple and Linux). Python is also not a dead language: I am very pleased to see the language evolve over the years with new language features and new standard modules. 
 
+## Supported devices
+
+The library currently supports the following hardware:
+
+| Category | Device | Class | USB VID:PID | Communication |
+|---|---|---|---|---|
+| **Spectrometers** | Ocean Insight USB2000 | `USB2000` | `0x2457:0x1002` | USB (PyUSB) |
+| | Ocean Insight USB2000+ | `USB2000Plus` | `0x2457:0x101E` | USB (PyUSB) |
+| | Ocean Insight USB4000 | `USB4000` | `0x2457:0x1022` | USB (PyUSB) |
+| | Ocean Insight USB650 | `USB650` | `0x2457:0x1014` | USB (PyUSB) |
+| **Motion (linear)** | Sutter MP-285 | `SutterDevice` | `0x1342:0x0001` | Serial (FTDI) |
+| | Thorlabs KDC (K-Cube) | `ThorlabsDevice` | `0x0403:0xFAF0` | Serial (FTDI) |
+| | Thorlabs Kinesis | `ThorlabsKinesisDevice` | `0x0403:0xFAF0` | pylablib |
+| **Motion (rotation)** | Intellidrive | `IntellidriveDevice` | `0x0403:0x6001` | Serial (FTDI) |
+| **Laser sources** | Cobolt laser | `CoboltDevice` | (serial) | Serial |
+| **Power meters** | Gentec-EO Integra | `IntegraDevice` | `0x1AD5:0x0300` | USB (PyUSB) |
+| **DAQ** | LabJack U3 | `LabjackDevice` | `0x0CD5:0x0003` | USB (LabJackPython) |
+| **Oscilloscopes** | Tektronix TDS series | `OscilloscopeDevice` | `0x0403:0x6001` | Serial (FTDI/SCPI) |
+| **Cameras** | Any OpenCV camera | `OpenCVCamera` | (OS driver) | OpenCV |
+
+Every device above also has a debug/simulated counterpart (e.g., `DebugLinearMotionDevice`, `DebugSpectro`) that works without hardware, useful for development and testing.
+
 ## Getting started with using devices
 
-To use this module, you need to install it by [downloading it](https://github.com/DCC-Lab/PyHardwareLibrary/archive/refs/heads/master.zip) from GitHub then typing: `python setup.py install`.
+To install, [download](https://github.com/DCC-Lab/PyHardwareLibrary/archive/refs/heads/master.zip) from GitHub then:
 
-Right now, the only useful devices supported are the Ocean Insight spectrometers, `USB2000` and `USB4000`. If you only want to use it, then the following two-line script will do:
+```shell
+pip install .
+```
+
+The general usage pattern for any device is the same:
+
+```python
+device = SomeDevice()          # create
+device.initializeDevice()      # connect and configure
+# ... use the device ...
+device.shutdownDevice()        # disconnect cleanly
+```
+
+Below are examples for each device category.
+
+### Spectrometers (Ocean Insight)
+
+The quickest way to display a live spectrum from any connected Ocean Insight spectrometer:
 
 ```python
 from hardwarelibrary.spectrometers import OISpectrometer
@@ -40,57 +79,266 @@ from hardwarelibrary.spectrometers import OISpectrometer
 OISpectrometer.displayAny()
 ```
 
-The first supported spectrometer connected will be chosen and a window will appear displaying the spectrum.
-
-If you want to do more such as integrating it in some other software you are writing, at this point the best option is to type `help(someClass)` to get the help from the code:
+To acquire data programmatically:
 
 ```python
->>> from hardwarelibrary.spectrometers import OISpectrometer
->>> help(OISpectrometer)
+from hardwarelibrary.spectrometers import USB2000, USB4000
 
-Help on class OISpectrometer in module hardwarelibrary.spectrometers.oceaninsight:
+spectro = USB2000()                    # or USB4000(), USB2000Plus(), USB650()
+spectro.initializeDevice()
 
-class OISpectrometer(builtins.object)
- |  OISpectrometer(idProduct, model, serialNumber=None)
- |  
- |  An Ocean insight (Ocean Optics) spectrometer.  This allows complete access
- |  to the hardware with simple functions to get the spectrum, or modify the
- |  integration time. It is the base class for all Ocean Insight Spectrometers,
- |  but you will not instantiate this directly: use USB2000() or USB4000(),
- |  or simply: OISpectrometer.any() to get any spectrometer.
- |  
- |  Access to the device is done with pyusb and does not require any
- |  additional information. The USB-specific attributes of the spectrometers are
- |  available,  but are not needed for standard usage.  If you need to
- |  implement additional functions and communicate with the device (not all
- |  capabilities are currently coded), then you could implement them in a
- |  separate function.
- |  [...]
- |  getCalibration(self)
- |      Get the hardcoded calibration from the spectrometer.  It is a
- |      3rd-order polynomial. Currently, no nonlinearities are considered.
- |  
- |  getIntegrationTime(self)
- |      Get the integration time in as a float value in milliseconds
- |      cls.timeScale is 1 for ms and 1000 if it is stored in µs
- |  
- |  getParameter(self, index)
- |      Get any of the 20 parameters hardcoded into the spectrometer.
- |      
- |      Parameters
- |      ----------
- |      
- |      index: int
- |          0 – Serial Number
- |          1 – 0th order Wavelength Calibration Coefficient 
- |          2 – 1st order Wavelength Calibration Coefficient
-[...]
+spectro.setIntegrationTime(100)        # milliseconds
+spectrum = spectro.getSpectrum()       # numpy array
+wavelengths = spectro.wavelength       # calibrated wavelength axis
 
+spectro.saveSpectrum("measurement.txt")
+spectro.shutdownDevice()
 ```
 
+### Linear motion stages (Sutter, Thorlabs)
 
+```python
+from hardwarelibrary.motion import SutterDevice
 
-Of course, other devices will be supported in the near future.  As mentionned elsewhere in this document, the present `PyHardwareLibrary` project originates from a private `HardwareLibrary` project that supports many different devices, such as Sutter Instruments stages, many Thorlabs devices (stages, shutters, rotation stages, flip mirrors), Spectra Physics Lasers, Cobolt Lasers, Olympus microscopes, GenTech-EO power meters, LabJack, Zaber, Marzhauer, Prior, Newport, Intellidrive, so it is a question of time (and need) before they are ported to `PyHardwareLibrary`.
+stage = SutterDevice()
+stage.initializeDevice()
+
+x, y, z = stage.positionInMicrons()    # read current position
+stage.moveInMicronsTo((1000, 2000, 0)) # absolute move in µm
+stage.moveInMicronsBy((100, 0, 0))     # relative move in µm
+stage.home()                           # return to origin
+
+stage.shutdownDevice()
+```
+
+Thorlabs K-Cube controllers use the same `LinearMotionDevice` interface:
+
+```python
+from hardwarelibrary.motion.thorlabs import ThorlabsDevice, ThorlabsKinesisDevice
+
+stage = ThorlabsDevice()               # direct FTDI protocol
+# or
+stage = ThorlabsKinesisDevice()        # via pylablib Kinesis
+
+stage.initializeDevice()
+stage.moveTo((5000, 0, 0))
+stage.shutdownDevice()
+```
+
+You can also generate a 2D scanning grid of positions:
+
+```python
+positions = stage.mapPositions(width=10, height=10, stepInMicrons=5.0)
+for info in positions:
+    stage.moveInMicronsTo(info['position'])
+    # acquire data at info['index']
+```
+
+### Rotation stages (Intellidrive)
+
+```python
+from hardwarelibrary.motion import IntellidriveDevice
+
+rotator = IntellidriveDevice(serialNumber=".*")
+rotator.initializeDevice()
+
+angle = rotator.orientation()          # current angle in degrees
+rotator.moveTo(90.0)                   # absolute rotation
+rotator.home()
+
+rotator.shutdownDevice()
+```
+
+### Laser sources (Cobolt)
+
+```python
+from hardwarelibrary.sources import CoboltDevice
+
+laser = CoboltDevice(portPath="/dev/tty.usbserial-XXXX")
+laser.initializeDevice()
+
+laser.turnOn()
+laser.setPower(0.050)                  # 50 mW
+print(laser.power())                   # read actual output power
+print(laser.interlock())               # check interlock state
+
+laser.turnOff()
+laser.shutdownDevice()
+```
+
+### Power meters (Gentec-EO Integra)
+
+```python
+from hardwarelibrary.powermeters import IntegraDevice
+
+meter = IntegraDevice()
+meter.initializeDevice()
+
+meter.setCalibrationWavelength(532)    # nm
+power = meter.measureAbsolutePower()   # watts
+print(f"Power: {power*1000:.2f} mW")
+
+meter.shutdownDevice()
+```
+
+### Data acquisition (LabJack U3)
+
+```python
+from hardwarelibrary.daq import LabjackDevice
+
+daq = LabjackDevice()
+daq.initializeDevice()
+
+voltage = daq.getAnalogVoltage(channel=0)    # read analog input
+daq.setAnalogVoltage(2.5, channel=0)         # set analog output
+daq.setDigitalValue(True, channel=4)         # set digital output
+state = daq.getDigitalValue(channel=4)       # read digital input
+
+daq.shutdownDevice()
+```
+
+### Oscilloscopes (Tektronix TDS)
+
+```python
+from hardwarelibrary.oscilloscope import OscilloscopeDevice
+
+scope = OscilloscopeDevice()
+scope.initializeDevice()
+
+scope.displayWaveforms()               # live matplotlib display
+waveform = scope.getWaveform(channel="CH1")  # list of (time, voltage)
+
+scope.shutdownDevice()
+```
+
+### Cameras (OpenCV)
+
+```python
+from hardwarelibrary.cameras import OpenCVCamera
+
+cam = OpenCVCamera()
+cam.initializeDevice()
+
+cam.livePreview()                      # blocking live window
+# or
+frames = cam.captureFrames(n=5)        # capture 5 frames
+
+cam.shutdownDevice()
+```
+
+### Using the DeviceManager
+
+The `DeviceManager` provides centralized discovery and monitoring of all connected USB devices:
+
+```python
+from hardwarelibrary import DeviceManager
+
+dm = DeviceManager()
+dm.startMonitoring()                   # background USB hotplug detection
+
+stages = dm.linearMotionDevices()      # all connected motion stages
+spectros = dm.spectrometerDevices()    # all connected spectrometers
+meters = dm.powerMeterDevices()        # all connected power meters
+
+# or get any single device of a type
+stage = dm.anyLinearMotionDevice()
+
+dm.stopMonitoring()
+```
+
+### Listening for device events
+
+All devices post notifications through the `NotificationCenter`. You can observe device events without polling:
+
+```python
+from hardwarelibrary import NotificationCenter
+from hardwarelibrary.motion.linearmotiondevice import LinearMotionNotification
+
+def onMove(notification):
+    print(f"Stage moved to {notification.userInfo}")
+
+nc = NotificationCenter()
+nc.addObserver(
+    observer=self,
+    method=onMove,
+    notificationName=LinearMotionNotification.didMove,
+    observedObject=stage
+)
+```
+
+Available notification enums include `PhysicalDeviceNotification`, `LinearMotionNotification`, `RotationMotionNotification`, `PowerMeterNotification`, `CameraDeviceNotification`, and `DeviceManagerNotification`.
+
+### Testing without hardware
+
+Every device category has a debug class that simulates the hardware in memory:
+
+```python
+from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice
+
+stage = DebugLinearMotionDevice()
+stage.initializeDevice()
+stage.moveInMicronsTo((100, 200, 0))   # works without any hardware
+print(stage.positionInMicrons())       # (100.0, 200.0, 0.0)
+stage.shutdownDevice()
+```
+
+This is essential for writing and running tests on machines where the physical device is not connected.
+
+## Architecture
+
+### Class hierarchy
+
+All devices inherit from `PhysicalDevice`, which provides lifecycle management (initialize/shutdown), state tracking, background monitoring, and notification support. Intermediate classes define category-specific interfaces:
+
+```
+PhysicalDevice
+├── LinearMotionDevice ──── moveTo(), moveBy(), position(), home()
+│   ├── SutterDevice
+│   ├── ThorlabsDevice
+│   ├── ThorlabsKinesisDevice
+│   └── DebugLinearMotionDevice
+├── RotationDevice ───────── moveTo(), moveBy(), orientation(), home()
+│   └── IntellidriveDevice
+├── LaserSourceDevice ────── turnOn(), turnOff(), setPower(), power()
+│   └── CoboltDevice
+├── PowerMeterDevice ─────── measureAbsolutePower(), setCalibrationWavelength()
+│   └── IntegraDevice
+├── Spectrometer ─────────── getSpectrum(), setIntegrationTime(), display()
+│   └── OISpectrometer
+│       ├── USB2000 / USB2000Plus
+│       ├── USB4000
+│       └── USB650
+├── OscilloscopeDevice ───── getWaveform(), displayWaveforms()
+├── CameraDevice ─────────── captureFrames(), livePreview(), start(), stop()
+│   └── OpenCVCamera
+└── LabjackDevice ────────── getAnalogVoltage(), setAnalogVoltage(), get/setDigitalValue()
+```
+
+### Communication layer
+
+Devices communicate through a `CommunicationPort` abstraction with three backends:
+
+- **`SerialPort`** — wraps PySerial and PyFTDI for RS-232 and FTDI USB-to-serial devices
+- **`USBPort`** — wraps PyUSB for direct USB bulk transfers (spectrometers, power meters)
+- **`DebugPort`** — in-memory buffers for testing without hardware
+
+On top of these, a command protocol layer (`TextCommand`, `MultilineTextCommand`) handles string-based request/response exchanges with regex pattern matching.
+
+### Device lifecycle
+
+Every device follows the same lifecycle managed by `PhysicalDevice`:
+
+```
+Unconfigured ──initializeDevice()──► Ready ──shutdownDevice()──► Recognized
+                    │                                                 │
+                    └── (failure) ──► Unrecognized                    └── can re-initialize
+```
+
+The `initializeDevice()` / `shutdownDevice()` methods handle housekeeping and post notifications (`willInitializeDevice`, `didInitializeDevice`, etc.). Subclasses implement the actual hardware communication in `doInitializeDevice()` and `doShutdownDevice()`.
+
+### Template method pattern
+
+Public methods on category classes (e.g., `moveTo()`, `turnOn()`, `measureAbsolutePower()`) handle notifications and validation, then delegate to a `do`-prefixed method (e.g., `doMoveTo()`, `doTurnOn()`, `doMeasureAbsolutePower()`) that each concrete device overrides. Users call the public methods; `do` methods are internal.
 
 ## Getting started with coding for new devices
 
@@ -135,7 +383,7 @@ How does one go about supporting a new device? What is the best strategy?
 
 5. Complete *serial* tests that will test both the real port and the debug port. Both must behave identicially.
 
-6. *This part is not fully implemented yet:* Start wrapping the complex serial communication inside a `PhysicalDevice`-derivative (e.g., `LaserSourceDevice`, `LinearMotionDevice`, etc…). For an example, see `CoboltDevice` which derives from `LaserSourceDevice`.  For more details on the strategy for `PhysicalDevice`, see the section : `PhysicalDevice` implementation.
+6. Start wrapping the complex serial communication inside a `PhysicalDevice`-derivative (e.g., `LaserSourceDevice`, `LinearMotionDevice`, etc…). For an example, see `CoboltDevice` which derives from `LaserSourceDevice`.  For more details on the strategy for `PhysicalDevice`, see the section : `PhysicalDevice` implementation.
 
 7. Write a series of device tests.  For examples, see `testCoboltDevice`.
 
@@ -220,9 +468,7 @@ When testing serial ports, we want to test both the real connection to a given d
 
 ## Design goals
 
-*This part is not fully implemented yet in this library, but was implemented in a separate project.*
-
-Communicating with the device through serial ports is the first step.  However, most of the time, we care about some tasks we want to do with the device (turn on and use laser, acquire spectrum from spectrometer, etc...).  Therefore, after having figured out what the commands are and how the device responds, it is important to "wrap" or encapsulate all of those commands inside a class (or object) that represents the device to the end-user and make it easy to use without having to know the details. `PyHardwareLibrary` uses a base class called `PhysicalDevice` 
+Communicating with the device through serial ports is the first step.  However, most of the time, we care about some tasks we want to do with the device (turn on and use laser, acquire spectrum from spectrometer, etc...).  Therefore, after having figured out what the commands are and how the device responds, it is important to "wrap" or encapsulate all of those commands inside a class (or object) that represents the device to the end-user and make it easy to use without having to know the details. `PyHardwareLibrary` uses a base class called `PhysicalDevice`
 
 A real physical device is not simple to handle: errors can occur at any time (because of the device itself), because the user did not connect it or did not turn it on, because the device is in an irregular  state (e.g., it reached the end of the travel range for instance).  Hence, it becomes important to handle errors gracefully but especially robustly.
 
