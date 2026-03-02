@@ -117,7 +117,7 @@ class TextCommand(Command):
     Used for devices with text-based protocols like "s r0x24 31\\r" → "ok\\r".
 
     Send-side parameters (used by send()):
-        text: format string sent to the device, e.g. "g r{register}\\n"
+        text_format: format string sent to the device, e.g. "g r{register}\\n"
         replyPattern: regex to validate the device's reply
         alternatePattern: secondary regex if replyPattern doesn't match
 
@@ -125,25 +125,25 @@ class TextCommand(Command):
         matchPattern: regex to recognize incoming bytes in a mock port.
                       Use named groups for readable code:
                       r'g r(?P<register>0x[0-9a-fA-F]+)[\\r\\n]'
-                      If None, an auto-derived pattern from `text` is used.
+                      If None, an auto-derived pattern from `text_format` is used.
         responseTemplate: format string for the mock response, e.g. "v {value}\\r".
                           Filled with named (dict) or positional (tuple) params
                           returned by process_command().
 
     Example:
-        TextCommand(name="GET_REGISTER", text="g r{register}\\n",
+        TextCommand(name="GET_REGISTER", text_format="g r{register}\\n",
                     matchPattern=r'g r(?P<register>0x[0-9a-fA-F]+)[\\r\\n]',
                     replyPattern=r'v\\s(-?\\d+)',
                     responseTemplate="v {value}\\r")
     """
 
-    def __init__(self, name, text, replyPattern = None,
+    def __init__(self, name, text_format, replyPattern = None,
                                    alternatePattern = None,
                                    endPoints = (None, None),
                                    matchPattern = None,
                                    responseTemplate = None):
         Command.__init__(self, name, endPoints=endPoints)
-        self.text : str = text
+        self.text_format : str = text_format
         self.replyPattern: str = replyPattern
         self.alternatePattern: str = alternatePattern
         self.matchPattern: str = matchPattern
@@ -151,11 +151,11 @@ class TextCommand(Command):
 
     @property
     def payload(self):
-        return self.text
+        return self.text_format
 
     @property
     def numberOfArguments(self):
-        match = re.search(r"\{(.*?)\}", self.text)
+        match = re.search(r"\{(.*?)\}", self.text_format)
         if match is None:
             return 0
         return len(match.groups())
@@ -164,7 +164,7 @@ class TextCommand(Command):
     def _autoMatchPattern(self):
         """Derive a regex from the text format string by replacing {…}
         placeholders with (.+?) capture groups."""
-        parts = re.split(r'\{[^}]*\}', self.text)
+        parts = re.split(r'\{[^}]*\}', self.text_format)
         escaped = [re.escape(p) for p in parts]
         return '(.+?)'.join(escaped)
 
@@ -217,9 +217,9 @@ class TextCommand(Command):
     def send(self, port, params=None) -> bool:
         try:
             if params is not None:
-                textCommand = self.text.format(params)
+                textCommand = self.text_format.format(params)
             else:
-                textCommand = self.text
+                textCommand = self.text_format
 
             if port is None:
                 raise RuntimeError("port cannot be None")
@@ -256,14 +256,14 @@ class MultilineTextCommand(Command):
         lastLinePattern: regex that signals the final line (alternative to lineCount)
     """
 
-    def __init__(self, name, text,
+    def __init__(self, name, text_format,
                  replyPattern=None,
                  alternatePattern=None,
                  lineCount=1,
                  lastLinePattern=None,
                  endPoints=(None, None)):
         Command.__init__(self, name=name, endPoints=endPoints)
-        self.text: str = text
+        self.text_format: str = text_format
         self.replyPattern: str = replyPattern
         self.alternatePattern: str = alternatePattern
         self.lineCount = lineCount
@@ -271,14 +271,14 @@ class MultilineTextCommand(Command):
 
     @property
     def payload(self):
-        return self.text
+        return self.text_format
 
     def send(self, port, params=None) -> bool:
         try:
             if params is not None:
-                textCommand = self.text.format(params)
+                textCommand = self.text_format.format(params)
             else:
-                textCommand = self.text
+                textCommand = self.text_format
 
             if port is None:
                 raise RuntimeError("port cannot be None")

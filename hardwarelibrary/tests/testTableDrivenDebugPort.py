@@ -25,9 +25,9 @@ class BinaryFixture(TableDrivenDebugPort):
 class TextFixture(TableDrivenDebugPort):
     def __init__(self):
         super().__init__(commands={
-            'set': TextCommand(name='set', text='SET {0} {1}\r',
+            'set': TextCommand(name='set', text_format='SET {0} {1}\r',
                                matchPattern=r'SET (\w+) (-?\d+)\r'),
-            'get': TextCommand(name='get', text='GET {0}\r',
+            'get': TextCommand(name='get', text_format='GET {0}\r',
                                matchPattern=r'GET (\w+)\r',
                                responseTemplate='VAL {0}\r'),
         })
@@ -47,7 +47,7 @@ class MixedFixture(TableDrivenDebugPort):
     def __init__(self):
         super().__init__(commands={
             'bin_set': DataCommand(name='bin_set', prefix=b'\x01', requestFormat='<xl'),
-            'text_get': TextCommand(name='text_get', text='GET\r',
+            'text_get': TextCommand(name='text_get', text_format='GET\r',
                                     matchPattern=r'GET\r'),
         })
         self.state = 0

@@ -24,13 +24,13 @@ class IntellidriveDevice(RotationDevice):
     classIdProduct = 0x6001
 
     commands = {
-        "SET_REGISTER": TextCommand(name="SET_REGISTER", text="s r{register} {value}\r",
+        "SET_REGISTER": TextCommand(name="SET_REGISTER", text_format="s r{register} {value}\r",
                                     matchPattern=r's r(?P<register>0x[0-9a-fA-F]+) (?P<value>-?\d+)[\r\n]',
                                     replyPattern="ok", responseTemplate="ok\r"),
-        "GET_REGISTER": TextCommand(name="GET_REGISTER", text="g r{register}\n",
+        "GET_REGISTER": TextCommand(name="GET_REGISTER", text_format="g r{register}\n",
                                     matchPattern=r'g r(?P<register>0x[0-9a-fA-F]+)[\r\n]',
                                     replyPattern=r'v\s(-?\d+)', responseTemplate="v {value}\r"),
-        "TRAJECTORY": TextCommand(name="TRAJECTORY", text="t {mode}\n",
+        "TRAJECTORY": TextCommand(name="TRAJECTORY", text_format="t {mode}\n",
                                   matchPattern=r't (?P<mode>\d+)[\r\n]',
                                   replyPattern="ok", responseTemplate="ok\r"),
     }

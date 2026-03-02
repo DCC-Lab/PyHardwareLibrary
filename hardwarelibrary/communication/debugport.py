@@ -92,7 +92,7 @@ class TableDrivenDebugPort(DebugPort):
     1. Pass the device's commands dict to __init__:
 
         commands = {
-            "GET": TextCommand(name="GET", text="GET {key}\\r",
+            "GET": TextCommand(name="GET", text_format="GET {key}\\r",
                                matchPattern=r'GET (?P<key>\\w+)\\r',
                                responseTemplate="VAL {value}\\r"),
             "SET": DataCommand(name="SET", prefix=b'S',

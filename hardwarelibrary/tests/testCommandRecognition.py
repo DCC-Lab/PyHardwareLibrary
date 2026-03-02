@@ -29,47 +29,47 @@ class TestCommandBase(unittest.TestCase):
 
 class TestTextCommandRecognition(unittest.TestCase):
     def testAutoMatchPattern(self):
-        cmd = TextCommand(name="test", text="SET {0} {1}\r")
+        cmd = TextCommand(name="test", text_format="SET {0} {1}\r")
         self.assertTrue(cmd.matches(b'SET foo 42\r'))
 
     def testAutoMatchPatternNoMatch(self):
-        cmd = TextCommand(name="test", text="SET {0} {1}\r")
+        cmd = TextCommand(name="test", text_format="SET {0} {1}\r")
         self.assertFalse(cmd.matches(b'GET foo\r'))
 
     def testExplicitMatchPattern(self):
-        cmd = TextCommand(name="test", text="s r{0}\r",
+        cmd = TextCommand(name="test", text_format="s r{0}\r",
                           matchPattern=r's r(0x[0-9a-fA-F]+)[\r\n]')
         self.assertTrue(cmd.matches(b's r0xFF\r'))
         self.assertTrue(cmd.matches(b's r0xFF\n'))
 
     def testExtractParams(self):
-        cmd = TextCommand(name="test", text="SET {0} {1}\r")
+        cmd = TextCommand(name="test", text_format="SET {0} {1}\r")
         params = cmd.extractParams(b'SET foo 42\r')
         self.assertEqual(params, ('foo', '42'))
 
     def testExtractParamsExplicitPattern(self):
-        cmd = TextCommand(name="test", text="g r{0}\n",
+        cmd = TextCommand(name="test", text_format="g r{0}\n",
                           matchPattern=r'g r(0x[0-9a-fA-F]+)[\r\n]')
         params = cmd.extractParams(b'g r0xc9\n')
         self.assertEqual(params, ('0xc9',))
 
     def testFormatResponseWithTemplate(self):
-        cmd = TextCommand(name="test", text="g r{0}\n",
+        cmd = TextCommand(name="test", text_format="g r{0}\n",
                           responseTemplate="v {0}\r")
         result = cmd.formatResponse(("42",))
         self.assertEqual(result, bytearray(b'v 42\r'))
 
     def testFormatResponseStringFallback(self):
-        cmd = TextCommand(name="test", text="cmd\r")
+        cmd = TextCommand(name="test", text_format="cmd\r")
         result = cmd.formatResponse("ok\r")
         self.assertEqual(result, bytearray(b'ok\r'))
 
     def testFormatResponseNone(self):
-        cmd = TextCommand(name="test", text="cmd\r")
+        cmd = TextCommand(name="test", text_format="cmd\r")
         self.assertIsNone(cmd.formatResponse(None))
 
     def testNamedGroupExtractParams(self):
-        cmd = TextCommand(name="test", text="SET {key} {value}\r",
+        cmd = TextCommand(name="test", text_format="SET {key} {value}\r",
                           matchPattern=r'SET (?P<key>\w+) (?P<value>-?\d+)\r')
         params = cmd.extractParams(b'SET foo 42\r')
         self.assertIsInstance(params, dict)
@@ -77,19 +77,19 @@ class TestTextCommandRecognition(unittest.TestCase):
         self.assertEqual(params["value"], "42")
 
     def testNamedGroupFormatResponse(self):
-        cmd = TextCommand(name="test", text="GET {key}\r",
+        cmd = TextCommand(name="test", text_format="GET {key}\r",
                           matchPattern=r'GET (?P<key>\w+)\r',
                           responseTemplate="VAL {value}\r")
         result = cmd.formatResponse({"value": "99"})
         self.assertEqual(result, bytearray(b'VAL 99\r'))
 
     def testEffectiveMatchPatternUsesExplicit(self):
-        cmd = TextCommand(name="test", text="SET {0}\r",
+        cmd = TextCommand(name="test", text_format="SET {0}\r",
                           matchPattern=r'SET (\w+)\r')
         self.assertEqual(cmd.effectiveMatchPattern, r'SET (\w+)\r')
 
     def testEffectiveMatchPatternUsesAuto(self):
-        cmd = TextCommand(name="test", text="SET {0}\r")
+        cmd = TextCommand(name="test", text_format="SET {0}\r")
         self.assertEqual(cmd.effectiveMatchPattern, cmd._autoMatchPattern)
 
 
