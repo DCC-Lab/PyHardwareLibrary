@@ -1,7 +1,7 @@
 from hardwarelibrary.motion.rotationdevice import *
 from hardwarelibrary.communication.serialport import SerialPort
-from hardwarelibrary.communication.commands import DataCommand
-from hardwarelibrary.communication.debugport import DebugPort
+from hardwarelibrary.communication.commands import TextCommand
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 
 import time
 from struct import *
@@ -21,7 +21,19 @@ class State(Enum):
 
 class IntellidriveDevice(RotationDevice):
     classIdVendor = 0x0403
-    classIdProduct = 0x6001 
+    classIdProduct = 0x6001
+
+    commands = {
+        "SET_REGISTER": TextCommand(name="SET_REGISTER", text="s r{register} {value}\r",
+                                    matchPattern=r's r(?P<register>0x[0-9a-fA-F]+) (?P<value>-?\d+)[\r\n]',
+                                    replyPattern="ok", responseTemplate="ok\r"),
+        "GET_REGISTER": TextCommand(name="GET_REGISTER", text="g r{register}\n",
+                                    matchPattern=r'g r(?P<register>0x[0-9a-fA-F]+)[\r\n]',
+                                    replyPattern=r'v\s(-?\d+)', responseTemplate="v {value}\r"),
+        "TRAJECTORY": TextCommand(name="TRAJECTORY", text="t {mode}\n",
+                                  matchPattern=r't (?P<mode>\d+)[\r\n]',
+                                  replyPattern="ok", responseTemplate="ok\r"),
+    }
 
     def __init__(self, serialNumber):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
@@ -117,3 +129,23 @@ class IntellidriveDevice(RotationDevice):
 
         if not self.isReferenced():
             raise Exception("Homing failed")
+
+    class DebugSerialPort(TableDrivenDebugPort):
+        def __init__(self):
+            super().__init__(commands=IntellidriveDevice.commands)
+            self.terminator = b'\r'
+            self.registers = {'0xc9': 0}
+
+        def process_command(self, name, params, endPointIndex):
+            if name == 'SET_REGISTER':
+                self.registers[params["register"]] = int(params["value"])
+                return "ok\r"
+            elif name == 'GET_REGISTER':
+                value = self.registers.get(params["register"], 0)
+                return {"value": str(value)}
+            elif name == 'TRAJECTORY':
+                mode = int(params["mode"])
+                if mode == 2:  # home
+                    self.registers['0xca'] = 0
+                    self.registers['0xc9'] = (1 << 12)  # referenced bit
+                return "ok\r"

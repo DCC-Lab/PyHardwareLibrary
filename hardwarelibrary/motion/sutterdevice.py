@@ -4,7 +4,7 @@ from hardwarelibrary.communication.communicationport import *
 from hardwarelibrary.communication.usbport import USBPort
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.communication.commands import DataCommand
-from hardwarelibrary.communication.debugport import DebugPort
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 
 import re
 import time
@@ -15,6 +15,18 @@ from pyftdi.ftdi import Ftdi #FIXME: should not be here.
 class SutterDevice(LinearMotionDevice):
     classIdVendor = 4930
     classIdProduct = 1
+
+    commands = {
+        "MOVE": DataCommand(name="MOVE", prefix=b'M', requestFormat='<xlllx',
+                            requestFields=('x', 'y', 'z'),
+                            replyDataLength=1, unpackingMask='<c'),
+        "GET_POSITION": DataCommand(name="GET_POSITION", prefix=b'C',
+                                    replyDataLength=14, unpackingMask='<xlllx',
+                                    responseFormat='<clllc',
+                                    responseFields=('header', 'x', 'y', 'z', 'terminator')),
+        "HOME": DataCommand(name="HOME", prefix=b'H',
+                            replyDataLength=1, unpackingMask='<c'),
+    }
 
     def __init__(self, serialNumber: str = None):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
@@ -143,31 +155,23 @@ class SutterDevice(LinearMotionDevice):
             raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
 
 
-    class DebugSerialPort(DebugPort):
+    class DebugSerialPort(TableDrivenDebugPort):
         def __init__(self):
-            super().__init__()
+            super().__init__(commands=SutterDevice.commands)
             self.xSteps = 0
             self.ySteps = 0
             self.zSteps = 0
 
-        def processInputBuffers(self, endPointIndex):
-            inputBytes = self.inputBuffers[endPointIndex]
-
-            if inputBytes[0] == b'm'[0] or inputBytes[0] == b'M'[0]:
-                x,y,z = unpack("<xlllx", inputBytes)
-                self.xSteps = x
-                self.ySteps = y
-                self.zSteps = z
-                self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
-            elif inputBytes[0] == b'h'[0] or inputBytes[0] == b'H'[0]:
-                self.xSteps = 0
-                self.ySteps = 0
-                self.zSteps = 0
-                self.writeToOutputBuffer(bytearray(b'\r'), endPointIndex)
-            elif inputBytes[0] == b'c'[0] or inputBytes[0] == b'C'[0]:
-                data = pack('<clllc', b'c', self.xSteps, self.ySteps, self.zSteps, b'\r')
-                self.writeToOutputBuffer(data, endPointIndex)
-            else:
-                print("Unrecognized command (not everything is implemented): {0}".format(inputBytes))
-
-            self.inputBuffers[endPointIndex] = bytearray()
+        def process_command(self, name, params, endPointIndex):
+            if name == 'MOVE':
+                self.xSteps = params['x']
+                self.ySteps = params['y']
+                self.zSteps = params['z']
+                return b'\r'
+            elif name == 'GET_POSITION':
+                return {'header': b'c', 'x': self.xSteps,
+                        'y': self.ySteps, 'z': self.zSteps,
+                        'terminator': b'\r'}
+            elif name == 'HOME':
+                self.xSteps = self.ySteps = self.zSteps = 0
+                return b'\r'
