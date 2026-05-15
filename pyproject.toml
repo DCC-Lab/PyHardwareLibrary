@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools<69", "wheel", "setuptools_scm"]
+requires = ["setuptools", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hardwarelibrary"
-dynamic = ["version"]  # This line tells setuptools to use setuptools_scm for version
+dynamic = ["version"]
 description = "Cross-platform (macOS, Windows, Linux, etc...) library to control various hardware devices mostly for scientific applications."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
   { name = "Daniel Cote", email = "dccote@cervo.ulaval.ca" },
@@ -24,7 +24,12 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Operating System :: OS Independent"
 ]
 dependencies = [
@@ -42,7 +47,7 @@ Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
 [tool.setuptools]
 include-package-data = true
 
-
 [tool.setuptools_scm]
 version_scheme = "post-release"
 local_scheme = "no-local-version"
+
