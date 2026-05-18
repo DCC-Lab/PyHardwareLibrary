@@ -4,13 +4,7 @@ import u3
 
 
 class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
-    """A PhysicalDevice wrapper for the LabJack U3 (LV and HV).
-
-    Provides lifecycle management (initializeDevice/shutdownDevice) and
-    convenience methods for common I/O operations. For advanced features
-    (timers, counters, streaming, SPI, I2C), use self.dev directly —
-    it is the underlying u3.U3 instance with the full LabJackPython API.
-    """
+    """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods."""
 
     classIdVendor = 0x0cd5
     classIdProduct = 0x003
@@ -21,7 +15,7 @@ class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
 
     def doInitializeDevice(self):
         self.dev = u3.U3(autoOpen=False)
-        if self.serialNumber == ".*":
+        if self.serialNumber == "*":
             self.dev.open()
         else:
             self.dev.open(firstFound=False, serial=int(self.serialNumber))
@@ -33,7 +27,6 @@ class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
 
     @property
     def isHighVoltage(self):
-        """True if this is a U3-HV (hardware version >= 2.0)."""
         return hasattr(self.dev, 'hardwareVersion') and self.dev.hardwareVersion >= 2.0
 
     def setConfiguration(self, parameters: dict):
@@ -69,20 +62,15 @@ class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
         return self.dev.getDIState(channel) != 0
 
     def getTemperature(self):
-        """Return the internal temperature sensor reading in Kelvin."""
+        """Returns Kelvin."""
         return self.dev.getTemperature()
 
     def toggleLED(self):
-        """Toggle the device status LED."""
         self.dev.toggleLED()
 
 
 class DebugLabjackDevice(LabjackDevice):
-    """A hardware-free LabJack device for testing.
-
-    Stores analog and digital values in dicts. Writing to DAC0 or DAC1
-    makes the value readable on the corresponding AIN channel (loopback).
-    """
+    """Hardware-free U3 for tests. DAC channels 0,1 loop back to AIN 0,1."""
 
     classIdProduct = 0xFFFB
     classIdVendor = 0xFFFF
@@ -93,8 +81,8 @@ class DebugLabjackDevice(LabjackDevice):
             idProduct=self.classIdProduct, idVendor=self.classIdVendor
         )
         self.dev = None
-        self._analog_values = {}
-        self._digital_values = {}
+        self._analogValues = {}
+        self._digitalValues = {}
         self._temperature = 298.0
 
     def doInitializeDevice(self):
@@ -122,18 +110,18 @@ class DebugLabjackDevice(LabjackDevice):
         pass
 
     def getAnalogVoltage(self, channel):
-        return self._analog_values.get(channel, 0.0)
+        return self._analogValues.get(channel, 0.0)
 
     def setAnalogVoltage(self, value, channel):
         if channel not in (0, 1):
             raise ValueError(f"DAC channel must be 0 or 1, got {channel}")
-        self._analog_values[channel] = value
+        self._analogValues[channel] = value
 
     def setDigitalValue(self, value, channel):
-        self._digital_values[channel] = bool(value)
+        self._digitalValues[channel] = bool(value)
 
     def getDigitalValue(self, channel):
-        return self._digital_values.get(channel, False)
+        return self._digitalValues.get(channel, False)
 
     def getTemperature(self):
         return self._temperature
