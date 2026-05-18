@@ -28,11 +28,5 @@ class PowerMeterDevice(PhysicalDevice):
         self.doSetCalibrationWavelength(wavelength)
         self.doGetCalibrationWavelength()
 
-    def measureAbsolutePower(self):
-        self.doGetAbsolutePower()
-        power = self.absolutePower
-        NotificationCenter().postNotification(PowerMeterNotification.didMeasure, notifyingObject=self, userInfo=power)
-        return power
-
     def doGetStatusUserInfo(self):
         return self.measureAbsolutePower()

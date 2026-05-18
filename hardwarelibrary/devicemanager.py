@@ -93,7 +93,7 @@ class USBDeviceDescriptor:
             return False
         if self.idVendor != device.idVendor:
             return False
-        if re.match(self.serialNumber, device.serialNumber, re.IGNORECASE) is not None:
+        if re.match(self.serialNumber, device.serialNumber, re.IGNORECASE) is None:
             return False
 
         return True

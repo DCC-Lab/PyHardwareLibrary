@@ -275,7 +275,7 @@ class OISpectrometer(Spectrometer):
                 self.epStatus = self.inputEndpoints[self.epStatusIdx]
 
             self.flushEndpoints()
-            self.sendCommand(b'0x01')
+            self.sendCommand(b'\x01')
             time.sleep(0.1)
             self.getCalibration()
         except Exception as err:

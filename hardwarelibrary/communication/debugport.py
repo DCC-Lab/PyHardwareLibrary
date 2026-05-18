@@ -59,8 +59,7 @@ class DebugPort(CommunicationPort):
         self.buffers = [bytearray(),bytearray()]
 
     def readData(self, length, endPoint=None):
-        if endPoint is None:
-            endPointIndex = 0
+        endPointIndex = 0 if endPoint is None else endPoint
 
         with self.portLock:
             time.sleep(self.delay*random.random())
@@ -75,8 +74,7 @@ class DebugPort(CommunicationPort):
         return data
 
     def writeData(self, data, endPoint=None):
-        if endPoint is None:
-            endPointIndex = 0
+        endPointIndex = 0 if endPoint is None else endPoint
 
         with self.portLock:
             self.inputBuffers[endPointIndex].extend(data)
