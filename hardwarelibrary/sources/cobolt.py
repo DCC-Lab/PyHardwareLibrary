@@ -66,13 +66,14 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             self.doTurnAutostartOn()
             self.doGetInterlockState()
             self.doGetPower()
-        except Exception as error:
-            if self.port is not None:
-                if self.port.isOpen:
-                    self.port.close()
+        except PhysicalDevice.UnableToInitialize:
+            if self.port is not None and self.port.isOpen:
+                self.port.close()
+            raise
+        except Exception:
+            if self.port is not None and self.port.isOpen:
+                self.port.close()
             raise PhysicalDevice.UnableToInitialize()
-        except PhysicalDeviceUnableToInitialize as error:
-            raise error
         
 
     def doShutdownDevice(self):
