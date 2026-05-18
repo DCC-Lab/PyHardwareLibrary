@@ -6,6 +6,8 @@ import re
 import time
 from threading import Thread, RLock
 
+globalLock = RLock()
+
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
 
