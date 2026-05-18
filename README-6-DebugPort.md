@@ -14,6 +14,7 @@ If you've ever wanted to:
 A device can be fully characterized with a dictionary of `Command` objects. The **same `commands` dict on a `PhysicalDevice` describes both how it sends commands to the real hardware *and* how its `TableDrivenDebugPort` recognizes those same commands when used as a mock. One declaration, two roles, more robust.
 
 - **`DebugPort`** is a fake port that can "misbehave" on demand (e.g., timeout), it is the basis for other debug ports. Useful when you want to test *port-level behavior* without caring what the bytes mean.
+- A `PhysicalDevice` created with the serialNumber `debug` will assign a local DebugPort instead of a real port and will appear like a real device.
 - **`TableDrivenDebugPort`** is a `DebugPort` that dispatches incoming bytes against a dict of `Command` objects and lets you implement device-specific reply logic. Useful when you want to test a *device* without hardware.
 
 
@@ -96,8 +97,6 @@ class SutterDevice(LinearMotionDevice):
 
 | You want to… | Use |
 |---|---|
-| Verify that a `CommunicationPort` writes/reads bytes correctly | `DebugPort` |
-| Test echo-style behavior with arbitrary payloads | `DebugPort` |
 | Mock a real device's protocol so tests can exercise its `do*` methods | `TableDrivenDebugPort` subclass |
 | Stub *only* the device's high-level methods (no wire protocol) | A `DebugXxxDevice` subclass that overrides `doX` directly — see `DebugLinearMotionDevice`, `DebugRotationDevice` |
 
