@@ -48,7 +48,11 @@ Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
 [tool.setuptools]
 include-package-data = true
 
-
 [tool.setuptools_scm]
 version_scheme = "post-release"
 local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+testpaths = ["hardwarelibrary/tests"]
+python_files = ["test*.py"]
+norecursedirs = ["deprecated"]

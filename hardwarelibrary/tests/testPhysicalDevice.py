@@ -8,7 +8,7 @@ from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, Physical
 from hardwarelibrary.powermeters import IntegraDevice
 from hardwarelibrary.spectrometers import USB2000, USB4000, USB2000Plus, StellarNet
 # from hardwarelibrary.cameras import OpenCVCamera
-from hardwarelibrary.echodevice import EchoDevice, DebugEchoDevice
+from hardwarelibrary.echodevice import EchoDevice
 
 from hardwarelibrary.utils import *
 
@@ -242,14 +242,19 @@ class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
                 self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
         self.device.shutdownDevice()
 
-class TestDebugEchoPhysicalDevice(TestEchoPhysicalDevice):
+class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
-        try:
-            self.device = DebugEchoDevice()
-            self.assertIsNotNone(self.device)
-        except Exception as err:
-            self.skipTest("No ECHO connected")
+        self.device = EchoDevice(serialNumber="debug")
+
+    def testEchoCommands(self):
+        self.device.initializeDevice()
+        for name, command in self.device.commands.items():
+            try:
+                self.device.sendCommand(command)
+            except Exception as err:
+                self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
+        self.device.shutdownDevice()
 
 
 class TestCameraPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
