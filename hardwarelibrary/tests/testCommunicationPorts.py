@@ -240,20 +240,6 @@ def threadReadWrite(port, index):
                 threadFailed = index
 
 
-class TestDebugEchoPort(BaseTestCases.TestEchoPort):
-
-    def setUp(self):
-        self.port = DebugEchoPort()
-        self.assertIsNotNone(self.port)
-        self.port.open()
-        self.assertTrue(self.port.isOpen)
-        self.port.flush()
-
-    def tearDown(self):
-        self.port.close()
-        self.assertFalse(self.port.isOpen)
-
-
 class TestDebugPortDefaultsToECho(BaseTestCases.TestEchoPort):
 
     def setUp(self):
@@ -322,7 +308,7 @@ class TestFTDIAdaptor(unittest.TestCase):
 class TestSlowDebugEchoPort(BaseTestCases.TestEchoPort):
 
     def setUp(self):
-        self.port = DebugEchoPort()
+        self.port = DebugPort()
         self.assertIsNotNone(self.port)
         self.port.open()
         self.assertTrue(self.port.isOpen)
