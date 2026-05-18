@@ -93,7 +93,7 @@ class USBDeviceDescriptor:
             return False
         if self.idVendor != device.idVendor:
             return False
-        if re.match(self.serialNumber, device.serialNumber, re.IGNORECASE) is not None:
+        if re.match(self.serialNumber, device.serialNumber, re.IGNORECASE) is None:
             return False
 
         return True
@@ -218,7 +218,7 @@ class DeviceManager:
             # This may throw if incompat:
             #                 deviceInstanceible
             try:
-                candidateClass(serialNumber=descriptor.serialNumber,
+                deviceInstance = candidateClass(serialNumber=descriptor.serialNumber,
                                             idProduct=descriptor.idProduct,
                                             idVendor=descriptor.idVendor)
                 deviceInstance.initializeDevice()
@@ -314,7 +314,7 @@ class DeviceManager:
         if device.state == DeviceState.Ready:
             command = device.commands[commandName]
             command.send(port=device.port)
-            return (commandName, command.text, command.matchGroups)
+            return (commandName, command.text_format, command.matchGroups)
         else:
             print("Device {0} is not Ready: call initializeDevice()".format(device))
 

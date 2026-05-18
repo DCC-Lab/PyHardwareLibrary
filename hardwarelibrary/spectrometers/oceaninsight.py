@@ -275,7 +275,7 @@ class OISpectrometer(Spectrometer):
                 self.epStatus = self.inputEndpoints[self.epStatusIdx]
 
             self.flushEndpoints()
-            self.sendCommand(b'0x01')
+            self.sendCommand(b'\x01')
             time.sleep(0.1)
             self.getCalibration()
         except Exception as err:
@@ -814,6 +814,12 @@ class USB2000Plus(USB4000_2000Plus):
 
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
         USB4000_2000Plus.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor, model="USB2000+")
+
+class SAS(USB4000_2000Plus):
+    classIdProduct = 0x1006
+
+    def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        USB4000_2000Plus.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
 
 
 class DebugSpectro:

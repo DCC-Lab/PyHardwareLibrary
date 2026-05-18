@@ -2,8 +2,7 @@ from .communicationport import *
 from .serialport import SerialPort
 from .usbport import USBPort
 from .diagnostics import USBParameters, DeviceCommand, USBDeviceDescription
-from .debugport import DebugPort
-from .echoport import DebugEchoPort
+from .debugport import DebugPort, TableDrivenDebugPort
 import usb.backend.libusb1
 import platform
 from pathlib import *

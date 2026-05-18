@@ -6,62 +6,63 @@ from hardwarelibrary.communication.serialport import *
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 
-class TestSutterSerialPortBase:
-    port = None
+class BaseTestCases:
+    class TestSutterSerialPortBase(unittest.TestCase):
+        port = None
 
-    def testCreate(self):
-        self.assertIsNotNone(self.port)
+        def testCreate(self):
+            self.assertIsNotNone(self.port)
 
-    def testCantReopen(self):
-        self.assertIsNotNone(self.port)
-        self.assertTrue(self.port.isOpen)
-        with self.assertRaises(Exception) as context:
+        def testCantReopen(self):
+            self.assertIsNotNone(self.port)
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(Exception) as context:
+                self.port.open()
+
+        def testCloseReopen(self):
+            self.assertIsNotNone(self.port)
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
             self.port.open()
 
-    def testCloseReopen(self):
-        self.assertIsNotNone(self.port)
-        self.assertTrue(self.port.isOpen)
-        self.port.close()
-        self.port.open()
+        def testCloseTwice(self):
+            self.assertIsNotNone(self.port)
+            self.assertTrue(self.port.isOpen)
+            self.port.close()
+            self.port.close()
 
-    def testCloseTwice(self):
-        self.assertIsNotNone(self.port)
-        self.assertTrue(self.port.isOpen)
-        self.port.close()
-        self.port.close()
+        def testCantReadEmptyPort(self):
+            self.assertIsNotNone(self.port)
+            self.assertTrue(self.port.isOpen)
+            with self.assertRaises(CommunicationReadTimeout) as context:
+                self.port.readString()
 
-    def testCantReadEmptyPort(self):
-        self.assertIsNotNone(self.port)
-        self.assertTrue(self.port.isOpen)
-        with self.assertRaises(CommunicationReadTimeout) as context:
-            self.port.readString()
+        def testMove(self):
+            self.assertIsNotNone(self.port)
+            payload = bytearray('m',encoding='utf-8')
+            payload.extend(pack("<lll",1,2,3))
+            payload.extend(bytearray('\r',encoding='utf-8'))
+            self.port.writeData(payload)
+            self.assertTrue(self.port.bytesAvailable() == 1)
+            self.assertTrue(self.port.readData(length=1) == b'\r')
 
-    def testMove(self):
-        self.assertIsNotNone(self.port)
-        payload = bytearray('m',encoding='utf-8')
-        payload.extend(pack("<lll",1,2,3))
-        payload.extend(bytearray('\r',encoding='utf-8'))
-        self.port.writeData(payload)
-        self.assertTrue(self.port.bytesAvailable() == 1)
-        self.assertTrue(self.port.readData(length=1) == b'\r')
+        def testMoveGet(self):
+            self.assertIsNotNone(self.port)
+            payload = bytearray('m',encoding='utf-8')
+            payload.extend(pack("<lll",1,2,3))
+            payload.extend(bytearray('\r',encoding='utf-8'))
+            self.port.writeData(payload)
+            self.assertTrue(self.port.readData(length=1) == b'\r')
 
-    def testMoveGet(self):
-        self.assertIsNotNone(self.port)
-        payload = bytearray('m',encoding='utf-8')
-        payload.extend(pack("<lll",1,2,3))
-        payload.extend(bytearray('\r',encoding='utf-8'))
-        self.port.writeData(payload)
-        self.assertTrue(self.port.readData(length=1) == b'\r')
+            payload = bytearray('c',encoding='utf-8')
+            self.port.writeData(payload)
+            data = self.port.readData(length=1 + 4*3 + 1)
+            (x,y,z) = unpack("<xlllx", data)
+            self.assertTrue( x == 1)
+            self.assertTrue( y == 2)
+            self.assertTrue( z == 3)
 
-        payload = bytearray('c',encoding='utf-8')
-        self.port.writeData(payload)
-        data = self.port.readData(length=1 + 4*3 + 1)
-        (x,y,z) = unpack("<xlllx", data)
-        self.assertTrue( x == 1)
-        self.assertTrue( y == 2)
-        self.assertTrue( z == 3)
-
-class TestSutterDebugSerialPort(TestSutterSerialPortBase, unittest.TestCase):
+class TestSutterDebugSerialPort(BaseTestCases.TestSutterSerialPortBase):
 
     def setUp(self):
         self.port = SutterDevice.DebugSerialPort()

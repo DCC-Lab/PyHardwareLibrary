@@ -54,7 +54,7 @@ class DebugRotationDevice(RotationDevice):
         self._debugOrientation = angle
 
     def doMoveBy(self, displacement):
-        self._debugOrientation += angle
+        self._debugOrientation += displacement
 
     def doHome(self):
         self._debugOrientation = 0

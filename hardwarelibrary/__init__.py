@@ -34,5 +34,4 @@ import hardwarelibrary.oscilloscope
 import hardwarelibrary.motion
 
 # import hardwarelibrary.cameras
-
-# import sources #TODO: Not much to see here yet
+# import hardwarelibrary.sources

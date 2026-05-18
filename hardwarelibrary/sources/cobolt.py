@@ -1,15 +1,82 @@
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.communication import *
+from hardwarelibrary.communication.commands import TextCommand
+from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 from .lasersourcedevice import LaserSourceDevice
 
 import re
 import time
 from threading import Thread, RLock
 
+globalLock = RLock()
+
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
 
 class CoboltDevice(PhysicalDevice, LaserSourceDevice):
+    commands = {
+        "GET_POWER": TextCommand(
+            name="GET_POWER",
+            text_format="pa?\r",
+            replyPattern=r"(\d+\.\d+)",
+            matchPattern=r"pa\?\r",
+            responseTemplate="{power:0.4f}\r\n"),
+        "GET_REQUESTED_POWER": TextCommand(
+            name="GET_REQUESTED_POWER",
+            text_format="p?\r",
+            replyPattern=r"(\d+\.\d+)",
+            matchPattern=r"p\?\r",
+            responseTemplate="{requestedPower:0.4f}\r\n"),
+        "SET_POWER": TextCommand(
+            name="SET_POWER",
+            text_format="p {0:0.3f}\r",
+            replyPattern=r"OK",
+            matchPattern=r"p (?P<value>\d+\.?\d+)\r"),
+        "GET_ON_OFF": TextCommand(
+            name="GET_ON_OFF",
+            text_format="l?\r",
+            replyPattern=r"(0|1)",
+            matchPattern=r"l\?\r",
+            responseTemplate="{isOn}\r\n"),
+        "TURN_ON": TextCommand(
+            name="TURN_ON",
+            text_format="l1\r",
+            replyPattern=r"OK",
+            matchPattern=r"l1\r"),
+        "TURN_OFF": TextCommand(
+            name="TURN_OFF",
+            text_format="l0\r",
+            replyPattern=r"OK",
+            matchPattern=r"l0\r"),
+        "GET_SERIAL_NUMBER": TextCommand(
+            name="GET_SERIAL_NUMBER",
+            text_format="sn?\r",
+            replyPattern=r"(\d+)",
+            matchPattern=r"sn\?\r",
+            responseTemplate="{serialNumber}\r\n"),
+        "TURN_AUTOSTART_ON": TextCommand(
+            name="TURN_AUTOSTART_ON",
+            text_format="@cobas 1\r",
+            replyPattern=r"OK",
+            matchPattern=r"@cobas 1\r"),
+        "TURN_AUTOSTART_OFF": TextCommand(
+            name="TURN_AUTOSTART_OFF",
+            text_format="@cobas 0\r",
+            replyPattern=r"OK",
+            matchPattern=r"@cobas 0\r"),
+        "GET_AUTOSTART": TextCommand(
+            name="GET_AUTOSTART",
+            text_format="@cobas?\r",
+            replyPattern=r"(0|1)",
+            matchPattern=r"@cobas\?\r",
+            responseTemplate="{autostart}\r\n"),
+        "GET_INTERLOCK": TextCommand(
+            name="GET_INTERLOCK",
+            text_format="ilk?\r",
+            replyPattern=r"(0|1)",
+            matchPattern=r"ilk\?\r",
+            responseTemplate="{interlock}\r\n"),
+    }
 
     def __init__(self, bsdPath=None, portPath=None, serialNumber: str = None,
                  idProduct: int = None, idVendor: int = None):
@@ -38,6 +105,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         except:
             # ignore if already closed
             return
+
     def autostartIsOn(self) -> bool:
         self.doGetAutostart()
         return self.autostart
@@ -48,15 +116,15 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
     def turnAutostartOff(self):
         self.doTurnAutostartOff()
 
-    def doInitializeDevice(self): 
+    def doInitializeDevice(self):
         try:
             if self.portPath == "debug":
-                self.port = CommunicationPort(port=CoboltDebugSerial())
+                self.port = self.DebugSerialPort()
             else:
                 self.port = SerialPort(portPath=self.portPath)
-            
+
             if self.port is None:
-                raise PhysicalDevice.UnableToInitialize("Cannot allocate port {0}".format(self.portPath))
+                raise PhysicalDevice.UnableToInitialize("Cannot allocate port for serial '{0}'".format(self.portPath))
 
             self.port.open()
             self.doGetLaserSerialNumber()
@@ -64,14 +132,14 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
             self.doTurnAutostartOn()
             self.doGetInterlockState()
             self.doGetPower()
-        except Exception as error:
-            if self.port is not None:
-                if self.port.isOpen:
-                    self.port.close()
+        except PhysicalDevice.UnableToInitialize:
+            if self.port is not None and self.port.isOpen:
+                self.port.close()
+            raise
+        except Exception:
+            if self.port is not None and self.port.isOpen:
+                self.port.close()
             raise PhysicalDevice.UnableToInitialize()
-        except PhysicalDeviceUnableToInitialize as error:
-            raise error
-        
 
     def doShutdownDevice(self):
         self.port.close()
@@ -79,43 +147,47 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         return
 
     def doGetInterlockState(self) -> bool:
-        value = self.port.writeStringExpectMatchingString('ilk?\r', replyPattern='(0|1)')
-        self.interlockState = bool(value)
+        cmd = CoboltDevice.commands["GET_INTERLOCK"]
+        cmd.send(port=self.port)
+        self.interlockState = bool(int(cmd.matchGroups[0]))
         return self.interlockState
 
     def doGetLaserSerialNumber(self) -> str:
-        self.laserSerialNumber = self.port.writeStringReadFirstMatchingGroup('sn?\r', replyPattern='(\\d+)')
+        cmd = CoboltDevice.commands["GET_SERIAL_NUMBER"]
+        cmd.send(port=self.port)
+        self.laserSerialNumber = cmd.matchGroups[0]
 
     def doGetOnOffState(self) -> bool:
-        value = self.port.writeStringExpectMatchingString('l?\r', replyPattern='(0|1)')
-        self.isOn = (int(value) == 1)
-        return self.isOn        
+        cmd = CoboltDevice.commands["GET_ON_OFF"]
+        cmd.send(port=self.port)
+        self.isOn = (int(cmd.matchGroups[0]) == 1)
+        return self.isOn
 
     def doTurnOn(self):
         if not self.doGetAutostart():
-            self.port.writeStringExpectMatchingString('l1\r', replyPattern='OK')
+            CoboltDevice.commands["TURN_ON"].send(port=self.port)
         else:
             raise CoboltCantTurnOnWithAutostartOn()
 
     def doTurnOff(self):
-        self.port.writeStringExpectMatchingString('l0\r', replyPattern='OK')
+        CoboltDevice.commands["TURN_OFF"].send(port=self.port)
 
     def doGetAutostart(self) -> bool:
-        value = self.port.writeStringReadFirstMatchingGroup('@cobas?\r', '([1|0])')
-        self.autostart = (int(value) == 1)
+        cmd = CoboltDevice.commands["GET_AUTOSTART"]
+        cmd.send(port=self.port)
+        self.autostart = (int(cmd.matchGroups[0]) == 1)
         return self.autostart
 
     def doTurnAutostartOn(self):
-        self.port.writeStringExpectMatchingString('@cobas 1\r', 'OK')
+        CoboltDevice.commands["TURN_AUTOSTART_ON"].send(port=self.port)
         self.autostart = True
 
     def doTurnAutostartOff(self):
-        self.port.writeStringExpectMatchingString('@cobas 0\r', 'OK')
+        CoboltDevice.commands["TURN_AUTOSTART_OFF"].send(port=self.port)
         self.autostart = False
 
     def doSetPower(self, powerInWatts) -> float:
-        command = 'p {0:0.3f}\r'.format(powerInWatts)
-        self.port.writeStringExpectMatchingString(command, replyPattern='OK')
+        CoboltDevice.commands["SET_POWER"].send(port=self.port, params=powerInWatts)
         actualPower = 0
         acceptableDifference = 0.1 * powerInWatts
         for i in range(10): # It is not an error if we don't converge
@@ -127,150 +199,58 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         return actualPower
 
     def doGetPower(self) -> float:
-        value = self.port.writeStringReadFirstMatchingGroup('pa?\r', replyPattern='(\\d.\\d+)')
-        return float(value)
+        cmd = CoboltDevice.commands["GET_POWER"]
+        cmd.send(port=self.port)
+        return float(cmd.matchGroups[0])
 
-class CoboltDebugSerial:
-    def __init__(self):
-        self.outputBuffer = bytearray()
-        self.lineEnding = b'\r'
-        self.power = 0.1
-        self.isOn = 0
-        self.requestedPower = 0
-        self.autostart = 1
-        self._isOpen = True
+    class DebugSerialPort(TableDrivenDebugPort):
+        def __init__(self):
+            super().__init__(commands=CoboltDevice.commands)
+            self.power = 0.1
+            self.requestedPower = 0
+            self.isOn = 0
+            self.autostart = 1
+            self.serialNumber = "123456"
+            self.interlock = 1
 
-    @property
-    def is_open(self):
-        return self._isOpen
-    
-    def open(self):
-        with globalLock:
-            if self._isOpen:
-                raise IOError("port is already open")
-            else:
-                self._isOpen = True
-
-        return
-
-    def close(self):
-        with globalLock:
-            self._isOpen = False
-
-        return
-
-    def flush(self):
-        return
-
-    def read(self, length) -> bytearray:
-        with globalLock:
-            data = bytearray()
-            for i in range(0, length):
-                if len(self.outputBuffer) > 0:
-                    byte = self.outputBuffer.pop(0)
-                    data.append(byte)
-                else:
-                    raise CommunicationReadTimeout("Unable to read data")
-
-        return data
-
-
-    def write(self, data:bytearray) -> int :
-        with globalLock:
-            string = data.decode('utf-8')
-
-            match = re.search("pa\\?", string)
-            if match is not None:
-                replyData = bytearray("{0:0.4f}\r\n".format(self.power), encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("p\\?", string)
-            if match is not None:
-                replyData = bytearray("{0:0.4f}\r\n".format(self.requestedPower), encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("p (\\d+\\.?\\d+)\r", string)
-            if match is not None:
-                requestedPower = float(match.groups()[0])
-                process = Thread(target=increasePowerSlowlyInBackground, 
-                                 kwargs=dict(port=self,
-                                             endPower=requestedPower,
-                                             duration=1.0))
-                process.start() # will complete in the background
-                replyData = bytearray("OK\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("l\\?\r", string)
-            if match is not None:
-                replyData = bytearray("{0}\r\n".format(self.isOn), encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("l1\r", string)
-            if match is not None:
-                replyData = bytearray()
-                if self.autostart == 1:
-                    replyData = bytearray("Syntax error: not allowed in autostart mode\r\n", encoding='utf-8')
-                else:
+        def process_command(self, name, params, endPointIndex):
+            with globalLock:
+                if name == "GET_POWER":
+                    return {"power": self.power}
+                elif name == "GET_REQUESTED_POWER":
+                    return {"requestedPower": self.requestedPower}
+                elif name == "SET_POWER":
+                    requestedPower = float(params["value"])
+                    process = Thread(target=increasePowerSlowlyInBackground,
+                                     kwargs=dict(port=self,
+                                                 endPower=requestedPower,
+                                                 duration=1.0))
+                    process.start()
+                    return "OK\r\n"
+                elif name == "GET_ON_OFF":
+                    return {"isOn": self.isOn}
+                elif name == "TURN_ON":
+                    if self.autostart == 1:
+                        return "Syntax error: not allowed in autostart mode\r\n"
                     self.isOn = 1
-                    replyData = bytearray("OK\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("l0\r", string)
-            if match is not None:
-                self.isOn = 0
-                replyData = bytearray("OK\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-
-            match = re.search("sn\\?\r", string)
-            if match is not None:
-                replyData = bytearray("123456\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("@cobas 1\r", string)
-            if match is not None:
-                if self.autostart == 0:
+                    return "OK\r\n"
+                elif name == "TURN_OFF":
                     self.isOn = 0
-                else:
-                    pass
-                self.autostart = 1
-                replyData = bytearray("OK\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("@cobas 0\r", string)
-            if match is not None:
-                self.autostart = 0
-                replyData = bytearray("OK\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-            match = re.search("@cobas\\?\r", string)
-            if match is not None:
-                replyData = bytearray("{0}\r\n".format(self.autostart), encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-                return len(data)
-
-
-            match = re.search("ilk\\?\r", string)
-            if match is not None:
-                replyData = bytearray("1\r\n", encoding='utf-8')
-                self.outputBuffer.extend(replyData)
-
-                return len(data)
-
-            # Error (string already includes \n)
-            replyData = bytearray("Syntax error: {0}\n".format(string), encoding='utf-8')
-            self.outputBuffer.extend(replyData)
-
-        return len(data)
+                    return "OK\r\n"
+                elif name == "GET_SERIAL_NUMBER":
+                    return {"serialNumber": self.serialNumber}
+                elif name == "TURN_AUTOSTART_ON":
+                    if self.autostart == 0:
+                        self.isOn = 0
+                    self.autostart = 1
+                    return "OK\r\n"
+                elif name == "TURN_AUTOSTART_OFF":
+                    self.autostart = 0
+                    return "OK\r\n"
+                elif name == "GET_AUTOSTART":
+                    return {"autostart": self.autostart}
+                elif name == "GET_INTERLOCK":
+                    return {"interlock": self.interlock}
 
 
 def increasePowerSlowlyInBackground(port, endPower, duration):
@@ -284,4 +264,3 @@ def increasePowerSlowlyInBackground(port, endPower, duration):
                 print("Unable to set power")
         time.sleep(0.05)
     port.power = endPower
-

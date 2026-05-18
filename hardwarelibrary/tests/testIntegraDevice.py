@@ -12,7 +12,10 @@ class TestIntegraDevice(unittest.TestCase):
     def setUp(self):
         self.device = IntegraDevice()
         self.assertIsNotNone(self.device)
-        self.device.initializeDevice()
+        try:
+            self.device.initializeDevice()
+        except Exception as err:
+            self.skipTest("No IntegraDevice connected")
 
     def tearDown(self):
         self.device.shutdownDevice()
@@ -39,8 +42,8 @@ class TestIntegraPort(unittest.TestCase):
         self.port = USBPort(idVendor=0x1ad5, idProduct=0x0300, interfaceNumber=0, defaultEndPoints=(1,2))
         try:
             self.port.open()
-        except:
-            raise (unittest.SkipTest("No devices connected"))
+        except Exception as err:
+            self.skipTest("No IntegraDevice connected")
 
     def tearDown(self):
         self.port.close()
@@ -75,10 +78,10 @@ class TestIntegraPort(unittest.TestCase):
 
     def testTextCommandsNoParameter(self):
         commands = [
-         TextCommand(name="GETPOWER", text="*CVU", replyPattern = r"(.+?)\r\n"),
-         TextCommand(name="VERSION", text="*VER", replyPattern = r"(.+?)\r\n"),
-         MultilineTextCommand(name="STATUS", text="*STS", replyPattern = r"(.+?)\r\n", lastLinePattern=":100000000"),
-         TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+         TextCommand(name="GETPOWER", text_format="*CVU", replyPattern = r"(.+?)\r\n"),
+         TextCommand(name="VERSION", text_format="*VER", replyPattern = r"(.+?)\r\n"),
+         MultilineTextCommand(name="STATUS", text_format="*STS", replyPattern = r"(.+?)\r\n", lastLinePattern=":100000000"),
+         TextCommand(name="GETWAVELENGTH", text_format="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
         ]
 
         for command in commands:
@@ -89,7 +92,7 @@ class TestIntegraPort(unittest.TestCase):
 
 
     def testStatusCommand(self):
-        #TextCommand(name="STATUS", text="*STS", replyPattern=r"(.+)\r\n", finalReplyPattern=":100000000"),
+        #TextCommand(name="STATUS", text_format="*STS", replyPattern=r"(.+)\r\n", finalReplyPattern=":100000000"),
         self.port.writeString("*STS")
 
         for i in range(47):
@@ -109,8 +112,8 @@ class TestIntegraPort(unittest.TestCase):
         It is not sufficient to set a longer timeout as demonstrated with
         testIntegraBugUnresponsiveAfterSetWavelengthMustSleep()
         """
-        setCommand = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}")
-        getCommand = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+        setCommand = TextCommand(name="SETWAVELENGTH", text_format="*PWC{0:05d}")
+        getCommand = TextCommand(name="GETWAVELENGTH", text_format="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
 
         # This should succeed
         setCommand.send(port=self.port, params=(800))
@@ -126,8 +129,8 @@ class TestIntegraPort(unittest.TestCase):
     def testIntegraBugUnresponsiveAfterSetWavelengthMustSleep(self):
         """ See above.
         """
-        setCommand = TextCommand(name="SETWAVELENGTH", text="*PWC{0:05d}")
-        getCommand = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+        setCommand = TextCommand(name="SETWAVELENGTH", text_format="*PWC{0:05d}")
+        getCommand = TextCommand(name="GETWAVELENGTH", text_format="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
 
         self.port.defaultTimeout = 2000
         setCommand.send(port=self.port, params=(800))
@@ -138,8 +141,8 @@ class TestIntegraPort(unittest.TestCase):
     def testIntegraBugUnresponsiveOnlyAfterSetWavelength(self):
         """ See above.
         """
-        setCommand = TextCommand(name="SETAUTOSCALE", text="*SAS1")
-        getCommand = TextCommand(name="GETWAVELENGTH", text="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
+        setCommand = TextCommand(name="SETAUTOSCALE", text_format="*SAS1")
+        getCommand = TextCommand(name="GETWAVELENGTH", text_format="*GWL", replyPattern = r"PWC\s*:\s*(.+?)\r\n")
         # This will succeed, so it's only Setwavelength that is the problem
         setCommand.send(port=self.port, params=(800))
         time.sleep(0.001)

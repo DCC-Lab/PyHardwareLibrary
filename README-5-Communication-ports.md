@@ -399,3 +399,4 @@ Important points to notice:
 
 This will be discussed later, but  `Command`, `TextCommand` and `DataCommand` classes are defined to manage everything in a single entity. 95% of the time, we send a command, read a reply and extract a value from the reply, then do something with this value. This can be encapsulated in a class that will manage all the details for us.
 
+Take a look at [README-6-DebugPort.md](README-6-DebugPort.md)

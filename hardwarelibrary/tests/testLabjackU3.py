@@ -4,16 +4,19 @@ import unittest
 from hardwarelibrary.devicemanager import *
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
-from hardwarelibrary.daq import LabjackDevice
+from hardwarelibrary.daq import LabjackDevice, DebugLabjackDevice
 from enum import Enum
 from typing import Union, Optional, Protocol
 
 class TestLabjackDevice(unittest.TestCase):
     def setUp(self):
         super().setUp()
-        self.device = LabjackDevice()
-        self.assertIsNotNone(self.device)
-        self.device.initializeDevice()
+        try:
+            self.device = LabjackDevice()
+            self.assertIsNotNone(self.device)
+            self.device.initializeDevice()
+        except Exception as err:
+            self.skipTest("No Labjack connected")
 
     def tearDown(self):
         super().tearDown()
@@ -103,6 +106,77 @@ class TestLabjackDevice(unittest.TestCase):
     def testSetConfiguration(self):
         with self.assertRaises(NotImplementedError):
             self.device.setConfiguration(None)
+
+class TestDebugLabjackDevice(unittest.TestCase):
+    def setUp(self):
+        self.device = DebugLabjackDevice()
+        self.device.initializeDevice()
+
+    def tearDown(self):
+        self.device.shutdownDevice()
+
+    def testCreate(self):
+        self.assertIsNotNone(self.device)
+        self.assertIsNone(self.device.dev)
+
+    def testInitializeAndShutdown(self):
+        device = DebugLabjackDevice()
+        device.initializeDevice()
+        device.shutdownDevice()
+
+    def testIsHighVoltage(self):
+        self.assertFalse(self.device.isHighVoltage)
+
+    def testConfiguration(self):
+        config = self.device.configuration()
+        self.assertEqual(config['DeviceName'], 'DebugU3')
+
+    def testSetConfiguration(self):
+        with self.assertRaises(NotImplementedError):
+            self.device.setConfiguration({})
+
+    def testGetAnalogVoltageDefault(self):
+        value = self.device.getAnalogVoltage(channel=0)
+        self.assertEqual(value, 0.0)
+
+    def testSetAndGetAnalogVoltage(self):
+        self.device.setAnalogVoltage(value=2.5, channel=0)
+        self.assertAlmostEqual(self.device.getAnalogVoltage(channel=0), 2.5)
+
+    def testSetAnalogVoltageChannel1(self):
+        self.device.setAnalogVoltage(value=1.1, channel=1)
+        self.assertAlmostEqual(self.device.getAnalogVoltage(channel=1), 1.1)
+
+    def testSetAnalogVoltageInvalidChannel(self):
+        with self.assertRaises(ValueError):
+            self.device.setAnalogVoltage(value=1.0, channel=2)
+
+    def testSetAndGetDigitalValue(self):
+        self.device.setDigitalValue(value=True, channel=4)
+        self.assertTrue(self.device.getDigitalValue(channel=4))
+
+    def testGetDigitalValueDefault(self):
+        self.assertFalse(self.device.getDigitalValue(channel=4))
+
+    def testToggleDigitalValue(self):
+        channel = 6
+        self.device.setDigitalValue(value=True, channel=channel)
+        self.assertTrue(self.device.getDigitalValue(channel=channel))
+        self.device.setDigitalValue(value=False, channel=channel)
+        self.assertFalse(self.device.getDigitalValue(channel=channel))
+
+    def testGetTemperature(self):
+        self.assertAlmostEqual(self.device.getTemperature(), 298.0)
+
+    def testToggleLED(self):
+        self.device.toggleLED()
+
+    def testConfigureAnalogIO(self):
+        self.device.configureAnalogIO({'FIOAnalog': 0xFF})
+
+    def testConfigureDigitalIO(self):
+        self.device.configureDigitalIO({'FIOAnalog': 0x00})
+
 
 if __name__ == '__main__':
     unittest.main()
