@@ -25,9 +25,9 @@ class SutterDevice(LinearMotionDevice):
                             replyDataLength=1, unpackingMask='<c'),
         "GET_POSITION": DataCommand(name="GET_POSITION", prefix=b'C',
                                     data=pack('<cc', b'C', b'\r'),
-                                    replyDataLength=14, unpackingMask='<xlllx',
-                                    responseFormat='<clllc',
-                                    responseFields=('header', 'x', 'y', 'z', 'terminator')),
+                                    replyDataLength=13, unpackingMask='<lllx',
+                                    responseFormat='<lllc',
+                                    responseFields=('x', 'y', 'z', 'terminator')),
         "HOME": DataCommand(name="HOME", prefix=b'H',
                             data=pack('<cc', b'H', b'\r'),
                             replyDataLength=1, unpackingMask='<c'),
@@ -172,8 +172,7 @@ class SutterDevice(LinearMotionDevice):
                 self.zSteps = params['z']
                 return b'\r'
             elif name == 'GET_POSITION':
-                return {'header': b'c', 'x': self.xSteps,
-                        'y': self.ySteps, 'z': self.zSteps,
+                return {'x': self.xSteps, 'y': self.ySteps, 'z': self.zSteps,
                         'terminator': b'\r'}
             elif name == 'HOME':
                 self.xSteps = self.ySteps = self.zSteps = 0
