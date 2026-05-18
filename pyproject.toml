@@ -36,6 +36,12 @@ dependencies = [
   "LabJackPython"
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+]
+
 [project.urls]
 Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
 
