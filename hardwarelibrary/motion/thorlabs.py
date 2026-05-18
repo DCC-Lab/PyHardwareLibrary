@@ -43,13 +43,13 @@ class ThorlabsDevice(LinearMotionDevice):
             else:
                 portPath = SerialPort.matchAnyPort(idVendor=self.idVendor, idProduct=self.idProduct, serialNumber=self.serialNumber)
                 if portPath is None:
-                    raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
+                    raise PhysicalDevice.UnableToInitialize("No Thorlabs Device connected")
 
                 self.port = SerialPort(portPath=portPath)
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
-                raise PhysicalDevice.UnableToInitialize("Cannot allocate port {0}".format(self.portPath))
+                raise PhysicalDevice.UnableToInitialize("Cannot allocate port for serial '{0}'".format(self.serialNumber))
 
             self.positionInMicrosteps()
 
