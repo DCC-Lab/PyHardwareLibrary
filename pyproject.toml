@@ -41,6 +41,12 @@ dependencies = [
   "LabJackPython"
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+]
+
 [project.urls]
 Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
 
@@ -51,3 +57,7 @@ include-package-data = true
 version_scheme = "post-release"
 local_scheme = "no-local-version"
 
+[tool.pytest.ini_options]
+testpaths = ["hardwarelibrary/tests"]
+python_files = ["test*.py"]
+norecursedirs = ["deprecated"]

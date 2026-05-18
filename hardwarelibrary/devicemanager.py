@@ -314,7 +314,7 @@ class DeviceManager:
         if device.state == DeviceState.Ready:
             command = device.commands[commandName]
             command.send(port=device.port)
-            return (commandName, command.text, command.matchGroups)
+            return (commandName, command.text_format, command.matchGroups)
         else:
             print("Device {0} is not Ready: call initializeDevice()".format(device))
 
