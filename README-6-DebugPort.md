@@ -1,20 +1,22 @@
 # DebugPort, TableDrivenDebugPort, and the dual-role commands dict
 
-This document explains the debug-port infrastructure used to write **hardware-free mocks** of physical devices, and the recipe for migrating a new device onto it.
+This document explains the debug-port infrastructure used to write **fake serial ports that behave like the real device** for physical devices, and the recipe for migrating a new device onto it.
 
 If you've ever wanted to:
 
-- run device tests on a CI box that has no hardware attached;
+- run device tests without having the real device connected (for development or for external testing)
 - demo the API without plugging in a real laser/stage/spectrometer;
 - iterate on protocol code without the slow round-trip to a real serial port;
 
 …this is the abstraction you want.
 
-## TL;DR
+## Summary
+A device can be fully characterized with a dictionary of `Command` objects. The **same `commands` dict on a `PhysicalDevice` describes both how it sends commands to the real hardware *and* how its `TableDrivenDebugPort` recognizes those same commands when used as a mock. One declaration, two roles, more robust.
 
-- **`DebugPort`** is a fake port that echoes everything back. Useful when you want to test *port-level behavior* without caring what the bytes mean.
+- **`DebugPort`** is a fake port that can "misbehave" on demand (e.g., timeout), it is the basis for other debug ports. Useful when you want to test *port-level behavior* without caring what the bytes mean.
 - **`TableDrivenDebugPort`** is a `DebugPort` that dispatches incoming bytes against a dict of `Command` objects and lets you implement device-specific reply logic. Useful when you want to test a *device* without hardware.
-- The **same `commands` dict** on a `PhysicalDevice` describes both how it sends commands to the real hardware *and* how its `TableDrivenDebugPort` recognizes those same commands when used as a mock. One declaration, two roles, no drift.
+
+
 
 ## Class hierarchy
 
