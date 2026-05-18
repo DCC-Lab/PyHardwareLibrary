@@ -147,7 +147,7 @@ class Spectrometer(PhysicalDevice):
        speed, etc...). More spectrometers will be supported in the future.
        Look at the class USB2000 to see what you have to provide to support
        a new spectrometer (it is not that much work, but you need one to test).
-""".format(__file__, ', '.join(Spectrometer.supportedClassNames)))
+""".format(__file__, ', '.join(Spectrometer.supportedClassNames())))
 
         # Well, how about that? This does not work in Windows
         # https://stackoverflow.com/questions/2330245/python-change-text-color-in-shell
