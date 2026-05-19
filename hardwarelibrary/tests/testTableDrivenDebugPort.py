@@ -3,14 +3,19 @@ import unittest
 from struct import pack, unpack
 
 from hardwarelibrary.communication.debugport import TableDrivenDebugPort
-from hardwarelibrary.communication.commands import DataCommand, TextCommand
+from hardwarelibrary.communication.commands import (
+    DataCommand, DataEncoder, DataDecoder, TextCommand,
+)
 
 
 class BinaryFixture(TableDrivenDebugPort):
     def __init__(self):
         super().__init__(commands={
-            'set': DataCommand(name='set', prefix=b'S', requestFormat='<xl'),
-            'get': DataCommand(name='get', prefix=b'G', responseFormat='<cl'),
+            'set': DataCommand(name='set',
+                requestDecoder=DataDecoder('<xl', prefix=b'S')),
+            'get': DataCommand(name='get',
+                requestDecoder=DataDecoder(prefix=b'G'),
+                replyEncoder=DataEncoder('<cl')),
         })
         self.value = 0
 
@@ -25,11 +30,13 @@ class BinaryFixture(TableDrivenDebugPort):
 class TextFixture(TableDrivenDebugPort):
     def __init__(self):
         super().__init__(commands={
-            'set': TextCommand(name='set', text_format='SET {0} {1}\r',
-                               matchPattern=r'SET (\w+) (-?\d+)\r'),
-            'get': TextCommand(name='get', text_format='GET {0}\r',
-                               matchPattern=r'GET (\w+)\r',
-                               responseTemplate='VAL {0}\r'),
+            'set': TextCommand(name='set',
+                requestEncoder='SET {0} {1}\r',
+                requestDecoder=r'SET (\w+) (-?\d+)\r'),
+            'get': TextCommand(name='get',
+                requestEncoder='GET {0}\r',
+                requestDecoder=r'GET (\w+)\r',
+                replyEncoder='VAL {0}\r'),
         })
         self.registers = {}
 
@@ -46,9 +53,11 @@ class TextFixture(TableDrivenDebugPort):
 class MixedFixture(TableDrivenDebugPort):
     def __init__(self):
         super().__init__(commands={
-            'bin_set': DataCommand(name='bin_set', prefix=b'\x01', requestFormat='<xl'),
-            'text_get': TextCommand(name='text_get', text_format='GET\r',
-                                    matchPattern=r'GET\r'),
+            'bin_set': DataCommand(name='bin_set',
+                requestDecoder=DataDecoder('<xl', prefix=b'\x01')),
+            'text_get': TextCommand(name='text_get',
+                requestEncoder='GET\r',
+                requestDecoder=r'GET\r'),
         })
         self.state = 0
 
@@ -176,7 +185,8 @@ class TestNoneResponse(unittest.TestCase):
 
     def setUp(self):
         port = TableDrivenDebugPort(commands={
-            'silent': DataCommand(name='silent', prefix=b'X'),
+            'silent': DataCommand(name='silent',
+                requestDecoder=DataDecoder(prefix=b'X')),
         })
         port.process_command = lambda name, params, ep: None
         self.port = port

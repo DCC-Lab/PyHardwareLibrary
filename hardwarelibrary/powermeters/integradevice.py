@@ -8,11 +8,11 @@ class IntegraDevice(PowerMeterDevice):
     classIdProduct = 0x0300
     classIdVendor = 0x1ad5
     commands = {
-        "GETPOWER": TextCommand(name="GETPOWER", text_format="*CVU", replyPattern=r"(.+?)\r\n"),
-        "VERSION": TextCommand(name="VERSION", text_format="*VER", replyPattern=r"(.+?)\r\n"),
-        "STATUS": MultilineTextCommand(name="STATUS", text_format="*STS", replyPattern=r"(.+?)\r\n", lastLinePattern=":100000000"),
-        "GETWAVELENGTH": TextCommand(name="GETWAVELENGTH", text_format="*GWL", replyPattern=r"PWC\s*:\s*(.+?)\r\n"),
-        "SETWAVELENGTH": TextCommand(name="SETWAVELENGTH", text_format="*PWC{0:05d}")
+        "GETPOWER":      TextCommand(name="GETPOWER",      requestEncoder="*CVU", replyDecoder=r"(.+?)\r\n"),
+        "VERSION":       TextCommand(name="VERSION",       requestEncoder="*VER", replyDecoder=r"(.+?)\r\n"),
+        "STATUS":        MultilineTextCommand(name="STATUS", requestEncoder="*STS", replyDecoder=r"(.+?)\r\n", lastLinePattern=":100000000"),
+        "GETWAVELENGTH": TextCommand(name="GETWAVELENGTH", requestEncoder="*GWL", replyDecoder=r"PWC\s*:\s*(.+?)\r\n"),
+        "SETWAVELENGTH": TextCommand(name="SETWAVELENGTH", requestEncoder="*PWC{0:05d}"),
     }
 
     def __init__(self, serialNumber:str = None, idProduct:int = 0x0300, idVendor:int = 0x1ad5):

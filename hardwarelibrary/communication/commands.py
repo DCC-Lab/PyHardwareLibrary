@@ -1,10 +1,10 @@
 """Command classes that describe a device's communication protocol.
 
-Every PhysicalDevice can define a ``commands`` dictionary — a dict of
-Command objects that fully describes its protocol. For example, a
-Sutter micromanipulator defines MOVE, GET_POSITION, and HOME commands,
-while an Intellidrive rotation stage defines SET_REGISTER, GET_REGISTER,
-and TRAJECTORY commands.
+Every PhysicalDevice can define a ``commands`` dictionary -- a dict of
+Command objects that fully describes its protocol. For example, a Sutter
+micromanipulator defines MOVE, GET_POSITION, and HOME commands, while an
+Intellidrive rotation stage defines SET_REGISTER, GET_REGISTER, and
+TRAJECTORY commands.
 
 This dictionary is useful in two complementary ways:
 
@@ -13,39 +13,78 @@ This dictionary is useful in two complementary ways:
    code calls ``send()`` and reads back ``reply`` / ``matchGroups``.
 
 2. **Creating a mock debug port**: the same Command objects can be
-   passed to a ``TableDrivenDebugPort``, which reverses the roles —
+   passed to a ``TableDrivenDebugPort``, which reverses the roles --
    it *receives* those commands instead of sending them, extracts the
    parameters from the incoming bytes, and replies in the correct
-   format. This makes it trivial to write a mock port for any device:
-   just pass its ``commands`` dict and implement ``process_command()``
-   with the device-specific logic.
+   format.
 
-Because both sides share the same Command definitions, the protocol is
-defined once and cannot drift between real and mock implementations.
+Every Command has four conceptual operations, named consistently across
+``TextCommand`` and ``DataCommand``:
 
-Subclasses:
-    TextCommand    — text-based protocols (e.g. "s r0x24 31\\r" → "ok\\r")
-    DataCommand    — binary protocols (e.g. struct-packed position commands)
-    MultilineTextCommand — text protocols that return multiple lines
+    requestEncoder   encode an outgoing request payload   (device -> wire)
+    requestDecoder   decode an incoming request payload   (wire -> mock)
+    replyEncoder     encode an outgoing reply payload     (mock -> wire)
+    replyDecoder     decode an incoming reply payload     (wire -> device)
+
+For ``TextCommand`` each is a string -- a Python format string for the
+encoders, a regex for the decoders.
+
+For ``DataCommand`` each is a small dataclass (``DataEncoder`` /
+``DataDecoder``) that bundles a struct format with its field names.
 """
 
 import re
 import struct
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+@dataclass(frozen=True)
+class DataEncoder:
+    """Schema for serializing structured params into bytes (DataCommand).
+
+    Attributes:
+        format:   struct format string, e.g. '<clllc'
+        fields:   field names paired with the format, e.g. ('x', 'y', 'z')
+        defaults: values for fields not supplied at call time, e.g. {'header': b'M'}
+    """
+    format: str
+    fields: tuple = ()
+    defaults: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DataDecoder:
+    """Schema for parsing bytes into structured params (DataCommand).
+
+    Attributes:
+        format: struct format string. May be '' when only a prefix is meaningful.
+        fields: field names paired with the format. Empty tuple => positional tuple unpack.
+        length: bytes to read from the port. Used by replyDecoder; ignored by requestDecoder.
+        prefix: leading bytes that identify the command for mock dispatch.
+                Used by requestDecoder; ignored by replyDecoder.
+    """
+    format: str = ''
+    fields: tuple = ()
+    length: int = 0
+    prefix: Optional[bytes] = None
+
 
 class Command:
     """Base class for all device commands.
 
-    A Command has a name and tracks send/reply state. Subclasses override
-    `send()` for the client side, and `matches()`/`extractParams()`/
-    `formatResponse()` for the mock port side.
+    A Command has a name and tracks per-call state (reply, matchGroups,
+    exceptions). Subclasses override ``send()`` for the client side and
+    ``matches()``/``extractParams()``/``formatResponse()`` for the mock
+    port side.
 
     Args:
-        name: identifier for this command (e.g. "GET_POSITION", "SET_REGISTER")
-        endPoints: tuple of (writeEndPoint, readEndPoint) for USB devices
-                   that use separate endpoints for sending and receiving
+        name:     identifier (key in the device's ``commands`` dict)
+        endPoints: tuple of (writeEndPoint, readEndPoint) for USB
+                   devices that use distinct endpoints
     """
 
-    def __init__(self, name:str, endPoints = (None, None)):
+    def __init__(self, name: str, endPoints=(None, None)):
         self.name = name
         self.reply = None
         self.matchGroups = None
@@ -76,32 +115,19 @@ class Command:
         return len(self.exceptions) != 0
 
     def send(self, port) -> bool:
-        """Send this command through a port. Subclasses must override."""
-        raise NotImplementedError("Subclasses must implement the send() command")
+        raise NotImplementedError("Subclasses must implement send()")
 
     def matches(self, inputBytes):
-        """Return True if inputBytes represents this command.
-        Base implementation always returns False."""
         return False
 
     def extractParams(self, inputBytes):
-        """Extract parameters from recognized input bytes.
-        Returns a dict (named params) or tuple (positional params).
-        Base implementation returns an empty tuple."""
         return ()
 
     def formatResponse(self, result):
         """Convert a process_command() return value into bytes for the output buffer.
 
-        Args:
-            result: the value returned by process_command():
-                - None → returns None (no response sent)
-                - bytes/bytearray → returned as-is
-                - str → encoded to UTF-8
-                - tuple or dict → handled by subclass (template/struct formatting)
-
-        Returns:
-            bytearray to write to the output buffer, or None.
+        Handles the common cases (None / bytes / str). Subclasses extend
+        for typed encoding (dict + responseTemplate, dict + responseFormat).
         """
         if result is None:
             return None
@@ -111,88 +137,102 @@ class Command:
             return bytearray(result.encode('utf-8'))
         return None
 
+
 class TextCommand(Command):
     """A command that communicates via text strings (UTF-8).
 
-    Used for devices with text-based protocols like "s r0x24 31\\r" → "ok\\r".
+    Each of the four operations is a string -- a format string for encoders,
+    a regex for decoders.
 
-    Send-side parameters (used by send()):
-        text_format: format string sent to the device, e.g. "g r{register}\\n"
-        replyPattern: regex to validate the device's reply
-        alternatePattern: secondary regex if replyPattern doesn't match
-
-    Recognition-side parameters (used by matches/extractParams/formatResponse):
-        matchPattern: regex to recognize incoming bytes in a mock port.
-                      Use named groups for readable code:
-                      r'g r(?P<register>0x[0-9a-fA-F]+)[\\r\\n]'
-                      If None, an auto-derived pattern from `text_format` is used.
-        responseTemplate: format string for the mock response, e.g. "v {value}\\r".
-                          Filled with named (dict) or positional (tuple) params
-                          returned by process_command().
+    Attributes:
+        requestEncoder: format string for the outgoing request,
+                        e.g. "g r{register}\\n"
+        requestDecoder: regex with named groups for the mock to recognize
+                        an incoming request, e.g.
+                        r'g r(?P<register>0x[0-9a-fA-F]+)[\\r\\n]'.
+                        If None, derived from requestEncoder by replacing
+                        each {...} placeholder with (.+?).
+        replyDecoder:   regex to parse the device's reply,
+                        e.g. r'v\\s(-?\\d+)'.
+        replyEncoder:   format string for the mock's reply,
+                        e.g. "v {value}\\r".
 
     Example:
-        TextCommand(name="GET_REGISTER", text_format="g r{register}\\n",
-                    matchPattern=r'g r(?P<register>0x[0-9a-fA-F]+)[\\r\\n]',
-                    replyPattern=r'v\\s(-?\\d+)',
-                    responseTemplate="v {value}\\r")
+        TextCommand(
+            name="GET_REGISTER",
+            requestEncoder="g r{register}\\n",
+            requestDecoder=r'g r(?P<register>0x[0-9a-fA-F]+)[\\r\\n]',
+            replyDecoder=r'v\\s(-?\\d+)',
+            replyEncoder="v {value}\\r",
+        )
     """
 
-    def __init__(self, name, text_format, replyPattern = None,
-                                   alternatePattern = None,
-                                   endPoints = (None, None),
-                                   matchPattern = None,
-                                   responseTemplate = None):
+    def __init__(self, name,
+                 requestEncoder=None,
+                 requestDecoder=None,
+                 replyDecoder=None,
+                 replyEncoder=None,
+                 endPoints=(None, None)):
         Command.__init__(self, name, endPoints=endPoints)
-        self.text_format : str = text_format
-        self.replyPattern: str = replyPattern
-        self.alternatePattern: str = alternatePattern
-        self.matchPattern: str = matchPattern
-        self.responseTemplate: str = responseTemplate
+        self.requestEncoder = requestEncoder
+        self.requestDecoder = requestDecoder
+        self.replyDecoder = replyDecoder
+        self.replyEncoder = replyEncoder
 
     @property
     def payload(self):
-        return self.text_format
+        return self.requestEncoder
 
     @property
     def numberOfArguments(self):
-        match = re.search(r"\{(.*?)\}", self.text_format)
+        if self.requestEncoder is None:
+            return 0
+        match = re.search(r"\{(.*?)\}", self.requestEncoder)
         if match is None:
             return 0
         return len(match.groups())
 
-    @property
     def _autoMatchPattern(self):
-        """Derive a regex from the text format string by replacing {…}
-        placeholders with (.+?) capture groups."""
-        parts = re.split(r'\{[^}]*\}', self.text_format)
+        """Derive a regex from requestEncoder by escaping it and replacing
+        every {...} placeholder with a (.+?) capture group."""
+        if self.requestEncoder is None:
+            return None
+        parts = re.split(r'\{[^}]*\}', self.requestEncoder)
         escaped = [re.escape(p) for p in parts]
         return '(.+?)'.join(escaped)
 
     @property
-    def effectiveMatchPattern(self):
-        """Return the explicit matchPattern if set, otherwise the auto-derived one."""
-        if self.matchPattern is not None:
-            return self.matchPattern
-        return self._autoMatchPattern
+    def effectiveDecoder(self):
+        """The regex used by matches/extractParams: requestDecoder if set,
+        otherwise the auto-derived pattern from requestEncoder."""
+        if self.requestDecoder is not None:
+            return self.requestDecoder
+        return self._autoMatchPattern()
 
     def matches(self, inputBytes):
-        """Return True if inputBytes matches this text command's pattern."""
+        pattern = self.effectiveDecoder
+        if pattern is None:
+            return False
         try:
             inputStr = inputBytes.decode('utf-8', errors='replace')
         except Exception:
             return False
-        return re.match(self.effectiveMatchPattern, inputStr) is not None
+        return re.match(pattern, inputStr) is not None
 
     def extractParams(self, inputBytes):
-        """Extract parameters from the input bytes using the match pattern.
+        """Extract params from inputBytes using effectiveDecoder.
 
         Returns a dict if the pattern uses named groups (?P<name>...),
-        otherwise a tuple of positional groups."""
+        otherwise a tuple of positional capture groups.
+        """
+        pattern = self.effectiveDecoder
+        if pattern is None:
+            return ()
         try:
             inputStr = inputBytes.decode('utf-8', errors='replace')
         except Exception:
             return ()
-        match = re.match(self.effectiveMatchPattern, inputStr)
+        match = re.match(pattern, inputStr)
         if match:
             if match.groupdict():
                 return match.groupdict()
@@ -200,26 +240,26 @@ class TextCommand(Command):
         return ()
 
     def formatResponse(self, result):
-        """Format a mock response using the responseTemplate.
+        """Format a mock response using replyEncoder.
 
-        - dict result → template.format(**result), e.g. {"value": "42"} → "v 42\\r"
-        - tuple result → template.format(*result), e.g. ("42",) → "v 42\\r"
-        - other types → delegated to base class (bytes/str as-is, None → None)
+        - dict result + replyEncoder  -> replyEncoder.format(**result)
+        - tuple result + replyEncoder -> replyEncoder.format(*result)
+        - other types                 -> delegated to base (bytes/str/None)
         """
-        if isinstance(result, dict) and self.responseTemplate is not None:
-            formatted = self.responseTemplate.format(**result)
+        if isinstance(result, dict) and self.replyEncoder is not None:
+            formatted = self.replyEncoder.format(**result)
             return bytearray(formatted.encode('utf-8'))
-        if isinstance(result, tuple) and self.responseTemplate is not None:
-            formatted = self.responseTemplate.format(*result)
+        if isinstance(result, tuple) and self.replyEncoder is not None:
+            formatted = self.replyEncoder.format(*result)
             return bytearray(formatted.encode('utf-8'))
         return super().formatResponse(result)
 
     def send(self, port, params=None) -> bool:
         try:
             if params is not None:
-                textCommand = self.text_format.format(params)
+                textCommand = self.requestEncoder.format(params)
             else:
-                textCommand = self.text_format
+                textCommand = self.requestEncoder
 
             if port is None:
                 raise RuntimeError("port cannot be None")
@@ -227,14 +267,11 @@ class TextCommand(Command):
             port.writeString(string=textCommand, endPoint=self.endPoints[0])
             self.isSent = True
 
-            if self.replyPattern is not None:
+            if self.replyDecoder is not None:
                 self.reply, self.matchGroups = port.readMatchingGroups(
-                           replyPattern=self.replyPattern,
-                           alternatePattern=self.alternatePattern,
-                           endPoint=self.endPoints[1])
-            else:
-                pass
-            
+                    replyPattern=self.replyDecoder,
+                    endPoint=self.endPoints[1])
+
             self.isSentSuccessfully = True
         except Exception as err:
             self.exceptions.append(err)
@@ -245,40 +282,42 @@ class TextCommand(Command):
 
 
 class MultilineTextCommand(Command):
-    """A text command that expects a multi-line reply.
+    """A TextCommand variant whose reply spans multiple lines.
 
     The reply is read either a fixed number of times (lineCount > 1) or
     until a line matches lastLinePattern. Each line is matched against
-    replyPattern and the results are collected into lists.
+    replyDecoder; the collected results land in self.reply / self.matchGroups
+    as lists.
 
-    Args:
-        lineCount: number of reply lines to read (if > 1)
+    Attributes:
+        requestEncoder:  format string for the outgoing request
+        replyDecoder:    regex to parse each reply line
+        lineCount:       number of reply lines to read (if > 1)
         lastLinePattern: regex that signals the final line (alternative to lineCount)
     """
 
-    def __init__(self, name, text_format,
-                 replyPattern=None,
-                 alternatePattern=None,
+    def __init__(self, name,
+                 requestEncoder=None,
+                 replyDecoder=None,
                  lineCount=1,
                  lastLinePattern=None,
                  endPoints=(None, None)):
         Command.__init__(self, name=name, endPoints=endPoints)
-        self.text_format: str = text_format
-        self.replyPattern: str = replyPattern
-        self.alternatePattern: str = alternatePattern
+        self.requestEncoder = requestEncoder
+        self.replyDecoder = replyDecoder
         self.lineCount = lineCount
         self.lastLinePattern = lastLinePattern
 
     @property
     def payload(self):
-        return self.text_format
+        return self.requestEncoder
 
     def send(self, port, params=None) -> bool:
         try:
             if params is not None:
-                textCommand = self.text_format.format(params)
+                textCommand = self.requestEncoder.format(params)
             else:
-                textCommand = self.text_format
+                textCommand = self.requestEncoder
 
             if port is None:
                 raise RuntimeError("port cannot be None")
@@ -289,27 +328,21 @@ class MultilineTextCommand(Command):
             if self.lineCount > 1:
                 self.reply = []
                 self.matchGroups = []
-
                 for i in range(self.lineCount):
                     reply, matchGroups = port.readMatchingGroups(
-                        replyPattern=self.replyPattern,
-                        alternatePattern=self.alternatePattern,
+                        replyPattern=self.replyDecoder,
                         endPoint=self.endPoints[1])
                     self.reply.append(reply)
                     self.matchGroups.append(matchGroups)
-
             elif self.lastLinePattern is not None:
                 self.reply = []
                 self.matchGroups = []
-
                 while True:
                     reply, matchGroups = port.readMatchingGroups(
-                        replyPattern=self.replyPattern,
-                        alternatePattern=self.alternatePattern,
+                        replyPattern=self.replyDecoder,
                         endPoint=self.endPoints[1])
                     self.reply.append(reply)
                     self.matchGroups.append(matchGroups)
-
                     if re.search(self.lastLinePattern, reply) is not None:
                         break
             else:
@@ -325,57 +358,46 @@ class MultilineTextCommand(Command):
 
 
 class DataCommand(Command):
-    """A command that communicates via binary data (struct-packed bytes).
+    """A command that communicates via binary struct-packed bytes.
 
-    Used for devices with binary protocols like the Sutter micromanipulator
-    where commands are single-byte prefixes followed by packed integers.
+    Used for devices with binary protocols like the Sutter MP-285 where
+    commands are single-byte prefixes followed by packed integers.
 
-    Send-side parameters (used by send()):
-        data: raw bytes to send to the device
-        replyDataLength: number of bytes to read back
-        unpackingMask: struct format to unpack the reply
-
-    Recognition-side parameters (used by matches/extractParams/formatResponse):
-        prefix: byte(s) that identify this command in incoming data.
-                Matched case-insensitively. If None, derived from data[0:1].
-        requestFormat: struct format to unpack incoming request parameters.
-                       Padding bytes (x) are skipped automatically by struct.
-        requestFields: tuple of field names for the unpacked values.
-                       When set, extractParams() returns a dict:
-                       e.g. requestFields=('x','y','z') → {'x': 10, 'y': 20, 'z': 30}
-                       When None, extractParams() returns a positional tuple.
-        responseFormat: struct format to pack the mock response.
-        responseFields: tuple of field names expected in the response dict.
-                        Defines the order for struct.pack when process_command()
-                        returns a dict.
+    Attributes:
+        requestEncoder: DataEncoder for the outgoing request bytes
+        requestDecoder: DataDecoder used by a mock to parse the incoming request
+        replyDecoder:   DataDecoder used by the device to parse the reply
+                        (its ``length`` field tells how many bytes to read)
+        replyEncoder:   DataEncoder used by a mock to pack its reply
+        data:           precomputed request bytes. Used when requestEncoder is
+                        None (e.g. fixed commands with no parameters), and also
+                        provides a prefix fallback: ``data[0:1]`` is the
+                        command prefix when ``requestDecoder.prefix`` is unset.
 
     Example:
-        DataCommand(name="MOVE", prefix=b'M',
-                    requestFormat='<xlllx', requestFields=('x', 'y', 'z'),
-                    replyDataLength=1, unpackingMask='<c')
-
-        DataCommand(name="GET_POSITION", prefix=b'C',
-                    responseFormat='<clllc',
-                    responseFields=('header', 'x', 'y', 'z', 'terminator'))
+        DataCommand(
+            name="MOVE",
+            requestEncoder=DataEncoder('<clllc',
+                                       ('header','x','y','z','terminator'),
+                                       {'header': b'M', 'terminator': b'\\r'}),
+            requestDecoder=DataDecoder('<xlllx', ('x','y','z'), prefix=b'M'),
+            replyDecoder=DataDecoder('<c', length=1),
+        )
     """
 
-    def __init__(self, name, data=None, replyHexRegex = None, replyDataLength = 0, unpackingMask = None, endPoints = (None, None),
-                 prefix = None, requestFormat = None, responseFormat = None,
-                 requestFields = None, responseFields = None,
-                 sendFormat = None, sendFields = None, sendDefaults = None):
+    def __init__(self, name,
+                 requestEncoder=None,
+                 requestDecoder=None,
+                 replyDecoder=None,
+                 replyEncoder=None,
+                 data=None,
+                 endPoints=(None, None)):
         Command.__init__(self, name, endPoints=endPoints)
-        self.data : bytearray = data
-        self.replyHexRegex: str = replyHexRegex
-        self.replyDataLength: int = replyDataLength
-        self.unpackingMask:str = unpackingMask
-        self._prefix: bytes = prefix
-        self.requestFormat: str = requestFormat
-        self.responseFormat: str = responseFormat
-        self.requestFields: tuple = requestFields
-        self.responseFields: tuple = responseFields
-        self.sendFormat: str = sendFormat
-        self.sendFields: tuple = sendFields
-        self.sendDefaults: dict = sendDefaults
+        self.requestEncoder = requestEncoder
+        self.requestDecoder = requestDecoder
+        self.replyDecoder = replyDecoder
+        self.replyEncoder = replyEncoder
+        self.data = data
 
     @property
     def payload(self):
@@ -383,15 +405,15 @@ class DataCommand(Command):
 
     @property
     def effectivePrefix(self):
-        """Return the explicit prefix, or the first byte of data if not set."""
-        if self._prefix is not None:
-            return self._prefix
+        """Prefix used by matches(): requestDecoder.prefix if set,
+        otherwise data[0:1] as a fallback."""
+        if self.requestDecoder is not None and self.requestDecoder.prefix is not None:
+            return self.requestDecoder.prefix
         if self.data is not None and len(self.data) > 0:
             return self.data[0:1]
         return None
 
     def matches(self, inputBytes):
-        """Return True if inputBytes starts with this command's prefix (case-insensitive)."""
         prefix = self.effectivePrefix
         if prefix is None:
             return False
@@ -401,65 +423,68 @@ class DataCommand(Command):
         return inputBytes[:prefixLen].upper() == prefix.upper()
 
     def extractParams(self, inputBytes):
-        """Unpack parameters from the input bytes using requestFormat.
+        """Unpack params from inputBytes via requestDecoder.
 
-        Returns a dict if requestFields is set (e.g. {'x': 10, 'y': 20}),
-        otherwise a positional tuple from struct.unpack."""
-        if self.requestFormat is not None:
-            unpackLen = struct.calcsize(self.requestFormat)
-            if len(inputBytes) >= unpackLen:
-                values = struct.unpack(self.requestFormat, bytes(inputBytes[:unpackLen]))
-                if self.requestFields is not None:
-                    return dict(zip(self.requestFields, values))
-                return values
-        return ()
+        Returns a dict if requestDecoder.fields is set (named unpack),
+        otherwise a positional tuple from struct.unpack.
+        """
+        if self.requestDecoder is None:
+            return ()
+        fmt = self.requestDecoder.format
+        if not fmt:
+            return ()
+        unpackLen = struct.calcsize(fmt)
+        if len(inputBytes) < unpackLen:
+            return ()
+        values = struct.unpack(fmt, bytes(inputBytes[:unpackLen]))
+        if self.requestDecoder.fields:
+            return dict(zip(self.requestDecoder.fields, values))
+        return values
 
     def formatResponse(self, result):
-        """Pack a mock response using responseFormat.
+        """Pack a mock response using replyEncoder.
 
-        - dict result + responseFields → values ordered by responseFields, then packed
-        - tuple result → packed directly with struct.pack
-        - other types → delegated to base class (bytes/str as-is, None → None)
+        - dict result  + replyEncoder.fields -> values ordered by fields, then packed
+        - tuple result + replyEncoder        -> packed directly via struct.pack
+        - other types                        -> delegated to base
         """
-        if isinstance(result, dict) and self.responseFormat is not None and self.responseFields is not None:
-            values = tuple(result[f] for f in self.responseFields)
-            data = struct.pack(self.responseFormat, *values)
-            return bytearray(data)
-        if isinstance(result, tuple) and self.responseFormat is not None:
-            data = struct.pack(self.responseFormat, *result)
-            return bytearray(data)
+        if self.replyEncoder is not None:
+            fmt = self.replyEncoder.format
+            fields = self.replyEncoder.fields
+            if isinstance(result, dict) and fields:
+                values = tuple(result[f] for f in fields)
+                return bytearray(struct.pack(fmt, *values))
+            if isinstance(result, tuple):
+                return bytearray(struct.pack(fmt, *result))
         return super().formatResponse(result)
 
     def buildSendData(self, **params):
-        """Build send bytes from named params merged with defaults.
-        Falls back to self.data if sendFormat is not set."""
-        if self.sendFormat is None:
+        """Build outgoing bytes from requestEncoder + named params + defaults.
+        Falls back to self.data when requestEncoder is not set."""
+        if self.requestEncoder is None:
             return self.data
-        merged = dict(self.sendDefaults) if self.sendDefaults else {}
+        merged = dict(self.requestEncoder.defaults)
         merged.update(params)
-        values = tuple(merged[f] for f in self.sendFields)
-        return struct.pack(self.sendFormat, *values)
+        values = tuple(merged[f] for f in self.requestEncoder.fields)
+        return struct.pack(self.requestEncoder.format, *values)
 
     def unpackReply(self, replyBytes):
-        """Unpack reply bytes using unpackingMask.
-        Returns raw bytes if unpackingMask is not set."""
-        if self.unpackingMask is None:
+        """Unpack reply bytes via replyDecoder.format.
+        Returns raw bytes if replyDecoder is not set."""
+        if self.replyDecoder is None or not self.replyDecoder.format:
             return replyBytes
-        return struct.unpack(self.unpackingMask, replyBytes)
+        return struct.unpack(self.replyDecoder.format, replyBytes)
 
     def send(self, port) -> bool:
         try:
-            nBytes = port.writeData(data=self.data, endPoint=self.endPoints[0])
+            port.writeData(data=self.data, endPoint=self.endPoints[0])
             self.isSent = True
-            if self.replyDataLength > 0:
-                self.reply = port.readData(length=self.replyDataLength)
-            elif self.replyHexRegex is not None:
-                raise NotImplementedError("DataCommand reply pattern not implemented")
-                # self.reply = port.readData(length=self.replyDataLength)
+            if self.replyDecoder is not None and self.replyDecoder.length > 0:
+                self.reply = port.readData(length=self.replyDecoder.length)
             self.isSentSuccessfully = True
         except Exception as err:
             self.exceptions.append(err)
             self.isSentSuccessfully = False
-            raise(err)
+            raise
 
         return False
