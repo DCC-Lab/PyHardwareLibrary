@@ -11,9 +11,8 @@ import struct
 import time
 
 import numpy as np
-import usb.core
-import usb.util
 
+from hardwarelibrary.communication import USBPort
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.spectrometers.base import Spectrometer, UnableToCommunicate
 from hardwarelibrary.spectrometers.obp import OBPMessage
@@ -33,9 +32,12 @@ class QEPro(Spectrometer):
     minIntegrationTimeMicroSec = 8_000
     maxIntegrationTimeMicroSec = 60 * 60 * 1_000_000
 
-    usbReadTimeoutMs = 5_000
-    usbWriteTimeoutMs = 2_000
-    endpointAddress = 1
+    # Endpoint indices in the active interface's endpoint array.
+    # The QE Pro Data Sheet pairs EP1 OUT with EP1 IN; on every QE Pro
+    # we've seen these are descriptors 0 (OUT) and 1 (IN). If a unit
+    # exposes them in a different order, override this tuple.
+    defaultEndPoints = (0, 1)
+    portTimeoutMs = 5_000
 
     msgReset = 0x00000000
     msgGetSerialNumber = 0x00000100
@@ -55,41 +57,22 @@ class QEPro(Spectrometer):
         self.model = "QE Pro"
         self.wavelength = np.linspace(400, 1100, self.activePixelCount)
         self.integrationTime = self.minIntegrationTimeMicroSec
-        self.usbDevice = None
-        self._endpointIn = None
-        self._endpointOut = None
 
     def doInitializeDevice(self):
-        self.usbDevice = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
-        if self.usbDevice is None:
-            raise UnableToCommunicate(
-                f"QE Pro {self.idVendor:#06x}:{self.idProduct:#06x} not found on USB bus")
-        self.usbDevice.set_configuration()
-        configuration = self.usbDevice.get_active_configuration()
-        interface = configuration[(0, 0)]
-        self._endpointOut = usb.util.find_descriptor(
-            interface,
-            custom_match=lambda e:
-                usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT
-                and (e.bEndpointAddress & 0x0F) == self.endpointAddress,
+        self.port = USBPort(
+            idVendor=self.idVendor,
+            idProduct=self.idProduct,
+            interfaceNumber=0,
+            defaultEndPoints=self.defaultEndPoints,
         )
-        self._endpointIn = usb.util.find_descriptor(
-            interface,
-            custom_match=lambda e:
-                usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN
-                and (e.bEndpointAddress & 0x0F) == self.endpointAddress,
-        )
-        if self._endpointOut is None or self._endpointIn is None:
-            raise UnableToCommunicate(
-                f"QE Pro endpoint {self.endpointAddress} not found on active interface")
+        self.port.open()
+        self.port.defaultTimeout = self.portTimeoutMs
         self.wavelength = self._readWavelengthCalibration()
 
     def doShutdownDevice(self):
-        if self.usbDevice is not None:
-            usb.util.dispose_resources(self.usbDevice)
-        self.usbDevice = None
-        self._endpointIn = None
-        self._endpointOut = None
+        if self.port is not None:
+            self.port.close()
+            self.port = None
 
     def sendOBP(self, messageType, immediateData=b'', payload=b'') -> OBPMessage:
         request = OBPMessage(
@@ -97,28 +80,16 @@ class QEPro(Spectrometer):
             immediateData=immediateData,
             payload=payload,
         )
-        self._endpointOut.write(request.toBytes(), timeout=self.usbWriteTimeoutMs)
+        self.port.writeData(request.toBytes())
         response = OBPMessage.fromBytes(self._readMessage())
         response.raiseIfError()
         return response
 
     def _readMessage(self) -> bytes:
-        buffer = bytearray()
-        while len(buffer) < OBPMessage.headerSize:
-            chunk = self._endpointIn.read(
-                OBPMessage.headerSize - len(buffer),
-                timeout=self.usbReadTimeoutMs,
-            )
-            buffer.extend(bytes(chunk))
-        bytesRemaining = struct.unpack('<I', bytes(buffer[40:44]))[0]
-        totalSize = OBPMessage.headerSize + bytesRemaining
-        while len(buffer) < totalSize:
-            chunk = self._endpointIn.read(
-                totalSize - len(buffer),
-                timeout=self.usbReadTimeoutMs,
-            )
-            buffer.extend(bytes(chunk))
-        return bytes(buffer)
+        header = bytes(self.port.readData(OBPMessage.headerSize))
+        bytesRemaining = struct.unpack('<I', header[40:44])[0]
+        rest = bytes(self.port.readData(bytesRemaining))
+        return header + rest
 
     def getSerialNumber(self) -> str:
         response = self.sendOBP(self.msgGetSerialNumber)
@@ -188,9 +159,6 @@ class DebugQEPro(QEPro):
         self.model = "DebugQEPro"
         self.wavelength = np.linspace(400, 1100, self.activePixelCount)
         self.integrationTime = 100_000
-        self.usbDevice = None
-        self._endpointIn = None
-        self._endpointOut = None
         self._serial = serialNumber
         self._wavelengthCoefficients = [
             400.0,
