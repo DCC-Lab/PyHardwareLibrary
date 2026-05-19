@@ -68,13 +68,15 @@ class SutterDevice(LinearMotionDevice):
                 if portPath is None:
                     raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
 
-                self.port = SerialPort(portPath=portPath)
+                self.port = SerialPort(portPath=portPath, delay=0.1)
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
                 raise PhysicalDevice.UnableToInitialize("Cannot allocate port for serial '{0}'".format(self.serialNumber))
 
-            self.positionInMicrosteps()
+            # Verify the device is talking. Direct .send() bypasses sendCommand's
+            # state check, which would reject because state is not yet Ready here.
+            self.commands["GET_POSITION"].send(port=self.port)
 
         except Exception as error:
             if self.port is not None:
@@ -86,60 +88,21 @@ class SutterDevice(LinearMotionDevice):
         self.port.close()
         self.port = None
 
-    def sendCommandBytes(self, commandBytes):
-        """ The function to write a command to the endpoint. It will initialize the device 
-        if it is not alread initialized. On failure, it will warn and shutdown."""
-        if self.port is None:
-            self.initializeDevice()
-        
-        time.sleep(0.1)
-        nBytesWritten = self.port.writeData(commandBytes)
-        if nBytesWritten != len(commandBytes):
-            raise Exception(f"Unable to send command {commandBytes} to device.")
-
-    def readReply(self, size, format) -> tuple:
-        """ The function to read a reply from the endpoint. It will initialize the device
-        if it is not already initialized. On failure, it will warn and shutdown.
-        It will unpack the reply into a tuple.
-        """
-        if format is None:
-            raise Exception("You must provide a format for unpacking in readReply")
-
-        if self.port is None:
-            self.initializeDevice()
-
-        time.sleep(0.1)
-        replyBytes = self.port.readData(size)
-        if len(replyBytes) != size:
-            raise Exception(f"Not enough bytes read in readReply {replyBytes}")
-
-        # print(replyBytes, format)
-        # print(unpack(format, replyBytes))
-        return unpack(format, replyBytes)
-
-    def sendCommand(self, name, **params):
-        """Send a command from the commands dict and return the unpacked reply."""
-        cmd = self.commands[name]
-        data = cmd.buildSendData(**params)
-        self.sendCommandBytes(data)
-        if cmd.replyDecoder is not None and cmd.replyDecoder.length > 0:
-            return self.readReply(cmd.replyDecoder.length, cmd.replyDecoder.format)
-        return None
-
     def positionInMicrosteps(self) -> (int, int, int):  # for compatibility
         return self.doGetPosition()
 
     def doGetPosition(self) -> (int, int, int):
         """ Returns the position in microsteps """
-        (x, y, z) = self.sendCommand("GET_POSITION")
+        cmd = self.sendCommand("GET_POSITION")
+        (x, y, z) = cmd.matchGroups
         return (x, y, z)
 
     def doMoveTo(self, position):
         """ Move to a position in microsteps """
         x, y, z = position
-        reply = self.sendCommand("MOVE", x=int(x), y=int(y), z=int(z))
-        if reply != (b'\r',):
-            raise Exception(f"Expected carriage return, but got '{reply}' instead.")
+        cmd = self.sendCommand("MOVE", x=int(x), y=int(y), z=int(z))
+        if cmd.matchGroups != (b'\r',):
+            raise Exception(f"Expected carriage return, but got '{cmd.matchGroups}' instead.")
 
     def doMoveBy(self, displacement):
         dx, dy, dz = displacement
@@ -150,15 +113,15 @@ class SutterDevice(LinearMotionDevice):
             raise Exception("Unable to read position from device")
 
     def doHome(self):
-        reply = self.sendCommand("HOME")
-        if reply != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {reply} instead.")
+        cmd = self.sendCommand("HOME")
+        if cmd.matchGroups != (b'\r',):
+            raise Exception(f"Expected carriage return, but got {cmd.matchGroups} instead.")
 
     def work(self):
         self.home()
-        reply = self.sendCommand("WORK")
-        if reply != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {reply} instead.")
+        cmd = self.sendCommand("WORK")
+        if cmd.matchGroups != (b'\r',):
+            raise Exception(f"Expected carriage return, but got {cmd.matchGroups} instead.")
 
 
     class DebugSerialPort(TableDrivenDebugPort):
