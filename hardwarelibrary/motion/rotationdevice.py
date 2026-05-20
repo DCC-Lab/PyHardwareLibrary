@@ -42,9 +42,7 @@ class DebugRotationDevice(RotationDevice):
     classIdProduct = 0xfffd
     classIdVendor = debugClassIdVendor
     def __init__(self):
-        super().__init__("debug", DebugLinearMotionDevice.classIdProduct, DebugLinearMotionDevice.classIdVendor )
-        self.orientation = None
-
+        super().__init__("debug", DebugRotationDevice.classIdProduct, DebugRotationDevice.classIdVendor)
         self._debugOrientation = 0
 
     def doGetOrientation(self) -> float:
