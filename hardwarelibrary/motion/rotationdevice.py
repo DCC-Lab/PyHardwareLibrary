@@ -1,4 +1,6 @@
+from abc import abstractmethod
 from enum import Enum
+
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
@@ -16,6 +18,24 @@ class RotationDevice(PhysicalDevice):
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
         super().__init__(serialNumber, idProduct, idVendor)
         self.theta = None
+
+    # Hardware hooks a driver must implement, on top of doInitializeDevice
+    # and doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
+    def doMoveTo(self, angle):
+        ...
+
+    @abstractmethod
+    def doMoveBy(self, deltaTheta):
+        ...
+
+    @abstractmethod
+    def doGetOrientation(self) -> float:
+        ...
+
+    @abstractmethod
+    def doHome(self):
+        ...
 
     def moveTo(self, angle):
         NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=angle)

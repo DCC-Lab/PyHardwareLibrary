@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from abc import abstractmethod
 from struct import *
 import csv
 from typing import NamedTuple
@@ -36,13 +37,16 @@ class Spectrometer(PhysicalDevice):
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
 
+    # The contract a driver must implement. For spectrometers the public
+    # method is the hook itself (no doXxx wrapper), on top of
+    # doInitializeDevice and doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
     def getSerialNumber(self):
-        fctName = inspect.currentframe().f_code.co_name
-        raise NotImplementedError("Derived class must implement {0}".format(fctName))
+        ...
 
+    @abstractmethod
     def getSpectrum(self) -> np.array:
-        fctName = inspect.currentframe().f_code.co_name
-        raise NotImplementedError("Derived class must implement {0}".format(fctName))
+        ...
 
     def display(self):
         """Display the spectrum with the SpectraViewer class.

@@ -1,4 +1,5 @@
 import time
+from abc import abstractmethod
 from enum import Enum
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
@@ -33,6 +34,11 @@ class CameraDevice(PhysicalDevice):
         with self.lock:
             if self.isCapturing:
                 self.stop()
+
+    # Hardware hook a driver must implement to return one frame.
+    @abstractmethod
+    def doCaptureFrame(self):
+        ...
 
     def livePreview(self):
         NotificationCenter().postNotification(notificationName=CameraDeviceNotification.willStartCapture,
