@@ -1,12 +1,35 @@
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Union, Optional, Protocol
+
 
 class DAQNotification(Enum):
     willAcquire    = "willAcquire"
     didAcquire     = "didAcquire"
 
-class AnalogIOProtocol(Protocol):
-    def configureAnalogIO(self, parameters:dict):
+
+class AnalogInputDevice(ABC):
+    """Analog input capability (ADC). Combine with PhysicalDevice in a driver."""
+
+    @abstractmethod
+    def getAnalogVoltage(self, channel):
+        ...
+
+
+class AnalogOutputDevice(ABC):
+    """Analog output capability (DAC). Combine with PhysicalDevice in a driver."""
+
+    @abstractmethod
+    def setAnalogVoltage(self, value, channel):
+        ...
+
+
+class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
+    """Both analog input and output.
+
+    The configure and direction hooks are optional and default to no-ops.
+    """
+
+    def configureAnalogIO(self, parameters: dict):
         pass
 
     def getAnalogDirection(self, channel):
@@ -15,44 +38,34 @@ class AnalogIOProtocol(Protocol):
     def setAnalogDirection(self, channel):
         pass
 
-    def getAnalogVoltage(self, channel):
-        pass
 
-    def setAnalogVoltage(self, value, channel):
-        pass
+class DigitalInputDevice(ABC):
+    """Digital input capability. Combine with PhysicalDevice in a driver."""
 
-class DigitalIOProtocol(Protocol):
-    def configureDigitalIO(self, parameters:dict):
+    @abstractmethod
+    def getDigitalValue(self, channel):
+        ...
+
+
+class DigitalOutputDevice(ABC):
+    """Digital output capability. Combine with PhysicalDevice in a driver."""
+
+    @abstractmethod
+    def setDigitalValue(self, value, channel):
+        ...
+
+
+class DigitalIODevice(DigitalInputDevice, DigitalOutputDevice):
+    """Both digital input and output.
+
+    The configure and direction hooks are optional and default to no-ops.
+    """
+
+    def configureDigitalIO(self, parameters: dict):
         pass
 
     def getDigitalDirection(self, channel):
         pass
 
     def setDigitalDirection(self, channel):
-        pass
-
-    def getDigitalValue(self, channel):
-        pass
-
-    def setDigitalValue(self, value, channel):
-        pass
-
-class CounterProtocol(Protocol):
-    def configureCounters(self, parameters:dict):
-        pass
-
-    def getCounterValue(self, channel):
-        pass
-
-class TimerProtocol(Protocol):
-    def configureTimers(self, parameters:dict):
-        pass
-
-    def getTimerValue(self, channel):
-        pass
-
-    def startTimer(self, channel):
-        pass
-
-    def stopTimer(self, channel):
         pass

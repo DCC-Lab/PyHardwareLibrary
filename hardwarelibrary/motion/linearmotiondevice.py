@@ -1,4 +1,6 @@
+from abc import abstractmethod
 from enum import Enum
+
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
@@ -27,6 +29,24 @@ class LinearMotionDevice(PhysicalDevice):
         self.xMaxLimit = None
         self.yMaxLimit = None
         self.zMaxLimit = None
+
+    # Hardware hooks a driver must implement, on top of doInitializeDevice
+    # and doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
+    def doMoveTo(self, position):
+        ...
+
+    @abstractmethod
+    def doMoveBy(self, displacement):
+        ...
+
+    @abstractmethod
+    def doGetPosition(self) -> tuple:
+        ...
+
+    @abstractmethod
+    def doHome(self):
+        ...
 
     def moveTo(self, position):
         NotificationCenter().postNotification(

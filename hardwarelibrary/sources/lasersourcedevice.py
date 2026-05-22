@@ -1,6 +1,9 @@
+from abc import abstractmethod
 
-class LaserSourceDevice:
+from hardwarelibrary.physicaldevice import PhysicalDevice
 
+
+class LaserSourceDevice(PhysicalDevice):
     def isLaserOn(self):
         return self.doGetOnOffState()
 
@@ -10,7 +13,7 @@ class LaserSourceDevice:
     def turnOff(self):
         self.doTurnOff()
 
-    def setPower(self, power:float):
+    def setPower(self, power: float):
         self.doSetPower(power)
 
     def power(self) -> float:
@@ -18,3 +21,29 @@ class LaserSourceDevice:
 
     def interlock(self) -> bool:
         return self.doGetInterlockState()
+
+    # Hardware hooks a driver must implement, on top of doInitializeDevice
+    # and doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
+    def doTurnOn(self):
+        ...
+
+    @abstractmethod
+    def doTurnOff(self):
+        ...
+
+    @abstractmethod
+    def doSetPower(self, power: float):
+        ...
+
+    @abstractmethod
+    def doGetPower(self) -> float:
+        ...
+
+    @abstractmethod
+    def doGetOnOffState(self) -> bool:
+        ...
+
+    @abstractmethod
+    def doGetInterlockState(self) -> bool:
+        ...

@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
 from threading import Thread, RLock
 
@@ -23,7 +24,7 @@ class PhysicalDeviceNotification(Enum):
     didShutdownDevice          = "didShutdownDevice"
     status                     = "status"
 
-class PhysicalDevice:
+class PhysicalDevice(ABC):
     class UnableToInitialize(Exception):
         pass
     class UnableToShutdown(Exception):
@@ -112,8 +113,9 @@ class PhysicalDevice:
                 NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self, userInfo=error)
                 raise PhysicalDevice.UnableToInitialize(error)
 
+    @abstractmethod
     def doInitializeDevice(self):
-        raise NotImplementedError("Base class must override doInitializeDevice()")
+        ...
 
     def initializeIfNeeded(self):
         if self.state == DeviceState.Unconfigured:
@@ -137,8 +139,9 @@ class PhysicalDevice:
                     self.port.close()
                     self.port = None
 
+    @abstractmethod
     def doShutdownDevice(self):
-        raise NotImplementedError("Base class must override doShutdownDevice()")
+        ...
 
     def startBackgroundStatusUpdates(self):
         with self.lock:
@@ -178,11 +181,21 @@ class PhysicalDevice:
         else:
             raise RuntimeError("No status loop running")
 
-    def sendCommand(self, command):
+    def sendCommand(self, name, **params):
+        """Look up the named command in self.commands, send it through
+        self.port, and return the Command object so callers can read
+        .reply / .matchGroups / .exceptions / .isSentSuccessfully.
+
+        Params are passed through to Command.send: TextCommand uses them
+        for .format(**params) substitution into text_format; DataCommand
+        uses them for buildSendData(**params) when sendFormat is set.
+        """
         if self.state != DeviceState.Ready:
             raise PhysicalDevice.NotInitialized
 
-        command.send(port=self.port)
+        command = self.commands[name]
+        command.send(port=self.port, **params)
+        return command
 
     @classmethod
     def any(cls):
