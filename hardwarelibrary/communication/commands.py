@@ -254,10 +254,12 @@ class TextCommand(Command):
             return bytearray(formatted.encode('utf-8'))
         return super().formatResponse(result)
 
-    def send(self, port, params=None) -> bool:
+    def send(self, port, params=None, **kwargs) -> bool:
         try:
             if params is not None:
                 textCommand = self.requestEncoder.format(params)
+            elif kwargs:
+                textCommand = self.requestEncoder.format(**kwargs)
             else:
                 textCommand = self.requestEncoder
 
@@ -312,10 +314,12 @@ class MultilineTextCommand(Command):
     def payload(self):
         return self.requestEncoder
 
-    def send(self, port, params=None) -> bool:
+    def send(self, port, params=None, **kwargs) -> bool:
         try:
             if params is not None:
                 textCommand = self.requestEncoder.format(params)
+            elif kwargs:
+                textCommand = self.requestEncoder.format(**kwargs)
             else:
                 textCommand = self.requestEncoder
 
@@ -475,12 +479,14 @@ class DataCommand(Command):
             return replyBytes
         return struct.unpack(self.replyDecoder.format, replyBytes)
 
-    def send(self, port) -> bool:
+    def send(self, port, **params) -> bool:
         try:
-            port.writeData(data=self.data, endPoint=self.endPoints[0])
+            data = self.buildSendData(**params)
+            port.writeData(data=data, endPoint=self.endPoints[0])
             self.isSent = True
             if self.replyDecoder is not None and self.replyDecoder.length > 0:
                 self.reply = port.readData(length=self.replyDecoder.length)
+                self.matchGroups = self.unpackReply(self.reply)
             self.isSentSuccessfully = True
         except Exception as err:
             self.exceptions.append(err)

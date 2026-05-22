@@ -263,9 +263,9 @@ class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.device.initializeDevice()
         for name, command in self.device.commands.items():
             try:
-                self.device.sendCommand(command)
+                self.device.sendCommand(name)
             except Exception as err:
-                self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
+                self.fail("Unable to send command {0} to device {1}: {2}".format(name, self.device, err))
         self.device.shutdownDevice()
 
 class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
@@ -277,9 +277,9 @@ class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.device.initializeDevice()
         for name, command in self.device.commands.items():
             try:
-                self.device.sendCommand(command)
+                self.device.sendCommand(name)
             except Exception as err:
-                self.fail("Unable to send command {0} to device {1}: {2}".format(command.name, self.device, err))
+                self.fail("Unable to send command {0} to device {1}: {2}".format(name, self.device, err))
         self.device.shutdownDevice()
 
 
