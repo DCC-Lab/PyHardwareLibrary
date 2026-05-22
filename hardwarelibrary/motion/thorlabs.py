@@ -13,8 +13,57 @@ from struct import *
 from pyftdi.ftdi import Ftdi #FIXME: should not be here.
 
 class ThorlabsDevice(LinearMotionDevice):
+    """Entry point for any Thorlabs motion stage.
+
+    Thorlabs stages can be driven two ways: the native APT binary protocol
+    over the FTDI serial port (ThorlabsFTDIDevice) or through the Kinesis
+    library (ThorlabsKinesisDevice). Constructing a ThorlabsDevice returns an
+    instance of whichever backend is available on this machine, so callers do
+    not have to know which transport is installed.
+    """
+
+    @classmethod
+    def backendClasses(cls):
+        # Order is the preference. The native FTDI driver is self-contained;
+        # Kinesis needs pylablib and the Thorlabs Kinesis runtime.
+        return [ThorlabsFTDIDevice, ThorlabsKinesisDevice]
+
+    @classmethod
+    def isAvailable(cls, serialNumber=None) -> bool:
+        return False
+
+    @classmethod
+    def firstAvailableBackend(cls, serialNumber=None):
+        for backend in cls.backendClasses():
+            if backend.isAvailable(serialNumber):
+                return backend
+        raise PhysicalDevice.UnableToInitialize(
+            "No Thorlabs backend available (no matching FTDI port, and pylablib/Kinesis not installed)")
+
+    def __new__(cls, serialNumber=None):
+        # Called as ThorlabsDevice(...): return a working backend instead of an
+        # instance of this dispatcher. We make an *uninitialized* backend with
+        # object.__new__ so Python runs __init__ exactly once, on the backend.
+        if cls is not ThorlabsDevice:
+            return super().__new__(cls)
+        backend = cls.firstAvailableBackend(serialNumber)
+        return super().__new__(backend)
+
+
+class ThorlabsFTDIDevice(ThorlabsDevice):
     classIdVendor = 0x0403
     classIdProduct = 0xfaf0
+
+    @classmethod
+    def isAvailable(cls, serialNumber=None) -> bool:
+        if serialNumber == "debug":
+            return True
+        try:
+            return SerialPort.matchAnyPort(
+                idVendor=cls.classIdVendor, idProduct=cls.classIdProduct,
+                serialNumber=serialNumber) is not None
+        except Exception:
+            return False
 
     def __init__(self, serialNumber: str = None):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
@@ -173,9 +222,17 @@ class ThorlabsDevice(LinearMotionDevice):
             self.inputBuffers[endPointIndex] = bytearray()
 
 
-class ThorlabsKinesisDevice(LinearMotionDevice):
+class ThorlabsKinesisDevice(ThorlabsDevice):
     classIdVendor = 0x0403
     classIdProduct = 0xfaf0
+
+    @classmethod
+    def isAvailable(cls, serialNumber=None) -> bool:
+        try:
+            import pylablib.devices.Thorlabs  # noqa: F401
+            return True
+        except Exception:
+            return False
 
     def __init__(self, serialNumber: str = None):
         super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
