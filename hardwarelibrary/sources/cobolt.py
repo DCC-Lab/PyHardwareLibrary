@@ -13,7 +13,7 @@ globalLock = RLock()
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
 
-class CoboltDevice(PhysicalDevice, LaserSourceDevice):
+class CoboltDevice(LaserSourceDevice):
     commands = {
         "GET_POWER": TextCommand(
             name="GET_POWER",
@@ -95,8 +95,7 @@ class CoboltDevice(PhysicalDevice, LaserSourceDevice):
         else:
             self.portPath = None
 
-        PhysicalDevice.__init__(self, serialNumber, idVendor, idProduct)
-        LaserSourceDevice.__init__(self)
+        super().__init__(serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.port = None
 
     def __del__(self):

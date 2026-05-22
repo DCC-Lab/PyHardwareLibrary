@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
 from threading import Thread, RLock
 
@@ -23,7 +24,7 @@ class PhysicalDeviceNotification(Enum):
     didShutdownDevice          = "didShutdownDevice"
     status                     = "status"
 
-class PhysicalDevice:
+class PhysicalDevice(ABC):
     class UnableToInitialize(Exception):
         pass
     class UnableToShutdown(Exception):
@@ -112,8 +113,9 @@ class PhysicalDevice:
                 NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self, userInfo=error)
                 raise PhysicalDevice.UnableToInitialize(error)
 
+    @abstractmethod
     def doInitializeDevice(self):
-        raise NotImplementedError("Base class must override doInitializeDevice()")
+        ...
 
     def initializeIfNeeded(self):
         if self.state == DeviceState.Unconfigured:
@@ -137,8 +139,9 @@ class PhysicalDevice:
                     self.port.close()
                     self.port = None
 
+    @abstractmethod
     def doShutdownDevice(self):
-        raise NotImplementedError("Base class must override doShutdownDevice()")
+        ...
 
     def startBackgroundStatusUpdates(self):
         with self.lock:

@@ -2,7 +2,7 @@ import env
 import unittest
 
 from hardwarelibrary.devicemanager import *
-from hardwarelibrary.motion import DebugLinearMotionDevice, SutterDevice, IntellidriveDevice
+from hardwarelibrary.motion import DebugLinearMotionDevice, DebugRotationDevice, SutterDevice, IntellidriveDevice
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.powermeters import IntegraDevice
@@ -184,6 +184,30 @@ class TestLinearMotionPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
         super().setUp()
         self.device = DebugLinearMotionDevice()
+
+# Guards a past regression: DebugRotationDevice failed to construct (wrong
+# class reference) and shadowed orientation() with an attribute.
+class TestRotationPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
+    def setUp(self):
+        super().setUp()
+        self.device = DebugRotationDevice()
+
+    def testOrientationIsCallable(self):
+        self.device.initializeDevice()
+        self.device.moveTo(45)
+        self.assertEqual(self.device.orientation(), 45)
+
+    def testMoveByAccumulates(self):
+        self.device.initializeDevice()
+        self.device.moveTo(45)
+        self.device.moveBy(10)
+        self.assertEqual(self.device.orientation(), 55)
+
+    def testHomeResetsOrientation(self):
+        self.device.initializeDevice()
+        self.device.moveTo(90)
+        self.device.home()
+        self.assertEqual(self.device.orientation(), 0)
 
 class TestSutterPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
     def setUp(self):
