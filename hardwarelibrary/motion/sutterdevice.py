@@ -3,7 +3,7 @@ from hardwarelibrary.motion.linearmotiondevice import *
 from hardwarelibrary.communication.communicationport import *
 from hardwarelibrary.communication.usbport import USBPort
 from hardwarelibrary.communication.serialport import SerialPort
-from hardwarelibrary.communication.commands import DataCommand
+from hardwarelibrary.communication.commands import DataCommand, DataEncoder, DataDecoder
 from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 
 import re
@@ -17,23 +17,26 @@ class SutterDevice(LinearMotionDevice):
     classIdProduct = 1
 
     commands = {
-        "MOVE": DataCommand(name="MOVE", prefix=b'M',
-                            sendFormat='<clllc',
-                            sendFields=('header', 'x', 'y', 'z', 'terminator'),
-                            sendDefaults={'header': b'M', 'terminator': b'\r'},
-                            requestFormat='<xlllx', requestFields=('x', 'y', 'z'),
-                            replyDataLength=1, unpackingMask='<c'),
-        "GET_POSITION": DataCommand(name="GET_POSITION", prefix=b'C',
-                                    data=pack('<cc', b'C', b'\r'),
-                                    replyDataLength=13, unpackingMask='<lllx',
-                                    responseFormat='<lllc',
-                                    responseFields=('x', 'y', 'z', 'terminator')),
-        "HOME": DataCommand(name="HOME", prefix=b'H',
-                            data=pack('<cc', b'H', b'\r'),
-                            replyDataLength=1, unpackingMask='<c'),
-        "WORK": DataCommand(name="WORK", prefix=b'Y',
-                            data=pack('<cc', b'Y', b'\r'),
-                            replyDataLength=1, unpackingMask='<c'),
+        "MOVE": DataCommand(name="MOVE",
+            requestEncoder=DataEncoder('<clllc',
+                                       ('header', 'x', 'y', 'z', 'terminator'),
+                                       {'header': b'M', 'terminator': b'\r'}),
+            requestDecoder=DataDecoder('<xlllx', ('x', 'y', 'z'), prefix=b'M'),
+            replyDecoder=DataDecoder('<c', length=1),
+        ),
+        "GET_POSITION": DataCommand(name="GET_POSITION",
+            data=pack('<cc', b'C', b'\r'),
+            replyDecoder=DataDecoder('<lllx', length=13),
+            replyEncoder=DataEncoder('<lllc', ('x', 'y', 'z', 'terminator')),
+        ),
+        "HOME": DataCommand(name="HOME",
+            data=pack('<cc', b'H', b'\r'),
+            replyDecoder=DataDecoder('<c', length=1),
+        ),
+        "WORK": DataCommand(name="WORK",
+            data=pack('<cc', b'Y', b'\r'),
+            replyDecoder=DataDecoder('<c', length=1),
+        ),
     }
 
     def __init__(self, serialNumber: str = None):
@@ -119,8 +122,8 @@ class SutterDevice(LinearMotionDevice):
         cmd = self.commands[name]
         data = cmd.buildSendData(**params)
         self.sendCommandBytes(data)
-        if cmd.replyDataLength > 0:
-            return self.readReply(cmd.replyDataLength, cmd.unpackingMask)
+        if cmd.replyDecoder is not None and cmd.replyDecoder.length > 0:
+            return self.readReply(cmd.replyDecoder.length, cmd.replyDecoder.format)
         return None
 
     def positionInMicrosteps(self) -> (int, int, int):  # for compatibility

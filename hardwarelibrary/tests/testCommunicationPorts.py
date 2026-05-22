@@ -189,7 +189,7 @@ class BaseTestCases:
                     self.fail("Thread {0}?".format(threadFailed))
 
         def testTextCommandNoReply(self):
-            command = TextCommand("Test", text_format="1234\n")
+            command = TextCommand("Test", requestEncoder="1234\n")
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port))
             self.assertTrue(command.isSentSuccessfully)
@@ -197,7 +197,7 @@ class BaseTestCases:
             self.assertFalse(command.hasError)
 
         def testTextCommand(self):
-            command = TextCommand("Test", text_format="1234\n", replyPattern="1234")
+            command = TextCommand("Test", requestEncoder="1234\n", replyDecoder="1234")
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port))
             self.assertTrue(command.isSentSuccessfully)
@@ -213,7 +213,8 @@ class BaseTestCases:
             self.assertFalse(command.hasError)
 
         def testDataCommand(self):
-            command = DataCommand("Test", data=b"1234\n", replyDataLength=5)
+            command = DataCommand("Test", data=b"1234\n",
+                                  replyDecoder=DataDecoder(length=5))
             self.assertIsNotNone(command)
             self.assertFalse(command.send(self.port), msg="Exceptions were {0}".format(command.exceptions))
             self.assertTrue(command.isSentSuccessfully)
@@ -221,7 +222,8 @@ class BaseTestCases:
             self.assertFalse(command.hasError)
 
         def testDataCommandError(self):
-            command = DataCommand("Test", data=b"1234\n", replyDataLength=6)
+            command = DataCommand("Test", data=b"1234\n",
+                                  replyDecoder=DataDecoder(length=6))
             self.assertIsNotNone(command)
             with self.assertRaises(Exception):
                 command.send(self.port)
