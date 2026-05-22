@@ -215,6 +215,59 @@ if __name__ == '__main__':
 
 ```
 
+## Wiring it into PyHardwareLibrary: the device contract
+
+The script above proves the communication works. The library wraps that into a class, so the rest of the code never touches USB directly. Each family has an **abstract base class** that declares, as `@abstractmethod`, the few hooks a driver must provide; the public API (with notifications, unit handling, etc.) is already implemented on the base.
+
+A power meter subclasses `PowerMeterDevice`. The hooks to implement are:
+
+- `doInitializeDevice` / `doShutdownDevice` (inherited from `PhysicalDevice`) — open and close the port.
+- `doGetAbsolutePower`, `doGetCalibrationWavelength`, `doSetCalibrationWavelength` (from `PowerMeterDevice`).
+
+A minimal skeleton:
+
+```python
+from hardwarelibrary.powermeters import PowerMeterDevice
+from hardwarelibrary.communication import USBPort
+
+
+class IntegraDevice(PowerMeterDevice):
+    classIdVendor = 0x1ad5
+    classIdProduct = 0x0300
+
+    def __init__(self, serialNumber=None):
+        super().__init__(serialNumber, idProduct=self.classIdProduct, idVendor=self.classIdVendor)
+        self.port = None
+
+    def doInitializeDevice(self):
+        self.port = USBPort(idVendor=self.classIdVendor, idProduct=self.classIdProduct,
+                            interfaceNumber=0, defaultEndPoints=(1, 2))
+
+    def doShutdownDevice(self):
+        self.port.close()
+        self.port = None
+
+    def doGetAbsolutePower(self):
+        ...   # send "*CVU\r", parse the reply into self.absolutePower
+
+    def doGetCalibrationWavelength(self):
+        ...
+
+    def doSetCalibrationWavelength(self, wavelength):
+        ...
+```
+
+You never call `doGetAbsolutePower` yourself; callers use the public `measureAbsolutePower()`, which the base implements (it calls the hook and posts a `PowerMeterNotification.didMeasure`).
+
+Because the base class is abstract, the contract is enforced. Forget a hook and Python refuses to build the object:
+
+```
+TypeError: Can't instantiate abstract class IntegraDevice
+  without an implementation for abstract method 'doSetCalibrationWavelength'
+```
+
+so a half-written driver fails immediately and loudly, instead of later when a caller happens to hit the missing method.
+
 
 
 
