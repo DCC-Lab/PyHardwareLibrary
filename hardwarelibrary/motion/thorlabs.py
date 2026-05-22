@@ -178,9 +178,8 @@ class ThorlabsKinesisDevice(LinearMotionDevice):
     classIdProduct = 0xfaf0
 
     def __init__(self, serialNumber: str = None):
-        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct):
-                from pylablib.devices.Thorlabs import kinesis, KinesisMotor
-
+        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
+        from pylablib.devices.Thorlabs import kinesis, KinesisMotor
         self.dev = KinesisMotor(serialNumber, scale=(34554.96, 772981.3692, 263.8443072))
 
     def __del__(self):
@@ -209,7 +208,7 @@ class ThorlabsKinesisDevice(LinearMotionDevice):
         """ Move to a position in microsteps """
         x, y, z = position
 
-        dev.move_to(x)
+        self.dev.move_to(x)
 
     def doHome(self):
         self.dev.home()
