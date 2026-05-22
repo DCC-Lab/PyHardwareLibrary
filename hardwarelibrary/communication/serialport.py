@@ -26,7 +26,7 @@ class SerialPort(CommunicationPort):
        or the find_url.py script from the distribution. More info: https://eblot.github.io/pyftdi/api/usbtools.html
        You have to add any custom VID/PID when using tools (but they are added here in SerialPort) @line 30.
     """
-    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None):
+    def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None, delay=0):
         CommunicationPort.__init__(self)
 
         try:
@@ -46,6 +46,7 @@ class SerialPort(CommunicationPort):
             port.close()
 
         self.port = None # direct port, must be closed.
+        self.delay = delay  # seconds to wait before each read/write (Sutter MP-285 needs ~0.1)
 
     @classmethod
     def matchSinglePort(cls, idVendor=None, idProduct=None, serialNumber=None):
@@ -195,6 +196,8 @@ class SerialPort(CommunicationPort):
 
     def readData(self, length, endPoint=0) -> bytearray:
         with self.portLock:
+            if self.delay > 0:
+                time.sleep(self.delay)
             data = self.port.read(length)
             if len(data) != length:
                 raise CommunicationReadTimeout("Only obtained {0}".format(data))
@@ -203,6 +206,8 @@ class SerialPort(CommunicationPort):
 
     def writeData(self, data, endPoint=0) -> int:
         with self.portLock:
+            if self.delay > 0:
+                time.sleep(self.delay)
             nBytesWritten = self.port.write(data)
             if nBytesWritten != len(data):
                 raise IOError("Not all bytes written to port")

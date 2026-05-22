@@ -1,5 +1,7 @@
 import time
+from abc import abstractmethod
 from enum import Enum
+
 from hardwarelibrary.communication import USBPort, TextCommand
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
@@ -13,6 +15,20 @@ class PowerMeterDevice(PhysicalDevice):
         super().__init__(serialNumber, idProduct, idVendor)
         self.absolutePower = 0
         self.calibrationWavelength = None
+
+    # Hardware hooks a driver must implement, on top of doInitializeDevice
+    # and doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
+    def doGetAbsolutePower(self):
+        ...
+
+    @abstractmethod
+    def doGetCalibrationWavelength(self):
+        ...
+
+    @abstractmethod
+    def doSetCalibrationWavelength(self, wavelength):
+        ...
 
     def measureAbsolutePower(self):
         self.doGetAbsolutePower()

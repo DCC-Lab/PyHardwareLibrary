@@ -1,9 +1,9 @@
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
-from hardwarelibrary.daq import AnalogIOProtocol, DigitalIOProtocol
+from hardwarelibrary.daq import AnalogIODevice, DigitalIODevice
 import u3
 
 
-class LabjackDevice(PhysicalDevice, AnalogIOProtocol, DigitalIOProtocol):
+class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
     """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods."""
 
     classIdVendor = 0x0cd5

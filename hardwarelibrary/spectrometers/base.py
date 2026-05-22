@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from abc import abstractmethod
 from struct import *
 import csv
 from typing import NamedTuple
@@ -15,7 +16,7 @@ import usb.util
 import usb.backend.libusb1
 
 from pathlib import *
-from hardwarelibrary.physicaldevice import PhysicalDevice
+from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 from hardwarelibrary.spectrometers.viewer import *
 
 class NoSpectrometerConnected(RuntimeError):
@@ -36,16 +37,26 @@ class Spectrometer(PhysicalDevice):
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
 
+    # The contract a driver must implement. For spectrometers the public
+    # method is the hook itself (no doXxx wrapper), on top of
+    # doInitializeDevice and doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
     def getSerialNumber(self):
-        fctName = inspect.currentframe().f_code.co_name
-        raise NotImplementedError("Derived class must implement {0}".format(fctName))
+        ...
 
+    @abstractmethod
     def getSpectrum(self) -> np.array:
-        fctName = inspect.currentframe().f_code.co_name
-        raise NotImplementedError("Derived class must implement {0}".format(fctName))
+        ...
 
     def display(self):
-        """ Display the spectrum with the SpectraViewer class."""
+        """Display the spectrum with the SpectraViewer class.
+
+        Initializes the device first if it isn't already in Ready
+        state, so that one-liners like Spectrometer.any().display()
+        work without the caller remembering initializeDevice().
+        """
+        if self.state != DeviceState.Ready:
+            self.initializeDevice()
         viewer = SpectraViewer(spectrometer=self)
         viewer.display()
 
@@ -161,7 +172,7 @@ class Spectrometer(PhysicalDevice):
     def displayAny(cls):
         spectrometer = cls.any()
         if spectrometer is not None:
-            SpectraViewer(spectrometer).display()
+            spectrometer.display()
 
     @classmethod
     def any(cls) -> 'Spectrometer':

@@ -4,9 +4,7 @@ import usb.core
 import usb.util
 import usb.backend.libusb1
 import numpy as np
-from threading import Lock
 
-import matplotlib.backends as backends
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.widgets import Button, TextBox
@@ -41,8 +39,8 @@ class SpectraViewer:
         self.lightBtn = None
         self.darkBtn = None
         self.integrationTimeBox = None
+        self.filenameBox = None
         self.animation = None
-        self.lock_gui = Lock()
 
     def display(self):
         """Display the spectrum in free-running mode, with simple
@@ -86,12 +84,13 @@ class SpectraViewer:
         return fig, axes
 
     def setupLayout(self):
-        axScale = plt.axes([0.125, 0.90, 0.13, 0.075])
-        axLight = plt.axes([0.25, 0.90, 0.08, 0.075])
-        axDark = plt.axes([0.30, 0.90, 0.08, 0.075])
-        axTime = plt.axes([0.59, 0.90, 0.08, 0.075])
-        axSave = plt.axes([0.73, 0.90, 0.08, 0.075])
-        axQuit = plt.axes([0.82, 0.90, 0.08, 0.075])
+        axScale = plt.axes([0.125, 0.925, 0.10, 0.05])
+        axLight = plt.axes([0.235, 0.925, 0.04, 0.05])
+        axDark  = plt.axes([0.280, 0.925, 0.04, 0.05])
+        axFile  = plt.axes([0.400, 0.925, 0.30, 0.05])
+        axTime  = plt.axes([0.745, 0.925, 0.04, 0.05])
+        axSave  = plt.axes([0.800, 0.925, 0.05, 0.05])
+        axQuit  = plt.axes([0.860, 0.925, 0.05, 0.05])
         self.saveBtn = Button(axSave, "Save")
         self.saveBtn.on_clicked(self.clickSave)
         self.quitBtn = Button(axQuit, "Quit")
@@ -122,11 +121,19 @@ class SpectraViewer:
         currentIntegrationTime = self.spectrometer.getIntegrationTime()
         self.integrationTimeBox = TextBox(
             axTime,
-            "Integration time [ms]",
+            "ms ",
             initial="{0}".format(currentIntegrationTime),
-            label_pad=0.1,
+            label_pad=0.05,
         )
         self.integrationTimeBox.on_submit(self.submitTime)
+
+        self.filenameBox = TextBox(
+            axFile,
+            "File ",
+            initial="spectrum.csv",
+            label_pad=0.05,
+        )
+
         self.figure.canvas.mpl_connect("key_press_event", self.keyPress)
 
     def plotSpectrum(self, spectrum=None):
@@ -154,29 +161,28 @@ class SpectraViewer:
         This function is also responsible for determining if the user asked to quit.
         """
 
-        with self.lock_gui:
-            try:
-                self.lastSpectrum = self.spectrometer.getSpectrum()
+        try:
+            self.lastSpectrum = self.spectrometer.getSpectrum()
+            if self.darkReference is not None:
+                self.lastSpectrum -= self.darkReference
+            if self.whiteReference is not None:
+                np.seterr(divide="ignore", invalid="ignore")
                 if self.darkReference is not None:
-                    self.lastSpectrum -= self.darkReference
-                if self.whiteReference is not None:
-                    np.seterr(divide="ignore", invalid="ignore")
-                    if self.darkReference is not None:
-                        self.lastSpectrum = self.lastSpectrum / (
-                            self.whiteReference - self.darkReference
-                        )
-                    else:
-                        self.lastSpectrum = self.lastSpectrum / self.whiteReference
+                    self.lastSpectrum = self.lastSpectrum / (
+                        self.whiteReference - self.darkReference
+                    )
+                else:
+                    self.lastSpectrum = self.lastSpectrum / self.whiteReference
 
-                self.plotSpectrum(spectrum=self.lastSpectrum)
-            except usb.core.USBError as err:
-                print("The spectrometer was disconnected. Quitting.")
-                self.quitFlag = True
+            self.plotSpectrum(spectrum=self.lastSpectrum)
+        except usb.core.USBError as err:
+            print("The spectrometer was disconnected. Quitting.")
+            self.quitFlag = True
 
-            if self.quitFlag:
-                self.animation.event_source.stop()
-                self.animation = None
-                plt.close()
+        if self.quitFlag:
+            self.animation.event_source.stop()
+            self.animation = None
+            plt.close()
 
     def keyPress(self, event):
         """Event-handling function for keypress: if the user clicks command-Q
@@ -249,39 +255,28 @@ the text "{0}" converts to 0.'
         self.axes.autoscale_view()
 
     def clickSave(self, event):
-        """Event-handling function to save the file.  We stop the animation
-        to avoid acquiring more spectra. The last spectrum acquired (i.e.
-        the one displayed) after we have requested the filename.
-        The data is saved as a CSV file, and the animation is restarted.
+        """Write the current spectrum to the file path shown in the
+        filename TextBox.
 
-        Technical note: To request the filename, we use different strategies on
-        different platforms.  On macOS, we can use a function from the backend.
-        On Windows and others, we fall back on Tk, which is usually installed
-        with python.
+        Saving via a TextBox rather than a native file dialog avoids
+        mixing GUI run loops (Cocoa for matplotlib's macosx backend,
+        Tcl/Tk for tkinter.filedialog) — the combination segfaults on
+        macOS. The user edits the path inline.
         """
-
-        with self.lock_gui:
-            try:
-                filepath = "spectrum.csv"
-
-                filepath = backends.backend_macosx._macosx.choose_save_file(
-                    "Save the data", filepath
-                )
-            except:
-                import tkinter as tk
-                from tkinter import filedialog
-
-                root = tk.Tk()
-                root.withdraw()
-                filepath = filedialog.asksaveasfilename()
-
-        if filepath is not None:
+        filepath = self.filenameBox.text.strip()
+        if not filepath:
+            return
+        self.animation.event_source.stop()
+        try:
             self.spectrometer.saveSpectrum(
                 filepath,
                 spectrum=self.lastSpectrum,
                 whiteReference=self.whiteReference,
                 darkReference=self.darkReference,
             )
+            print("Saved spectrum to {0}".format(filepath))
+        finally:
+            self.animation.event_source.start()
 
     def clickQuit(self, event):
         """Event-handling function to quit nicely."""

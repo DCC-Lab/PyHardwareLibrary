@@ -9,7 +9,7 @@ class TestConnectSutter(unittest.TestCase):
     def testConnectDebugSutter(self):
         sutter = SutterDevice(serialNumber="debug")
         # The port is not open until initializeDevice()
-        sutter.doInitializeDevice()
+        sutter.initializeDevice()
         
         position = sutter.position()
 
@@ -19,7 +19,7 @@ class TestConnectSutter(unittest.TestCase):
 
     def testMoveToWithDebugSutter(self):
         sutter = SutterDevice("debug")
-        sutter.doInitializeDevice()
+        sutter.initializeDevice()
 
         sutter.moveTo((0, 100, 4000))
         position = sutter.position()
