@@ -114,3 +114,30 @@ class WavelengthControl(Capability):
     @abstractmethod
     def doGetWavelengthRange(self) -> tuple:
         ...
+
+
+class DispersionControl(Capability):
+    unit = "fs^2"  # group delay dispersion (GDD)
+    isReadable = True
+    isWritable = True
+
+    def setDispersion(self, dispersion: float):
+        return self.doSetDispersion(dispersion)
+
+    def dispersion(self) -> float:
+        return self.doGetDispersion()
+
+    def dispersionRange(self) -> tuple:
+        return self.doGetDispersionRange()
+
+    @abstractmethod
+    def doSetDispersion(self, dispersion: float):
+        ...
+
+    @abstractmethod
+    def doGetDispersion(self) -> float:
+        ...
+
+    @abstractmethod
+    def doGetDispersionRange(self) -> tuple:
+        ...

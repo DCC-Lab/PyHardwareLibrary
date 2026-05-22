@@ -5,7 +5,7 @@ from hardwarelibrary.physicaldevice import DeviceState
 from hardwarelibrary.sources.cobolt import CoboltDevice
 from hardwarelibrary.sources.capabilities import (
     Capability, OnOffControl, PowerControl, InterlockControl,
-    AutostartControl, WavelengthControl)
+    AutostartControl, WavelengthControl, DispersionControl)
 
 
 class TestLaserCapabilities(unittest.TestCase):
@@ -23,6 +23,7 @@ class TestLaserCapabilities(unittest.TestCase):
     def testCapabilitiesExcludeTheMarkerAndUnsupportedOnes(self):
         self.assertNotIn(Capability, self.device.capabilities())
         self.assertNotIn(WavelengthControl, self.device.capabilities())
+        self.assertNotIn(DispersionControl, self.device.capabilities())
 
     def testTypedDiscovery(self):
         self.assertIsInstance(self.device, PowerControl)
