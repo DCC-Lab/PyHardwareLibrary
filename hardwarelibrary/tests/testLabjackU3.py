@@ -1,5 +1,6 @@
 import env
 import unittest
+import u3
 
 from hardwarelibrary.devicemanager import *
 from hardwarelibrary.notificationcenter import NotificationCenter
@@ -11,12 +12,31 @@ from typing import Union, Optional, Protocol
 class TestLabjackDevice(unittest.TestCase):
     def setUp(self):
         super().setUp()
+        self.device = LabjackDevice()
+        self.assertIsNotNone(self.device)
         try:
-            self.device = LabjackDevice()
-            self.assertIsNotNone(self.device)
             self.device.initializeDevice()
-        except Exception as err:
-            self.skipTest("No Labjack connected")
+        except PhysicalDevice.UnableToInitialize as err:
+            cause = err.args[0] if err.args else None
+            if isinstance(cause, u3.LabJackException):
+                self.skipTest("No Labjack connected")
+            raise
+
+    def skipUnlessAnalogLoopback(self, channel):
+        self.device.setAnalogVoltage(value=0.5, channel=channel)
+        low = self.device.getAnalogVoltage(channel=channel)
+        self.device.setAnalogVoltage(value=2.5, channel=channel)
+        high = self.device.getAnalogVoltage(channel=channel)
+        if high - low < 1.0:
+            self.skipTest(f"DAC{channel} not jumpered to AIN{channel}")
+
+    def skipUnlessDigitalLoopback(self, outputChannel, inputChannel):
+        self.device.setDigitalValue(channel=outputChannel, value=True)
+        high = self.device.getDigitalValue(channel=inputChannel)
+        self.device.setDigitalValue(channel=outputChannel, value=False)
+        low = self.device.getDigitalValue(channel=inputChannel)
+        if not (high and not low):
+            self.skipTest(f"FIO{outputChannel} not jumpered to FIO{inputChannel}")
 
     def tearDown(self):
         super().tearDown()
@@ -46,7 +66,7 @@ class TestLabjackDevice(unittest.TestCase):
         self.assertAlmostEqual(value, 4.53, 1)
 
     def testSetAnalogValueChannel0(self):
-        # DAC0 conected to AIN0
+        self.skipUnlessAnalogLoopback(0)
         expectedValue = 1.5
         self.device.setAnalogVoltage(value=expectedValue, channel=0)
 
@@ -55,7 +75,7 @@ class TestLabjackDevice(unittest.TestCase):
         self.assertAlmostEqual(actualValue, expectedValue, 1)
 
     def testSetAnalogValueChannel1(self):
-        # DAC1 conected to AIN1
+        self.skipUnlessAnalogLoopback(1)
         expectedValue = 1.1
         self.device.setAnalogVoltage(value=expectedValue, channel=1)
 
@@ -82,17 +102,20 @@ class TestLabjackDevice(unittest.TestCase):
         self.assertEqual(actualValue, expectedValue)
 
     def testToggleDigitalValuesQuickly(self):
-        expectedValue = True
         outputChannel = 6
         inputChannel = 7
+        self.skipUnlessDigitalLoopback(outputChannel, inputChannel)
+
+        expectedValue = True
         loops = 1000
+        maxAttempts = 10
         while loops > 0:
             loops -= 1
             self.device.setDigitalValue(channel=outputChannel, value=expectedValue)
 
             actualValue = None
             attempts = 0
-            while actualValue != expectedValue:
+            while actualValue != expectedValue and attempts < maxAttempts:
                 actualValue = self.device.getDigitalValue(channel=inputChannel)
                 attempts = attempts + 1
             self.assertEqual(attempts, 1)
