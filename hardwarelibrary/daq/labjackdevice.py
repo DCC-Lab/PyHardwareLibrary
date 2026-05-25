@@ -19,6 +19,11 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
         self.dev = None
 
     def doInitializeDevice(self):
+        """Open the first U3 found, or the one matching serialNumber.
+
+        PhysicalDevice normalizes a "*" or None serialNumber to the regex ".*",
+        so both spellings mean "first found"; any other value is an exact serial.
+        """
         self.dev = u3.U3(autoOpen=False)
         if self.serialNumber in ("*", ".*"):
             self.dev.open()
@@ -49,9 +54,12 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
         self.dev.configIO(**parameters)
 
     def getAnalogVoltage(self, channel):
+        """Returns volts."""
         return self.dev.getAIN(channel)
 
     def setAnalogVoltage(self, value, channel):
+        """value in volts, on DAC0 (channel 0) or DAC1 (channel 1)."""
+        # 5000/5002 are the U3 Modbus registers for DAC0/DAC1.
         if channel == 0:
             register = 5000
         elif channel == 1:
