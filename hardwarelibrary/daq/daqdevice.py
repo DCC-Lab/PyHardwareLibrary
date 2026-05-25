@@ -45,7 +45,24 @@ class AnalogInputStreamDevice(AnalogInputDevice):
     Combine with PhysicalDevice in a driver. The driver implements the four
     streaming primitives; acquireWaveform is provided on top of them. scanRate is
     the per-channel sample rate in Hz; readStream returns one block of samples as
-    {channel: [volts, ...]}.
+    {channel: [volts, ...]}. The aggregate rate (scanRate times the number of
+    channels) is the hardware limit, not scanRate alone.
+
+    One-shot acquisition (blocks until sampleCount samples are collected):
+
+        waveform = device.acquireWaveform(channels=[0], scanRate=5000, sampleCount=1000)
+        samples = waveform[0]   # 1000 calibrated voltages from AIN0
+
+    Continuous acquisition with the primitives:
+
+        device.configureStream(channels=[0, 1], scanRate=2000)
+        device.startStream()
+        try:
+            while acquiring:
+                block = device.readStream()   # {0: [...], 1: [...]}
+                process(block[0])
+        finally:
+            device.stopStream()
     """
 
     @abstractmethod
