@@ -27,7 +27,7 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
 
     @property
     def isHighVoltage(self):
-        return hasattr(self.dev, 'hardwareVersion') and self.dev.hardwareVersion >= 2.0
+        return hasattr(self.dev, 'deviceName') and self.dev.deviceName == 'U3-HV'
 
     def setConfiguration(self, parameters: dict):
         raise NotImplementedError(
