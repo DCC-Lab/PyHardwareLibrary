@@ -1,5 +1,6 @@
 import env
 import unittest
+import time
 import u3
 
 from hardwarelibrary.devicemanager import *
@@ -10,6 +11,16 @@ from enum import Enum
 from typing import Union, Optional, Protocol
 
 class TestLabjackDevice(unittest.TestCase):
+    # The U3 DAC outputs are PWM-based, smoothed by a 2nd-order ~16 Hz low-pass
+    # filter (~10 ms time constant), so an AIN read immediately after setting a DAC
+    # returns the previous value. Wait for the output to settle before reading back.
+    analogSettlingTime = 0.15
+
+    def settledAnalogVoltage(self, value, channel):
+        self.device.setAnalogVoltage(value=value, channel=channel)
+        time.sleep(self.analogSettlingTime)
+        return self.device.getAnalogVoltage(channel=channel)
+
     def setUp(self):
         super().setUp()
         self.device = LabjackDevice()
@@ -23,10 +34,8 @@ class TestLabjackDevice(unittest.TestCase):
             raise
 
     def skipUnlessAnalogLoopback(self, channel):
-        self.device.setAnalogVoltage(value=0.5, channel=channel)
-        low = self.device.getAnalogVoltage(channel=channel)
-        self.device.setAnalogVoltage(value=2.5, channel=channel)
-        high = self.device.getAnalogVoltage(channel=channel)
+        low = self.settledAnalogVoltage(0.5, channel)
+        high = self.settledAnalogVoltage(2.5, channel)
         if high - low < 1.0:
             self.skipTest(f"DAC{channel} not jumpered to AIN{channel}")
 
@@ -68,20 +77,44 @@ class TestLabjackDevice(unittest.TestCase):
     def testSetAnalogValueChannel0(self):
         self.skipUnlessAnalogLoopback(0)
         expectedValue = 1.5
-        self.device.setAnalogVoltage(value=expectedValue, channel=0)
-
-        actualValue = self.device.getAnalogVoltage(channel=0)
+        actualValue = self.settledAnalogVoltage(expectedValue, 0)
         self.assertIsNotNone(actualValue)
         self.assertAlmostEqual(actualValue, expectedValue, 1)
 
     def testSetAnalogValueChannel1(self):
         self.skipUnlessAnalogLoopback(1)
         expectedValue = 1.1
-        self.device.setAnalogVoltage(value=expectedValue, channel=1)
-
-        actualValue = self.device.getAnalogVoltage(channel=1)
+        actualValue = self.settledAnalogVoltage(expectedValue, 1)
         self.assertIsNotNone(actualValue)
         self.assertAlmostEqual(actualValue, expectedValue, 1)
+
+    def testMeasureAnalogSettlingTime(self):
+        channel = 0
+        self.skipUnlessAnalogLoopback(channel)
+
+        target = 3.0
+        tolerance = 0.05
+        timeout = 1.0
+
+        self.device.setAnalogVoltage(value=0.0, channel=channel)
+        time.sleep(0.5)
+
+        start = time.perf_counter()
+        self.device.setAnalogVoltage(value=target, channel=channel)
+        settlingTime = None
+        reads = 0
+        while time.perf_counter() - start < timeout:
+            reads += 1
+            if abs(self.device.getAnalogVoltage(channel=channel) - target) <= tolerance:
+                settlingTime = time.perf_counter() - start
+                break
+
+        self.assertIsNotNone(settlingTime, f"AIN{channel} never reached {target} V within {timeout} s")
+        print(f"\nDAC{channel}->AIN{channel} full-scale step settled within {tolerance} V "
+              f"in {settlingTime * 1000:.1f} ms over {reads} reads (USB + DAC RC + ADC)")
+        self.assertLess(settlingTime, self.analogSettlingTime,
+                        f"measured settling {settlingTime * 1000:.1f} ms exceeds "
+                        f"analogSettlingTime {self.analogSettlingTime * 1000:.0f} ms used by the suite")
 
     def testSetDigitalValueChannel4(self):
         expectedValue = True

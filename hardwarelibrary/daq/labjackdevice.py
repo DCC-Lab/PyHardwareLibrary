@@ -4,7 +4,12 @@ import u3
 
 
 class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
-    """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods."""
+    """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods.
+
+    The DAC outputs are slow: they are PWM-based (a ~732 Hz PWM signal smoothed by a
+    2nd-order ~16 Hz low-pass filter, ~10 ms time constant), so setAnalogVoltage
+    takes tens of ms to settle to its final value.
+    """
 
     classIdVendor = 0x0cd5
     classIdProduct = 0x003
