@@ -4,7 +4,12 @@ import u3
 
 
 class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
-    """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods."""
+    """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods.
+
+    The DAC outputs are slow: they are PWM-based (a ~732 Hz PWM signal smoothed by a
+    2nd-order ~16 Hz low-pass filter, ~10 ms time constant), so setAnalogVoltage
+    takes tens of ms to settle to its final value.
+    """
 
     classIdVendor = 0x0cd5
     classIdProduct = 0x003
@@ -14,8 +19,13 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
         self.dev = None
 
     def doInitializeDevice(self):
+        """Open the first U3 found, or the one matching serialNumber.
+
+        PhysicalDevice normalizes a "*" or None serialNumber to the regex ".*",
+        so both spellings mean "first found"; any other value is an exact serial.
+        """
         self.dev = u3.U3(autoOpen=False)
-        if self.serialNumber == "*":
+        if self.serialNumber in ("*", ".*"):
             self.dev.open()
         else:
             self.dev.open(firstFound=False, serial=int(self.serialNumber))
@@ -27,7 +37,7 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
 
     @property
     def isHighVoltage(self):
-        return hasattr(self.dev, 'hardwareVersion') and self.dev.hardwareVersion >= 2.0
+        return hasattr(self.dev, 'deviceName') and self.dev.deviceName == 'U3-HV'
 
     def setConfiguration(self, parameters: dict):
         raise NotImplementedError(
@@ -44,9 +54,12 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
         self.dev.configIO(**parameters)
 
     def getAnalogVoltage(self, channel):
+        """Returns volts."""
         return self.dev.getAIN(channel)
 
     def setAnalogVoltage(self, value, channel):
+        """value in volts, on DAC0 (channel 0) or DAC1 (channel 1)."""
+        # 5000/5002 are the U3 Modbus registers for DAC0/DAC1.
         if channel == 0:
             register = 5000
         elif channel == 1:
