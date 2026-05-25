@@ -195,6 +195,34 @@ class TestLabjackDevice(unittest.TestCase):
     def testConfigureDigitalIO(self):
         self.device.configureDigitalIO({})
 
+    def testAcquireWaveformSampleCount(self):
+        waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=200)
+        self.assertEqual(len(waveform[0]), 200)
+
+    def testAcquireWaveformReadsLoopback(self):
+        self.skipUnlessAnalogLoopback(0)
+        self.device.setAnalogVoltage(value=2.0, channel=0)
+        time.sleep(self.analogSettlingTime)
+        waveform = self.device.acquireWaveform(channels=[0], scanRate=2000, sampleCount=500)
+        self.assertEqual(len(waveform[0]), 500)
+        mean = sum(waveform[0]) / len(waveform[0])
+        self.assertAlmostEqual(mean, 2.0, 1)
+
+    def testStreamPrimitives(self):
+        self.device.configureStream(channels=[0], scanRate=1000)
+        self.device.startStream()
+        try:
+            block = self.device.readStream()
+        finally:
+            self.device.stopStream()
+        self.assertIn(0, block)
+        self.assertGreater(len(block[0]), 0)
+
+    def testReadStreamHandlesEmptyPacket(self):
+        self.device._streamChannels = [0]
+        self.device._streamData = iter([None])
+        self.assertEqual(self.device.readStream(), {0: []})
+
 class TestDebugLabjackDevice(unittest.TestCase):
     def setUp(self):
         self.device = DebugLabjackDevice()
@@ -264,6 +292,37 @@ class TestDebugLabjackDevice(unittest.TestCase):
 
     def testConfigureDigitalIO(self):
         self.device.configureDigitalIO({'FIOAnalog': 0x00})
+
+    def testConfigureAnalogIORejectsUnknownKey(self):
+        with self.assertRaises(ValueError):
+            self.device.configureAnalogIO({'FIOAnalog': 0xFF, 'Bogus': 1})
+
+    def testConfigureDigitalIORejectsUnknownKey(self):
+        with self.assertRaises(ValueError):
+            self.device.configureDigitalIO({'NotAParameter': 0})
+
+    def testAcquireWaveform(self):
+        self.device.setAnalogVoltage(value=2.5, channel=0)
+        waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=50)
+        self.assertEqual(len(waveform[0]), 50)
+        self.assertTrue(all(abs(value - 2.5) < 1e-9 for value in waveform[0]))
+
+    def testAcquireWaveformMultiChannel(self):
+        self.device.setAnalogVoltage(value=1.0, channel=0)
+        self.device.setAnalogVoltage(value=2.0, channel=1)
+        waveform = self.device.acquireWaveform(channels=[0, 1], scanRate=1000, sampleCount=30)
+        self.assertEqual(len(waveform[0]), 30)
+        self.assertEqual(len(waveform[1]), 30)
+        self.assertAlmostEqual(waveform[0][0], 1.0)
+        self.assertAlmostEqual(waveform[1][0], 2.0)
+
+    def testStreamPrimitives(self):
+        self.device.configureStream(channels=[0], scanRate=1000)
+        self.device.startStream()
+        block = self.device.readStream()
+        self.device.stopStream()
+        self.assertIn(0, block)
+        self.assertGreater(len(block[0]), 0)
 
 
 if __name__ == '__main__':
