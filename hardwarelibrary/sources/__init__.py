@@ -5,3 +5,4 @@ from .capabilities import (
 )
 from .lasersourcedevice import LaserSourceDevice
 from .cobolt import CoboltDevice, CoboltCantTurnOnWithAutostartOn
+from .matissecommanderport import MatisseCommanderPort, MatisseCommanderError
