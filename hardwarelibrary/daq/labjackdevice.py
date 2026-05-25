@@ -15,7 +15,7 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
 
     def doInitializeDevice(self):
         self.dev = u3.U3(autoOpen=False)
-        if self.serialNumber == "*":
+        if self.serialNumber in ("*", ".*"):
             self.dev.open()
         else:
             self.dev.open(firstFound=False, serial=int(self.serialNumber))
