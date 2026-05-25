@@ -1,14 +1,15 @@
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
-from hardwarelibrary.daq import AnalogIODevice, DigitalIODevice
+from hardwarelibrary.daq import AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice
 import u3
 
 
-class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
+class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice):
     """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods.
 
     The DAC outputs are slow: they are PWM-based (a ~732 Hz PWM signal smoothed by a
     2nd-order ~16 Hz low-pass filter, ~10 ms time constant), so setAnalogVoltage
-    takes tens of ms to settle to its final value.
+    takes tens of ms to settle to its final value. Analog input, by contrast, can be
+    streamed at hardware-timed rates (up to ~50 kHz aggregate) via acquireWaveform.
     """
 
     classIdVendor = 0x0cd5
@@ -17,6 +18,8 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
     def __init__(self, serialNumber="*", idProduct=0x003, idVendor=0x0cd5):
         super().__init__(serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.dev = None
+        self._streamChannels = []
+        self._streamData = None
 
     def doInitializeDevice(self):
         """Open the first U3 found, or the one matching serialNumber.
@@ -81,6 +84,30 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice):
     def toggleLED(self):
         self.dev.toggleLED()
 
+    def configureStream(self, channels, scanRate):
+        self._streamChannels = list(channels)
+        self.dev.streamConfig(
+            NumChannels=len(self._streamChannels),
+            PChannels=self._streamChannels,
+            NChannels=[31] * len(self._streamChannels),
+            Resolution=3,
+            ScanFrequency=scanRate,
+        )
+
+    def startStream(self):
+        self.dev.streamStart()
+        self._streamData = self.dev.streamData(convert=True)
+
+    def readStream(self):
+        packet = next(self._streamData)
+        if packet is None:
+            return {channel: [] for channel in self._streamChannels}
+        return {channel: packet[f'AIN{channel}'] for channel in self._streamChannels}
+
+    def stopStream(self):
+        self.dev.streamStop()
+        self._streamData = None
+
 
 class DebugLabjackDevice(LabjackDevice):
     """Hardware-free U3 for tests. DAC channels 0,1 loop back to AIN 0,1."""
@@ -97,6 +124,7 @@ class DebugLabjackDevice(LabjackDevice):
         self._analogValues = {}
         self._digitalValues = {}
         self._temperature = 298.0
+        self._streamChannels = []
 
     def doInitializeDevice(self):
         pass
@@ -140,4 +168,18 @@ class DebugLabjackDevice(LabjackDevice):
         return self._temperature
 
     def toggleLED(self):
+        pass
+
+    def configureStream(self, channels, scanRate):
+        self._streamChannels = list(channels)
+
+    def startStream(self):
+        pass
+
+    def readStream(self):
+        blockSize = 25
+        return {channel: [self._analogValues.get(channel, 0.0)] * blockSize
+                for channel in self._streamChannels}
+
+    def stopStream(self):
         pass

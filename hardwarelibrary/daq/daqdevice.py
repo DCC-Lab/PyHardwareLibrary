@@ -39,6 +39,45 @@ class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
         pass
 
 
+class AnalogInputStreamDevice(AnalogInputDevice):
+    """Hardware-timed analog input (waveform acquisition).
+
+    Combine with PhysicalDevice in a driver. The driver implements the four
+    streaming primitives; acquireWaveform is provided on top of them. scanRate is
+    the per-channel sample rate in Hz; readStream returns one block of samples as
+    {channel: [volts, ...]}.
+    """
+
+    @abstractmethod
+    def configureStream(self, channels, scanRate):
+        ...
+
+    @abstractmethod
+    def startStream(self):
+        ...
+
+    @abstractmethod
+    def readStream(self):
+        ...
+
+    @abstractmethod
+    def stopStream(self):
+        ...
+
+    def acquireWaveform(self, channels, scanRate, sampleCount):
+        self.configureStream(channels, scanRate)
+        samples = {channel: [] for channel in channels}
+        self.startStream()
+        try:
+            while min(len(values) for values in samples.values()) < sampleCount:
+                block = self.readStream()
+                for channel in channels:
+                    samples[channel].extend(block[channel])
+        finally:
+            self.stopStream()
+        return {channel: values[:sampleCount] for channel, values in samples.items()}
+
+
 class DigitalInputDevice(ABC):
     """Digital input capability. Combine with PhysicalDevice in a driver."""
 
