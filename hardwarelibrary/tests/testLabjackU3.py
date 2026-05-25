@@ -293,6 +293,14 @@ class TestDebugLabjackDevice(unittest.TestCase):
     def testConfigureDigitalIO(self):
         self.device.configureDigitalIO({'FIOAnalog': 0x00})
 
+    def testConfigureAnalogIORejectsUnknownKey(self):
+        with self.assertRaises(ValueError):
+            self.device.configureAnalogIO({'FIOAnalog': 0xFF, 'Bogus': 1})
+
+    def testConfigureDigitalIORejectsUnknownKey(self):
+        with self.assertRaises(ValueError):
+            self.device.configureDigitalIO({'NotAParameter': 0})
+
     def testAcquireWaveform(self):
         self.device.setAnalogVoltage(value=2.5, channel=0)
         waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=50)

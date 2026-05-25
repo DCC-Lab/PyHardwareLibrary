@@ -1,5 +1,6 @@
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.daq import AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice
+import inspect
 import u3
 
 
@@ -51,10 +52,25 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInput
         return self.dev.configU3()
 
     def configureAnalogIO(self, parameters: dict):
+        self._validateConfigIOParameters(parameters)
         self.dev.configIO(**parameters)
 
     def configureDigitalIO(self, parameters: dict):
+        self._validateConfigIOParameters(parameters)
         self.dev.configIO(**parameters)
+
+    @staticmethod
+    def _validateConfigIOParameters(parameters):
+        # configureAnalogIO and configureDigitalIO both forward to the U3's single
+        # configIO command; validate keys against its actual signature so an
+        # unexpected key fails clearly here instead of deep inside configIO.
+        valid = set(inspect.signature(u3.U3.configIO).parameters) - {'self'}
+        unexpected = set(parameters) - valid
+        if unexpected:
+            raise ValueError(
+                f"Unexpected configIO parameter(s) {sorted(unexpected)}; "
+                f"valid keys are {sorted(valid)}"
+            )
 
     def getAnalogVoltage(self, channel):
         """Returns volts."""
@@ -145,10 +161,10 @@ class DebugLabjackDevice(LabjackDevice):
         return {'DeviceName': 'DebugU3', 'SerialNumber': 0}
 
     def configureAnalogIO(self, parameters: dict):
-        pass
+        self._validateConfigIOParameters(parameters)
 
     def configureDigitalIO(self, parameters: dict):
-        pass
+        self._validateConfigIOParameters(parameters)
 
     def getAnalogVoltage(self, channel):
         return self._analogValues.get(channel, 0.0)
