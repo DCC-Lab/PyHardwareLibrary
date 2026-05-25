@@ -163,6 +163,38 @@ class TestLabjackDevice(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.device.setConfiguration(None)
 
+    def testOpenBySerialNumber(self):
+        serialNumber = str(self.device.configuration()['SerialNumber'])
+        self.device.shutdownDevice()
+        try:
+            bySerial = LabjackDevice(serialNumber=serialNumber)
+            bySerial.initializeDevice()
+            self.assertEqual(str(bySerial.configuration()['SerialNumber']), serialNumber)
+            bySerial.shutdownDevice()
+        finally:
+            self.device.initializeDevice()
+
+    def testIsHighVoltage(self):
+        self.assertIsInstance(self.device.isHighVoltage, bool)
+
+    def testGetTemperature(self):
+        kelvin = self.device.getTemperature()
+        self.assertGreater(kelvin, 250)
+        self.assertLess(kelvin, 350)
+
+    def testToggleLED(self):
+        self.device.toggleLED()
+
+    def testSetAnalogVoltageInvalidChannel(self):
+        with self.assertRaises(ValueError):
+            self.device.setAnalogVoltage(value=1.0, channel=2)
+
+    def testConfigureAnalogIO(self):
+        self.device.configureAnalogIO({})
+
+    def testConfigureDigitalIO(self):
+        self.device.configureDigitalIO({})
+
 class TestDebugLabjackDevice(unittest.TestCase):
     def setUp(self):
         self.device = DebugLabjackDevice()
