@@ -1,12 +1,66 @@
 import env
 import unittest
+import socketserver
+import struct
+import threading
+import time
 
-from hardwarelibrary.sources.matisse import MatisseDevice, DebugMatisseDevice
+from hardwarelibrary.sources.matisse import MatisseDevice, DebugMatisseDevice, MatisseCommanderError
 from hardwarelibrary.sources.capabilities import WavelengthControl
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 
 MATISSE_HOST = "172.16.8.57"
 MATISSE_PORT = 30000
+
+
+def labviewFrame(payload: bytes) -> bytes:
+    return struct.pack(">I", len(payload)) + payload
+
+
+class MatisseMockHandler(socketserver.BaseRequestHandler):
+    """A local stand-in for Matisse Commander: LabVIEW framing + Matisse grammar."""
+
+    def handle(self):
+        while True:
+            header = self.recvExactly(4)
+            if header is None:
+                return
+            length = struct.unpack(">I", header)[0]
+            payload = self.recvExactly(length)
+            if payload is None:
+                return
+            command = payload.decode("utf-8").strip()
+            self.server.requests.append(command)
+            reply = self.replyFor(command)
+            if reply is not None:
+                try:
+                    self.request.sendall(labviewFrame(reply.encode("utf-8")))
+                except OSError:
+                    return
+
+    def replyFor(self, command):
+        if command == "Close_Network_Connection":
+            return None  # server-only command, no device reply (and the client does not read one)
+        if command == "IDN?":
+            return ':IDN: "Matisse Mock, S/N:00-00-00"'
+        if command.startswith("BAD"):
+            return '!ERROR 1,"general syntax error"'
+        if command.endswith("?"):
+            base = command[:-1]
+            return ":{0}: {1}".format(base, self.server.values.get(base, "0"))
+        parts = command.split(maxsplit=1)
+        if len(parts) == 2:
+            self.server.values[parts[0]] = parts[1]
+        return "OK"
+
+    def recvExactly(self, n):
+        data = bytearray()
+        while len(data) < n:
+            chunk = self.request.recv(n - len(data))
+            if not chunk:
+                return None
+            data.extend(chunk)
+        return bytes(data)
 
 
 class TestDebugMatisseDevice(unittest.TestCase):
@@ -86,6 +140,66 @@ class TestDebugMatisseDevice(unittest.TestCase):
         self.assertTrue(self.matisse.bifiIsMoving())
         with self.assertRaises(MatisseDevice.MotionTimeout):
             self.matisse.waitForBifi(timeout=0.1)
+
+    def testParseReplyStripsColonAndEchoedCommand(self):
+        self.assertEqual(self.matisse.parseReply(":MOTBI:POS: 12345"), "12345")
+
+    def testParseReplyKeepsQuotedIdnValue(self):
+        self.assertEqual(self.matisse.parseReply(':IDN: "Matisse TS"'), '"Matisse TS"')
+
+    def testParseReplyEchoOnlyReturnsEmpty(self):
+        self.assertEqual(self.matisse.parseReply(":MOTBI:HOME:"), "")
+
+    def testParseReplyPassesPlainReplyThrough(self):
+        self.assertEqual(self.matisse.parseReply("OK"), "OK")
+
+    def testParseReplyRaisesAndPreservesErrorMessage(self):
+        try:
+            self.matisse.parseReply('!ERROR 1,"general syntax error"')
+            self.fail("expected MatisseCommanderError")
+        except MatisseCommanderError as error:
+            self.assertIn("general syntax error", str(error))
+
+
+class TestMatisseDeviceOverMockServer(unittest.TestCase):
+    def setUp(self):
+        self.server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), MatisseMockHandler)
+        self.server.requests = []
+        self.server.values = {"MOTBI:WL": "780.5", "MOTBI:STA": "2"}
+        self.server.daemon_threads = True
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        host, serverPort = self.server.server_address
+        self.matisse = MatisseDevice(host, serverPort)
+        self.matisse.closeSettleDelay = 0.0
+        self.matisse.initializeDevice()
+
+    def tearDown(self):
+        if self.matisse.state == DeviceState.Ready:
+            self.matisse.shutdownDevice()
+        self.server.shutdown()
+        self.server.server_close()
+
+    def testInitializeReadsIdnOverRealTransport(self):
+        self.assertEqual(self.matisse.idn, '"Matisse Mock, S/N:00-00-00"')
+
+    def testQueryParsesValueFromFramedReply(self):
+        self.assertAlmostEqual(self.matisse.bifiWavelength(), 780.5, places=4)
+
+    def testSetSendsCommandAndConsumesOk(self):
+        self.matisse.setBifiWavelength(790.0, wait=False)
+        self.assertIn("MOTBI:WL 790.0000", self.server.requests)
+        self.assertAlmostEqual(self.matisse.bifiWavelength(), 790.0, places=4)
+
+    def testErrorReplyRaisesOverRealTransport(self):
+        with self.assertRaises(MatisseCommanderError):
+            self.matisse.queryString("BAD?")
+
+    def testShutdownSendsCloseNetworkConnection(self):
+        self.matisse.shutdownDevice()
+        deadline = time.time() + 2.0
+        while "Close_Network_Connection" not in self.server.requests and time.time() < deadline:
+            time.sleep(0.01)
+        self.assertIn("Close_Network_Connection", self.server.requests)
 
 
 class TestMatisseDevice(unittest.TestCase):

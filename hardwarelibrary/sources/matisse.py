@@ -1,8 +1,12 @@
 import time
 
 from ..physicaldevice import PhysicalDevice
+from ..communication.labviewtcpport import LabviewTCPPort
 from .capabilities import WavelengthControl
-from .matissecommanderport import MatisseCommanderPort, MatisseCommanderError
+
+
+class MatisseCommanderError(Exception):
+    pass
 
 
 class MatisseDevice(PhysicalDevice, WavelengthControl):
@@ -17,15 +21,20 @@ class MatisseDevice(PhysicalDevice, WavelengthControl):
     BiFi, which is the coarse wavelength selector; use the etalon and piezo
     methods for fine tuning.
 
-    Commands follow the Sirah Matisse Programmer's Guide v2.4.8 (short forms).
-    Replies are parsed by MatisseCommanderPort, which strips the ':' envelope
-    and raises on '!ERROR', so the methods here deal only in values.
+    The transport is a LabviewTCPPort (Matisse Commander is a LabVIEW TCP
+    server, so the wire framing is LabVIEW's length-prefixed strings). The
+    Matisse reply grammar lives here, not in the transport: a query reply
+    echoes the command behind a ':' (':MOTBI:WL: 760.0'), a set replies 'OK',
+    and a failure replies '!ERROR <code>,<message>'. parseReply strips the
+    echo and raises MatisseCommanderError on '!ERROR'. Commands follow the
+    Sirah Matisse Programmer's Guide v2.4.8 (short forms).
     """
 
     classIdVendor = 0x17E7   # Sirah; used for identity only (the link is TCP, not USB)
     classIdProduct = 0x0102
     runningTokens = ("RUN", "RU", "TRUE")
     movingStatusBit = 1 << 8
+    closeSettleDelay = 0.3
 
     def __init__(self, host, networkPort=30000, serialNumber="*", wavelengthRange=(700.0, 1000.0)):
         super().__init__(serialNumber=serialNumber, idProduct=None, idVendor=None)
@@ -35,22 +44,39 @@ class MatisseDevice(PhysicalDevice, WavelengthControl):
         self.idn = None
 
     def doInitializeDevice(self):
-        self.port = MatisseCommanderPort(self.host, self.networkPort)
+        self.port = LabviewTCPPort(self.host, self.networkPort)
         self.port.open()
         self.idn = self.queryString("IDN?")
 
     def doShutdownDevice(self):
-        pass  # PhysicalDevice.shutdownDevice closes self.port, which sends Close_Network_Connection
+        # Matisse Commander frees its single client slot only on receiving this
+        # server command; send it before PhysicalDevice.shutdownDevice closes
+        # the socket, otherwise the orphaned slot refuses the next client.
+        if self.port is not None:
+            try:
+                self.port.writeString("Close_Network_Connection")
+                time.sleep(self.closeSettleDelay)
+            except OSError:
+                pass
 
     def queryString(self, query) -> str:
         self.port.writeString(query)
-        return self.port.readString()
+        return self.parseReply(self.port.readString())
 
     def sendSetting(self, command):
         # Every Matisse command, sets included, returns one reply frame that must
-        # be consumed to keep the request/reply stream framed-in-sync.
+        # be consumed to stay framed-in-sync; parseReply also raises on '!ERROR'.
         self.port.writeString(command)
-        self.port.readString()
+        self.parseReply(self.port.readString())
+
+    def parseReply(self, reply) -> str:
+        reply = reply.strip()
+        if reply.upper().startswith("!ERROR"):
+            raise MatisseCommanderError(reply[len("!ERROR"):].strip())
+        if reply.startswith(":"):
+            parts = reply.split(maxsplit=1)
+            reply = parts[1] if len(parts) > 1 else ""
+        return reply
 
     def lockIsRunning(self, query) -> bool:
         return self.queryString(query).strip().upper() in self.runningTokens
