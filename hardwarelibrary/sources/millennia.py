@@ -30,6 +30,22 @@ class MillenniaDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerCont
     (SHUTTER:x, ?STB); see manuals/Spectra-Physics-Millennia-eV-Serial-Commands.md.
     """
 
+    # USB VID/PID for the eV's back-panel comms port is not recorded here yet,
+    # so MillenniaDevice is instantiated by portPath (like CoboltDevice). To
+    # switch to VID/PID discovery via SerialPort.matchAnyPort, set
+    # classIdVendor and classIdProduct to the values reported by either:
+    #
+    #   system_profiler SPUSBDataType | grep -A 12 -i millennia
+    #   .venv/bin/python -c "from serial.tools.list_ports import comports; \
+    #     [print(p.device, hex(p.vid or 0), hex(p.pid or 0), p.serial_number) \
+    #      for p in comports()]"
+    #
+    # Candidate bridges seen on Spectra-Physics / MKS lab gear:
+    #   FTDI (FT232R/FT2232H):  VID 0x0403  PID 0x6001 / 0x6010 / 0x6014
+    #   Silicon Labs CP210x:    VID 0x10C4  PID 0xEA60 / 0xEA70
+    #   Prolific PL2303:        VID 0x067B  PID 0x2303
+    #   Native USB-CDC:         varies (MKS / Newport / Spectra-Physics VID)
+
     defaultBaudRate = 115200
     commandTerminator = "\r"  # the eV accepts <CR>, <LF>, or both
     minPower = 0.05  # documented eV/Pro-s lower bound
