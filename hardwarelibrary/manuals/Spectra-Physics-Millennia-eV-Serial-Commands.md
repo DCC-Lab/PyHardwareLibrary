@@ -53,10 +53,20 @@ All commands and responses are ASCII.
      `P:25.00` is accepted; issued again immediately while ramping, the next
      `P:23.00` is ignored and `?PSET` stays 25.00). This is a set-and-forget
      pump laser, so let the output settle before changing the setpoint again.
-  The driver's `doSetPower` writes, waits `powerSettleDelay` (1 s), confirms
-  against `?PSET`, retries, and raises `UnableToConfirmSetpoint` if it never
-  takes. A throwaway read or brief settle is also wise right after a port
-  re-open, where the first query can return stale data.
+  The driver confirms the commands that matter: `doSetPower` writes, waits
+  `settleDelay` (1 s), confirms against `?PSET`, retries, and raises
+  `UnableToConfirmSetpoint` if it never takes; `doTurnOn`/`doTurnOff` do the
+  same against `?D` and raise `UnableToConfirmState`. A throwaway read or brief
+  settle is also wise right after a port re-open, where the first query can
+  return stale data.
+
+  > `doTurnOff` was verified on hardware: `OFF` drops `?D` to `0` and `?P` to
+  > ~0 W immediately (the diodes cut, no slow ramp), so the confirm lands on the
+  > first try. `turnOn` was confirmed only with the laser already on; a
+  > cold-start turn-on (diodes warming up from off) has not been exercised, but
+  > `?D` clearly tracks the *commanded* state at once rather than waiting for
+  > emission, so the confirm path should hold there too. If a future cold start
+  > shows `?D` lagging through warm-up, widen `confirmAttempts`/`settleDelay`.
 
 ## Commands implemented by the driver
 

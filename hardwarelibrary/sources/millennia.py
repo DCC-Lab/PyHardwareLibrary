@@ -52,16 +52,20 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     commandTerminator = "\r"  # the eV accepts <CR>, <LF>, or both
     minPower = 0.05  # documented eV/Pro-s lower bound
     maxPower = 25.0  # eV25s spec; override on subclass for eV5/10/15/20
-    powerWriteAttempts = 8  # confirm + retry: a dropped/rejected P: has no ack
     powerSetpointTolerance = 0.005  # W, finer than the eV's 0.01 W setpoint step
-    # Seconds to wait after a P: write before reading ?PSET back. The eV needs a
-    # moment to commit the new setpoint (a too-soon read returns the stale prior
-    # value) and rejects setpoint changes outright while still ramping. This is a
-    # set-and-forget pump laser that is not changed rapidly, so a generous delay
-    # here costs nothing.
-    powerSettleDelay = 1.0
+    # The eV does not ack action commands (ON/OFF, P:<f>), so the driver confirms
+    # the ones that matter by reading the matching query back and retrying. It
+    # also needs a moment to commit a command before the query reflects it (a
+    # too-soon read returns the stale prior value) and refuses a setpoint change
+    # while the output is still ramping. This is a set-and-forget pump laser, not
+    # changed rapidly, so a generous settle costs nothing.
+    settleDelay = 1.0  # seconds between an action command and its confirmation read
+    confirmAttempts = 8  # write + confirm retries before giving up
 
     class UnableToConfirmSetpoint(Exception):
+        pass
+
+    class UnableToConfirmState(Exception):
         pass
 
     def __init__(self, portPath=None, serialNumber=None, idProduct=None, idVendor=None):
@@ -115,13 +119,35 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
             self.port.writeString(query + self.commandTerminator)
             return self.port.readString().strip()
 
+    def writeActionAndConfirm(self, command, query, expectedReply, description):
+        # Like doSetPower, for an action command that has no ack: write, let the
+        # eV commit it, confirm via the matching query, and retry; raise if it
+        # never takes. NOTE: this confirm path for ON/OFF has not been exercised
+        # against hardware (the diodes are intentionally not cycle-tested), and
+        # the ?D emission flag's latency after ON/OFF -- a command latch vs the
+        # several-second diode warm-up -- is unconfirmed. If ?D only asserts once
+        # the laser is actually emitting, confirmAttempts/settleDelay will need to
+        # span the warm-up; revisit once the laser can be cycled safely.
+        reply = None
+        for _ in range(self.confirmAttempts):
+            self.writeCommand(command)
+            time.sleep(self.settleDelay)
+            reply = self.queryString(query)
+            if not reply:
+                return  # firmware does not answer the query; trust the write
+            if reply == expectedReply:
+                return
+        raise self.UnableToConfirmState(
+            "Millennia did not confirm {0} (last {1}={2!r})".format(
+                description, query, reply))
+
     # OnOffControl hooks (the pump diodes)
 
     def doTurnOn(self):
-        self.writeCommand("ON")
+        self.writeActionAndConfirm("ON", "?D", "1", "diodes on")
 
     def doTurnOff(self):
-        self.writeCommand("OFF")
+        self.writeActionAndConfirm("OFF", "?D", "0", "diodes off")
 
     def doGetOnOffState(self) -> bool:
         return self.queryString("?D") == "1"
@@ -156,9 +182,9 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
         # nothing: write once and trust it.
         command = "P:{0:.2f}".format(power)
         echoed = None
-        for _ in range(self.powerWriteAttempts):
+        for _ in range(self.confirmAttempts):
             self.writeCommand(command)
-            time.sleep(self.powerSettleDelay)
+            time.sleep(self.settleDelay)
             echoed = self.queryString("?PSET")
             if not echoed:
                 return
@@ -166,7 +192,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
                 return
         raise self.UnableToConfirmSetpoint(
             "Millennia did not accept setpoint {0:.2f} W after {1} writes "
-            "(last ?PSET={2!r})".format(power, self.powerWriteAttempts, echoed))
+            "(last ?PSET={2!r})".format(power, self.confirmAttempts, echoed))
 
     def doGetPower(self) -> float:
         # ?P returns either a bare number ("4.90") or a number with the W unit
@@ -178,7 +204,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
 class DebugMillenniaEv25Device(MillenniaEv25Device):
     classIdVendor = 0xFFFF
     classIdProduct = 0xFFF2
-    powerSettleDelay = 0  # the mock commits P: instantly; no need to wait
+    settleDelay = 0  # the mock commits action commands instantly; no need to wait
 
     def __init__(self, serialNumber="debug"):
         super().__init__(portPath="debug", serialNumber=serialNumber)
