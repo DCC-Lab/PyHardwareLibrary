@@ -43,6 +43,12 @@ All commands and responses are ASCII.
 - Because actions return nothing, flush the input before each query to discard
   any stray bytes (power-up chatter, or an unread ack) before reading the
   reply.
+- **Action commands are occasionally dropped on the native USB-CDC link** and,
+  having no reply, fail silently. Observed intermittently on the lab eV25s with
+  `P:<f>`. For any setting that matters, confirm by reading it back (`P:<f>`
+  against `?PSET`) and retry on mismatch rather than trusting a single write.
+  The eV also seems to return stale data on the first query immediately after a
+  port re-open, so allow a throwaway read or a brief settle after connecting.
 
 ## Commands implemented by the driver
 
@@ -69,6 +75,7 @@ All of the queries below were confirmed read-only on the lab eV25s
 
 | Function | Command | Reply |
 |---|---|---|
+| Read power setpoint (W) | `?PSET` (or `?PSET?`) | e.g. `25.00` (the commanded P:, vs ?P actual) |
 | Set diode current (A) | `C1:<f>` | none |
 | Read diode current (A) | `?C1` (or `?C`) | e.g. `9.120` |
 | Laser-head serial number | `?SN` | e.g. `3239` |
