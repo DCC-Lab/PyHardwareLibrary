@@ -179,3 +179,13 @@ class DebugMillenniaEv25Device(MillenniaEv25Device):
             # laser-head S/N 3239) so readIdentity exercises real values.
             return "Spectra Physics, Millennia eV 25S, SW214-00.004.096, 3239"
         return "0"
+
+
+# Short alias for the currently-implemented Millennia variant. The eV25s is
+# the only Millennia driver in the library today, so MillenniaDevice points
+# at it for convenience; once sibling drivers land for other variants
+# (Millennia X with the classic ASCII dialect, or another eV-series at a
+# different transport), reconsider this alias and migrate callers to the
+# explicit class.
+MillenniaDevice = MillenniaEv25Device
+DebugMillenniaDevice = DebugMillenniaEv25Device

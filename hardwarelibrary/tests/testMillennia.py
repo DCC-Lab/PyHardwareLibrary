@@ -2,7 +2,10 @@ import env
 import unittest
 
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
-from hardwarelibrary.sources.millennia import MillenniaEv25Device, DebugMillenniaEv25Device
+from hardwarelibrary.sources.millennia import (
+    MillenniaEv25Device, DebugMillenniaEv25Device,
+    MillenniaDevice, DebugMillenniaDevice,
+)
 from hardwarelibrary.sources.capabilities import (
     OnOffControl, ShutterControl, PowerControl, InterlockControl, WavelengthControl)
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
@@ -68,6 +71,11 @@ class TestDebugMillenniaEv25Device(unittest.TestCase):
         self.assertAlmostEqual(self.laser.power(), self.laser.minPower, places=2)
         self.laser.setPower(self.laser.maxPower)
         self.assertAlmostEqual(self.laser.power(), self.laser.maxPower, places=2)
+
+    def testMillenniaDeviceAliasesEv25Device(self):
+        self.assertIs(MillenniaDevice, MillenniaEv25Device)
+        self.assertIs(DebugMillenniaDevice, DebugMillenniaEv25Device)
+        self.assertIsInstance(self.laser, MillenniaDevice)
 
     def testInitializeReadsAndParsesIdentity(self):
         self.assertEqual(self.laser.manufacturer, "Spectra Physics")
