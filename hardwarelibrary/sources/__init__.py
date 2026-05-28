@@ -6,3 +6,4 @@ from .capabilities import (
 from .lasersourcedevice import LaserSourceDevice
 from .cobolt import CoboltDevice, CoboltCantTurnOnWithAutostartOn
 from .matisse import MatisseDevice, DebugMatisseDevice, MatisseCommanderError
+from .millennia import MillenniaDevice, DebugMillenniaDevice
