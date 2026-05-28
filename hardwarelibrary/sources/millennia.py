@@ -30,21 +30,21 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     (SHUTTER:x, ?STB); see manuals/Spectra-Physics-Millennia-eV-Serial-Commands.md.
     """
 
-    # USB VID/PID for the eV's back-panel comms port is not recorded here yet,
-    # so MillenniaEv25Device is instantiated by portPath (like CoboltDevice). To
-    # switch to VID/PID discovery via SerialPort.matchAnyPort, set
-    # classIdVendor and classIdProduct to the values reported by either:
+    # The lab eV25s enumerates its back-panel USB port as a native STM32
+    # USB-CDC device: VID 0x0483, PID 0x5740 (confirmed on the bench, firmware
+    # SW214-00.004.096). MillenniaEv25Device is still instantiated by portPath
+    # (like CoboltDevice) rather than discovered by VID/PID, because 0x0483:0x5740
+    # is STMicroelectronics' *generic* STM32 Virtual COM Port identity, shared by
+    # many unrelated STM32-based USB-CDC boards; matching on it via
+    # SerialPort.matchAnyPort would risk binding to the wrong device. If a host
+    # only ever has this one STM32 CDC port, set classIdVendor = 0x0483 and
+    # classIdProduct = 0x5740 to enable discovery; otherwise pin the portPath.
+    # To re-derive on another unit:
     #
     #   system_profiler SPUSBDataType | grep -A 12 -i millennia
     #   .venv/bin/python -c "from serial.tools.list_ports import comports; \
     #     [print(p.device, hex(p.vid or 0), hex(p.pid or 0), p.serial_number) \
     #      for p in comports()]"
-    #
-    # Candidate bridges seen on Spectra-Physics / MKS lab gear:
-    #   FTDI (FT232R/FT2232H):  VID 0x0403  PID 0x6001 / 0x6010 / 0x6014
-    #   Silicon Labs CP210x:    VID 0x10C4  PID 0xEA60 / 0xEA70
-    #   Prolific PL2303:        VID 0x067B  PID 0x2303
-    #   Native USB-CDC:         varies (MKS / Newport / Spectra-Physics VID)
 
     defaultBaudRate = 115200
     commandTerminator = "\r"  # the eV accepts <CR>, <LF>, or both
