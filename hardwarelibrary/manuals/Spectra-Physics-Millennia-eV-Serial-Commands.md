@@ -56,7 +56,7 @@ All commands and responses are ASCII.
 | ShutterControl | shutter state | `?SHT` | `1` (open) / `0` (closed) |
 | PowerControl | set output power (W) | `P:<f>` | none |
 | PowerControl | read output power (W) | `?P` | e.g. `4.90` (or `4.90 W` on some firmware) |
-| (init only) | identification | `?IDN` | comma-separated: manufacturer, model, firmware, serial |
+| (init only) | identification | `*IDN?` | comma-separated: manufacturer, model, serial, firmware |
 
 `ON`/`OFF` gate the pump diodes; the shutter is a separate electromechanical
 block in front of the output, so the laser can be on with the shutter closed.
@@ -64,16 +64,29 @@ The on/off state is read from `?D` (diodes), never from the shutter.
 
 ## Other documented commands (not yet wired into the driver)
 
+All of the queries below were confirmed read-only on the lab eV25s
+(2026-05-28); replies are the actual values observed.
+
 | Function | Command | Reply |
 |---|---|---|
 | Set diode current (A) | `C1:<f>` | none |
-| System fault/status string | `?F` | ASCII status string |
+| Read diode current (A) | `?C1` (or `?C`) | e.g. `9.120` |
+| Laser-head serial number | `?SN` | e.g. `3239` |
+| System fault/status string | `?F` | ASCII status, e.g. `System Ready` |
+| Laser-head hours | `?HEADHRS` | e.g. `75.3` |
+| Power-supply hours | `?PSHRS` | e.g. `592.8` |
+| Diode/baseplate temperature (C) | `?T` | e.g. `24.25` |
 
 There is no direct interlock query in the eV short command set; interlock /
 fault state is reported only through `?F`.
 
-`?IDN` field ordering varies by firmware (Millennia V puts firmware-rev before
-serial; Pro-s puts head/PS serial info before software-rev). The driver does a
-best-effort positional parse for the current lab unit (firmware
-SW214-00.004.096 on an eV25s); callers needing precise provenance should fall
-back to the raw `self.idn` string.
+Identification uses the SCPI-style `*IDN?` query, **not** the `?IDN` form that
+appears in some Millennia documents. On the lab eV25s, `?IDN` is silently
+ignored (returns nothing); `*IDN?` returns
+
+    Spectra_Physics,Millennia eV,3239,214-00.004.096/CD00000019
+
+i.e. manufacturer, model, **serial, firmware** (serial before firmware, the
+reverse of the classic Millennia `?IDN` ordering). The driver parses these
+positions; callers needing precise provenance should fall back to the raw
+`self.idn` string. The bare serial number is also available directly via `?SN`.
