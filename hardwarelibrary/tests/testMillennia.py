@@ -2,19 +2,19 @@ import env
 import unittest
 
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
-from hardwarelibrary.sources.millennia import MillenniaDevice, DebugMillenniaDevice
+from hardwarelibrary.sources.millennia import MillenniaEv25Device, DebugMillenniaEv25Device
 from hardwarelibrary.sources.capabilities import (
     OnOffControl, ShutterControl, PowerControl, InterlockControl, WavelengthControl)
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
 
-# Set to the serial port of an attached Millennia eV to exercise TestMillenniaDevice;
+# Set to the serial port of an attached Millennia eV to exercise TestMillenniaEv25Device;
 # the tests skip when no laser answers there.
 MILLENNIA_PORT = "/dev/cu.usbserial-MILLENNIA"
 
 
-class TestDebugMillenniaDevice(unittest.TestCase):
+class TestDebugMillenniaEv25Device(unittest.TestCase):
     def setUp(self):
-        self.laser = DebugMillenniaDevice()
+        self.laser = DebugMillenniaEv25Device()
         self.laser.initializeDevice()
 
     def tearDown(self):
@@ -89,9 +89,9 @@ class TestDebugMillenniaDevice(unittest.TestCase):
         self.assertTrue(self.laser.isShutterOpen())  # off, shutter unchanged
 
 
-class TestMillenniaDevice(unittest.TestCase):
+class TestMillenniaEv25Device(unittest.TestCase):
     def setUp(self):
-        self.laser = MillenniaDevice(portPath=MILLENNIA_PORT)
+        self.laser = MillenniaEv25Device(portPath=MILLENNIA_PORT)
         try:
             self.laser.initializeDevice()
         except PhysicalDevice.UnableToInitialize:

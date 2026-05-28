@@ -4,7 +4,7 @@ from .lasersourcedevice import LaserSourceDevice
 from .capabilities import OnOffControl, ShutterControl, PowerControl
 
 
-class MillenniaDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl):
+class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl):
     """Spectra-Physics Millennia eV CW DPSS pump laser (532 nm).
 
     Transport is the eV's back-panel USB port, which exposes a virtual COM port
@@ -31,7 +31,7 @@ class MillenniaDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerCont
     """
 
     # USB VID/PID for the eV's back-panel comms port is not recorded here yet,
-    # so MillenniaDevice is instantiated by portPath (like CoboltDevice). To
+    # so MillenniaEv25Device is instantiated by portPath (like CoboltDevice). To
     # switch to VID/PID discovery via SerialPort.matchAnyPort, set
     # classIdVendor and classIdProduct to the values reported by either:
     #
@@ -139,7 +139,7 @@ class MillenniaDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerCont
         return float(self.queryString("?P").split()[0])
 
 
-class DebugMillenniaDevice(MillenniaDevice):
+class DebugMillenniaEv25Device(MillenniaEv25Device):
     classIdVendor = 0xFFFF
     classIdProduct = 0xFFF2
 
