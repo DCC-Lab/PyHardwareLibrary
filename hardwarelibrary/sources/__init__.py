@@ -1,6 +1,6 @@
 from .capabilities import (
     Capability,
-    OnOffControl, PowerControl, InterlockControl,
+    OnOffControl, ShutterControl, PowerControl, InterlockControl,
     AutostartControl, WavelengthControl, DispersionControl,
 )
 from .lasersourcedevice import LaserSourceDevice
