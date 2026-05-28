@@ -72,18 +72,21 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
             raise PhysicalDevice.UnableToInitialize()
 
     def readIdentity(self):
-        # The ?IDN reply is comma-separated: manufacturer, model, then a tail
-        # whose ordering of firmware version and serial number is firmware-
-        # dependent across the Millennia family. Keep the raw string and do a
-        # best-effort parse into the positions seen on the lab unit's firmware
-        # (SW214-00.004.096 on an eV25s); callers that care about precise
-        # provenance should fall back to self.idn.
-        self.idn = self.queryString("?IDN")
+        # The eV identifies via the SCPI-style *IDN? query. The ?IDN form in
+        # some Millennia docs is silently ignored by this firmware (it returns
+        # nothing, the same way an out-of-range P: is dropped). The reply is
+        # comma-separated as manufacturer, model, serial, firmware, e.g.
+        #   Spectra_Physics,Millennia eV,3239,214-00.004.096/CD00000019
+        # confirmed on the lab eV25s (firmware SW214-00.004.096, head S/N 3239).
+        # Note serial precedes firmware here, the reverse of the classic
+        # Millennia ?IDN ordering. Keep the raw string in self.idn for callers
+        # that need exact provenance.
+        self.idn = self.queryString("*IDN?")
         fields = [field.strip() for field in self.idn.split(",")]
         self.manufacturer = fields[0] if len(fields) > 0 else None
         self.model = fields[1] if len(fields) > 1 else None
-        self.firmwareVersion = fields[2] if len(fields) > 2 else None
-        self.laserSerialNumber = fields[3] if len(fields) > 3 else None
+        self.laserSerialNumber = fields[2] if len(fields) > 2 else None
+        self.firmwareVersion = fields[3] if len(fields) > 3 else None
 
     def doShutdownDevice(self):
         if self.port is not None:
@@ -174,10 +177,11 @@ class DebugMillenniaEv25Device(MillenniaEv25Device):
             return "1" if self.shutterIsOpen else "0"
         elif query == "?P":
             return "{0:.2f}".format(self.outputPower)
-        elif query == "?IDN":
-            # Mirrors the lab's eV25s ship report (firmware SW214-00.004.096,
-            # laser-head S/N 3239) so readIdentity exercises real values.
-            return "Spectra Physics, Millennia eV 25S, SW214-00.004.096, 3239"
+        elif query == "*IDN?":
+            # Mirrors the lab eV25s *IDN? reply verbatim (manufacturer, model,
+            # head S/N 3239, firmware SW214-00.004.096) so readIdentity
+            # exercises the real wire format and field ordering.
+            return "Spectra_Physics,Millennia eV,3239,214-00.004.096/CD00000019"
         return "0"
 
 

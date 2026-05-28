@@ -78,10 +78,10 @@ class TestDebugMillenniaEv25Device(unittest.TestCase):
         self.assertIsInstance(self.laser, MillenniaDevice)
 
     def testInitializeReadsAndParsesIdentity(self):
-        self.assertEqual(self.laser.manufacturer, "Spectra Physics")
-        self.assertEqual(self.laser.model, "Millennia eV 25S")
-        self.assertEqual(self.laser.firmwareVersion, "SW214-00.004.096")
+        self.assertEqual(self.laser.manufacturer, "Spectra_Physics")
+        self.assertEqual(self.laser.model, "Millennia eV")
         self.assertEqual(self.laser.laserSerialNumber, "3239")
+        self.assertEqual(self.laser.firmwareVersion, "214-00.004.096/CD00000019")
 
     def testShutterIsIndependentOfOnOff(self):
         self.laser.turnOn()
