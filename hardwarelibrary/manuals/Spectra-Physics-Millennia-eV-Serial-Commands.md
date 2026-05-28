@@ -43,12 +43,20 @@ All commands and responses are ASCII.
 - Because actions return nothing, flush the input before each query to discard
   any stray bytes (power-up chatter, or an unread ack) before reading the
   reply.
-- **Action commands are occasionally dropped on the native USB-CDC link** and,
-  having no reply, fail silently. Observed intermittently on the lab eV25s with
-  `P:<f>`. For any setting that matters, confirm by reading it back (`P:<f>`
-  against `?PSET`) and retry on mismatch rather than trusting a single write.
-  The eV also seems to return stale data on the first query immediately after a
-  port re-open, so allow a throwaway read or a brief settle after connecting.
+- **A `P:<f>` setpoint write can silently not take, since action commands have
+  no reply.** Two distinct causes were pinned down on the lab eV25s:
+  1. *Commit lag.* After `P:<f>` the eV needs roughly a second to commit the new
+     setpoint; a `?PSET` read issued too soon returns the stale prior value.
+     Wait ~1 s before reading back.
+  2. *Mid-ramp rejection.* The eV refuses a setpoint change while the output is
+     still ramping to the previous setpoint (confirmed: from a settled 23 W,
+     `P:25.00` is accepted; issued again immediately while ramping, the next
+     `P:23.00` is ignored and `?PSET` stays 25.00). This is a set-and-forget
+     pump laser, so let the output settle before changing the setpoint again.
+  The driver's `doSetPower` writes, waits `powerSettleDelay` (1 s), confirms
+  against `?PSET`, retries, and raises `UnableToConfirmSetpoint` if it never
+  takes. A throwaway read or brief settle is also wise right after a port
+  re-open, where the first query can return stale data.
 
 ## Commands implemented by the driver
 

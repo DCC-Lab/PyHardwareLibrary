@@ -1,3 +1,5 @@
+import time
+
 from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
 from .lasersourcedevice import LaserSourceDevice
@@ -50,6 +52,17 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     commandTerminator = "\r"  # the eV accepts <CR>, <LF>, or both
     minPower = 0.05  # documented eV/Pro-s lower bound
     maxPower = 25.0  # eV25s spec; override on subclass for eV5/10/15/20
+    powerWriteAttempts = 8  # confirm + retry: a dropped/rejected P: has no ack
+    powerSetpointTolerance = 0.005  # W, finer than the eV's 0.01 W setpoint step
+    # Seconds to wait after a P: write before reading ?PSET back. The eV needs a
+    # moment to commit the new setpoint (a too-soon read returns the stale prior
+    # value) and rejects setpoint changes outright while still ramping. This is a
+    # set-and-forget pump laser that is not changed rapidly, so a generous delay
+    # here costs nothing.
+    powerSettleDelay = 1.0
+
+    class UnableToConfirmSetpoint(Exception):
+        pass
 
     def __init__(self, portPath=None, serialNumber=None, idProduct=None, idVendor=None):
         super().__init__(serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
@@ -133,7 +146,27 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
             raise ValueError(
                 "power {0} W outside Millennia range [{1}, {2}] W".format(
                     power, self.minPower, self.maxPower))
-        self.writeCommand("P:{0:.2f}".format(power))
+        # The eV does not ack action commands, so a P: that does not take would
+        # fail silently. Two things cause that: a too-soon ?PSET read returns the
+        # stale prior setpoint (hence the settle), and the eV refuses a new
+        # setpoint while the output is still ramping to the previous one. Write,
+        # settle, confirm against the echoed setpoint, and retry; raise if it
+        # never takes (e.g. called mid-ramp) rather than let the caller believe a
+        # rejected setpoint was applied. Firmware that does not echo ?PSET returns
+        # nothing: write once and trust it.
+        command = "P:{0:.2f}".format(power)
+        echoed = None
+        for _ in range(self.powerWriteAttempts):
+            self.writeCommand(command)
+            time.sleep(self.powerSettleDelay)
+            echoed = self.queryString("?PSET")
+            if not echoed:
+                return
+            if abs(float(echoed) - power) < self.powerSetpointTolerance:
+                return
+        raise self.UnableToConfirmSetpoint(
+            "Millennia did not accept setpoint {0:.2f} W after {1} writes "
+            "(last ?PSET={2!r})".format(power, self.powerWriteAttempts, echoed))
 
     def doGetPower(self) -> float:
         # ?P returns either a bare number ("4.90") or a number with the W unit
@@ -145,6 +178,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
 class DebugMillenniaEv25Device(MillenniaEv25Device):
     classIdVendor = 0xFFFF
     classIdProduct = 0xFFF2
+    powerSettleDelay = 0  # the mock commits P: instantly; no need to wait
 
     def __init__(self, serialNumber="debug"):
         super().__init__(portPath="debug", serialNumber=serialNumber)
@@ -175,7 +209,7 @@ class DebugMillenniaEv25Device(MillenniaEv25Device):
             return "1" if self.diodeIsOn else "0"
         elif query == "?SHT":
             return "1" if self.shutterIsOpen else "0"
-        elif query == "?P":
+        elif query == "?P" or query == "?PSET":
             return "{0:.2f}".format(self.outputPower)
         elif query == "*IDN?":
             # Mirrors the lab eV25s *IDN? reply verbatim (manufacturer, model,
