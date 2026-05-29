@@ -17,17 +17,21 @@ available.
 
 ## Transport and identity
 
-- Native USB on current eV revisions: the back-panel USB connector exposes a
-  virtual COM port to the host (USB-CDC or an internal FTDI/CP210x bridge
-  depending on the revision). Older eV revisions use a true RS-232 DB-9. Either
-  way the wire protocol is identical and looks like a serial port to the host.
-  On macOS the portPath is typically `/dev/cu.usbmodem*` (USB-CDC) or
-  `/dev/cu.usbserial-*` (FTDI/CP210x); on Linux `/dev/ttyACM*` or
-  `/dev/ttyUSB*`; on Windows a `COMn`.
-- The unit's USB VID/PID has not been recorded here yet, so the driver is
-  instantiated by `portPath` (like `CoboltDevice`) rather than discovered by
-  VID/PID. Adding VID/PID discovery is a straightforward follow-up once the
-  values for this lab's eV are captured.
+- Native USB on current eV revisions: the back-panel USB connector is a native
+  USB-CDC port exposed by an STM32 micro-controller inside the eV (confirmed on
+  the lab eV25s). It presents a virtual COM port to the host. Older eV revisions
+  use a true RS-232 DB-9 instead, but the wire protocol is identical and looks
+  like a serial port to the host either way. On macOS the portPath is
+  `/dev/cu.usbmodem*` (USB-CDC); on Linux `/dev/ttyACM*`; on Windows a `COMn`.
+  (A true-RS-232 unit reached through an external USB-serial adapter would
+  instead show up under that adapter's driver, e.g. `/dev/cu.usbserial-*`.)
+- The lab eV25s enumerates as **VID `0x0483`, PID `0x5740`** — STMicroelectronics'
+  *generic* STM32 Virtual COM Port identity. Because that identity is shared by
+  many unrelated STM32-based USB-CDC boards, the driver is still instantiated by
+  `portPath` (like `CoboltDevice`) rather than discovered by VID/PID, to avoid
+  binding to the wrong device. On a host that only ever has this one STM32 CDC
+  port, VID/PID discovery can be enabled (see the note in
+  `hardwarelibrary/sources/millennia.py`).
 - Serial settings: **115200 baud, 8 data bits, no parity, 1 stop bit** (115200
   is the eV default; it is field-configurable via a `BAUDRATE` command).
 

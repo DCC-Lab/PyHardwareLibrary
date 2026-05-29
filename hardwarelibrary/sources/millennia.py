@@ -9,14 +9,11 @@ from .capabilities import OnOffControl, ShutterControl, PowerControl
 class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl):
     """Spectra-Physics Millennia eV CW DPSS pump laser (532 nm).
 
-    Transport is the eV's back-panel USB port, which exposes a virtual COM port
-    to the host (USB-CDC or an internal FTDI/CP210x bridge depending on the
-    revision). From pyserial's point of view it is a serial port at 115200
-    8-N-1, so the driver works whether the wire is native USB or, on older eV
-    revisions, true RS-232 through an external USB-serial adapter. The driver
-    is instantiated by portPath (e.g. /dev/cu.usbmodem* on macOS) like the
-    CoboltDevice, because the unit's USB VID/PID has not been recorded here for
-    discovery.
+    Transport is the eV's back-panel USB port, which exposes a virtual COM
+    port to the host (STM32 micro-controller). From pyserial's point of view
+    it is a serial port at 115200 8-N-1, so the driver works whether the wire
+    is native USB or, on older eV revisions, true RS-232 through an external
+    USB-serial adapter.
 
     The eV speaks a compact ASCII protocol. Action commands (ON, OFF, SHT:1,
     SHT:0) are executed silently with no reply, while queries (?D, ?SHT) return
