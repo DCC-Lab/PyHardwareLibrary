@@ -4,7 +4,7 @@ Notable changes to PyHardwareLibrary, loosely following
 [Keep a Changelog](https://keepachangelog.com/). Read this before upgrading:
 API changes can land even when the minor version is unchanged.
 
-## [Unreleased]
+## [1.1.0] - 2026-05-29
 
 ### Changed
 - `CommunicationPort`: the optional matching-method argument `alternatePattern`
