@@ -1,49 +1,15 @@
-from abc import abstractmethod
-
 from hardwarelibrary.physicaldevice import PhysicalDevice
+from hardwarelibrary.sources.capabilities import Capability
 
 
 class LaserSourceDevice(PhysicalDevice):
-    def isLaserOn(self):
-        return self.doGetOnOffState()
+    def capabilities(self) -> list:
+        # The capability mixins, not the marker nor the device class itself
+        # (a driver is a Capability subclass too, but it is a PhysicalDevice).
+        return [klass for klass in type(self).__mro__
+                if issubclass(klass, Capability)
+                and klass is not Capability
+                and not issubclass(klass, PhysicalDevice)]
 
-    def turnOn(self):
-        self.doTurnOn()
-
-    def turnOff(self):
-        self.doTurnOff()
-
-    def setPower(self, power: float):
-        self.doSetPower(power)
-
-    def power(self) -> float:
-        return self.doGetPower()
-
-    def interlock(self) -> bool:
-        return self.doGetInterlockState()
-
-    # Hardware hooks a driver must implement, on top of doInitializeDevice
-    # and doShutdownDevice inherited from PhysicalDevice.
-    @abstractmethod
-    def doTurnOn(self):
-        ...
-
-    @abstractmethod
-    def doTurnOff(self):
-        ...
-
-    @abstractmethod
-    def doSetPower(self, power: float):
-        ...
-
-    @abstractmethod
-    def doGetPower(self) -> float:
-        ...
-
-    @abstractmethod
-    def doGetOnOffState(self) -> bool:
-        ...
-
-    @abstractmethod
-    def doGetInterlockState(self) -> bool:
-        ...
+    def hasCapability(self, capabilityClass) -> bool:
+        return isinstance(self, capabilityClass)
