@@ -1,5 +1,7 @@
 from .communicationport import *
 from .serialport import SerialPort
+from .tcpport import TCPPort, UnableToOpenTCPPort
+from .labviewtcpport import LabviewTCPPort
 from .usbport import USBPort
 from .diagnostics import USBParameters, DeviceCommand, USBDeviceDescription
 from .debugport import DebugPort, TableDrivenDebugPort

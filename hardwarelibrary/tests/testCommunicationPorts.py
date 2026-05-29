@@ -163,6 +163,38 @@ class BaseTestCases:
                     "abcd1234\n",
                     replyPattern="(abc.)(\\d{5})")
 
+        def testAlternatePatternRaisesAlternateMatchCarryingGroups(self):
+            try:
+                self.port.writeStringExpectMatchingString(
+                    "ERR:42\n",
+                    replyPattern="OK",
+                    errorPattern="ERR:(\\d+)")
+                self.fail("expected CommunicationReadError")
+            except CommunicationReadError as error:
+                self.assertEqual(error.groups, ("42",))
+                self.assertEqual(error.reply, "ERR:42\n")
+
+        def testAlternatePatternRaisesForReadMatchingGroups(self):
+            with self.assertRaises(CommunicationReadError):
+                self.port.writeStringReadMatchingGroups(
+                    "ERR:42\n",
+                    replyPattern="OK",
+                    errorPattern="ERR:\\d+")
+
+        def testAlternatePatternRaisesForReadFirstMatchingGroup(self):
+            with self.assertRaises(CommunicationReadError):
+                self.port.writeStringReadFirstMatchingGroup(
+                    "ERR:42\n",
+                    replyPattern="OK",
+                    errorPattern="ERR:(\\d+)")
+
+        def testNeitherReplyNorAlternateMatchesRaisesNoMatch(self):
+            with self.assertRaises(CommunicationReadNoMatch):
+                self.port.writeStringExpectMatchingString(
+                    "ERR:42\n",
+                    replyPattern="OK",
+                    errorPattern="NOPE")
+
         def testThreadSafety(self):
             global threadFailed, globalLock
             threadFailed = -1

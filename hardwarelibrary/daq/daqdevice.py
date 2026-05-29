@@ -39,6 +39,62 @@ class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
         pass
 
 
+class AnalogInputStreamDevice(AnalogInputDevice):
+    """Hardware-timed analog input (waveform acquisition).
+
+    Combine with PhysicalDevice in a driver. The driver implements the four
+    streaming primitives; acquireWaveform is provided on top of them. scanRate is
+    the per-channel sample rate in Hz; readStream returns one block of samples as
+    {channel: [volts, ...]}. The aggregate rate (scanRate times the number of
+    channels) is the hardware limit, not scanRate alone.
+
+    One-shot acquisition (blocks until sampleCount samples are collected):
+
+        waveform = device.acquireWaveform(channels=[0], scanRate=5000, sampleCount=1000)
+        samples = waveform[0]   # 1000 calibrated voltages from AIN0
+
+    Continuous acquisition with the primitives:
+
+        device.configureStream(channels=[0, 1], scanRate=2000)
+        device.startStream()
+        try:
+            while acquiring:
+                block = device.readStream()   # {0: [...], 1: [...]}
+                process(block[0])
+        finally:
+            device.stopStream()
+    """
+
+    @abstractmethod
+    def configureStream(self, channels, scanRate):
+        ...
+
+    @abstractmethod
+    def startStream(self):
+        ...
+
+    @abstractmethod
+    def readStream(self):
+        ...
+
+    @abstractmethod
+    def stopStream(self):
+        ...
+
+    def acquireWaveform(self, channels, scanRate, sampleCount):
+        self.configureStream(channels, scanRate)
+        samples = {channel: [] for channel in channels}
+        self.startStream()
+        try:
+            while min(len(values) for values in samples.values()) < sampleCount:
+                block = self.readStream()
+                for channel in channels:
+                    samples[channel].extend(block[channel])
+        finally:
+            self.stopStream()
+        return {channel: values[:sampleCount] for channel, values in samples.items()}
+
+
 class DigitalInputDevice(ABC):
     """Digital input capability. Combine with PhysicalDevice in a driver."""
 
