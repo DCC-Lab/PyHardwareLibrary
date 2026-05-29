@@ -158,13 +158,13 @@ class TestTektronikSerialCommands(unittest.TestCase):
         self.assertTrue(self.port.port.dsr)
         return self.port.readString()
 
-    def readFirstMatchingGroup(self, replyPattern, alternatePattern = None, endPoint=None):
-        reply, groups = self.readMatchingGroups(replyPattern, alternatePattern, endPoint)
+    def readFirstMatchingGroup(self, replyPattern, errorPattern = None, endPoint=None):
+        reply, groups = self.readMatchingGroups(replyPattern, errorPattern, endPoint)
         return groups[0]
 
-    def readMatchingGroups(self, replyPattern, alternatePattern = None, endPoint=None):
+    def readMatchingGroups(self, replyPattern, errorPattern = None, endPoint=None):
         time.sleep(0.1)
-        return self.port.readMatchingGroups(replyPattern, alternatePattern, endPoint)
+        return self.port.readMatchingGroups(replyPattern, errorPattern, endPoint)
 
     def readData(self, length):
         time.sleep(0.1)
