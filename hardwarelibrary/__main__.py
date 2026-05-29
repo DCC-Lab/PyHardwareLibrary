@@ -40,6 +40,10 @@ deviceManager = args['devicemanager']
 debugUSB = args['debugusb']
 listAll = args['list']
 
+if not any(args.values()):
+    ap.print_help()
+    sys.exit(0)
+
 if listAll == True:
     devices = connectedUSBDevices()
     for device in devices:
