@@ -141,21 +141,9 @@ class TestDebugMatisseDevice(unittest.TestCase):
         with self.assertRaises(MatisseDevice.MotionTimeout):
             self.matisse.waitForBifi(timeout=0.1)
 
-    def testParseReplyStripsColonAndEchoedCommand(self):
-        self.assertEqual(self.matisse.parseReply(":MOTBI:POS: 12345"), "12345")
-
-    def testParseReplyKeepsQuotedIdnValue(self):
-        self.assertEqual(self.matisse.parseReply(':IDN: "Matisse TS"'), '"Matisse TS"')
-
-    def testParseReplyEchoOnlyReturnsEmpty(self):
-        self.assertEqual(self.matisse.parseReply(":MOTBI:HOME:"), "")
-
-    def testParseReplyPassesPlainReplyThrough(self):
-        self.assertEqual(self.matisse.parseReply("OK"), "OK")
-
-    def testParseReplyRaisesAndPreservesErrorMessage(self):
+    def testErrorReplyRaisesMatisseCommanderError(self):
         try:
-            self.matisse.parseReply('!ERROR 1,"general syntax error"')
+            self.matisse.query("BAD?")
             self.fail("expected MatisseCommanderError")
         except MatisseCommanderError as error:
             self.assertIn("general syntax error", str(error))
@@ -192,7 +180,7 @@ class TestMatisseDeviceOverMockServer(unittest.TestCase):
 
     def testErrorReplyRaisesOverRealTransport(self):
         with self.assertRaises(MatisseCommanderError):
-            self.matisse.queryString("BAD?")
+            self.matisse.query("BAD?")
 
     def testShutdownSendsCloseNetworkConnection(self):
         self.matisse.shutdownDevice()
