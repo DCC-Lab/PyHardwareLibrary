@@ -34,11 +34,18 @@ jobs:
       name: pypi
       url: https://pypi.org/p/hardwarelibrary
     permissions:
-      # Required for Trusted Publishing (OIDC); no API token needed.
+      # id-token for Trusted Publishing (OIDC, no API token); contents to create
+      # the GitHub Release.
       id-token: write
+      contents: write
     steps:
       - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*
