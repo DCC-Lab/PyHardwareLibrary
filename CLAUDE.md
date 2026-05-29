@@ -1,13 +1,18 @@
 # CLAUDE.md
 
-PyHardwareLibrary controls scientific hardware (motion stages, spectrometers, lasers, DAQs, power meters, oscilloscopes, cameras) used in the Côté lab. Drivers live under `hardwarelibrary/<family>/<device>.py`.
+PyHardwareLibrary controls scientific hardware (motion stages, spectrometers, lasers, DAQs, power meters, oscilloscopes, cameras) used in the DCC/M Lab. Drivers live under `hardwarelibrary/<family>/<device>.py`.
 
 This file is for AI-assisted contributors. Humans should read `README.md` and the numbered companion docs (`README-1-USB.md` through `README-7-Sutter-ROE-200.md`) first — they cover USB/RS-232 background, the new-device tutorial, and the existing device matrix.
+
+## General instructions
+
+- Always read the release notes to see if there was any change in the API, which may happen even if the version minor was not changed.
 
 ## Style
 
 - **camelCase everywhere** for methods, attributes, and parameters.
-- **No docstrings on obvious code.** Only add one when the *why* is non-obvious (a constraint, a workaround, a surprising invariant).
+- docstrings on all methods
+- **No comments on obvious code.** Only add one when the *why* is non-obvious (a constraint, a workaround, a surprising invariant).
 - **No inline `# what this does` comments.** Well-named identifiers do that job.
 - **No emojis** in code, commit messages, or markdown.
 - **No wildcard imports in new code.** The existing `from X import *` everywhere is technical debt, not convention. Use explicit imports.
@@ -15,7 +20,7 @@ This file is for AI-assisted contributors. Humans should read `README.md` and th
 
 ## Running things
 
-- Python is `python3`, not `python`.
+- Always try to use a local virtual environment if present in `.venv`. Python can be `python3`, or in a venv `python`.
 - Tests: `python3 -m pytest hardwarelibrary/tests/<file>.py -v`.
 - Directory collection (`pytest hardwarelibrary/tests/`) currently returns **zero tests** because pytest's default `python_files` pattern is `test_*.py` and the files here are `testFoo.py`. Name files explicitly until `pyproject.toml` is updated.
 - Tests for hardware-dependent code must `skipTest(...)` when no hardware is attached — they must not fail. Pattern established in PRs #65 and #66; the `DebugLabjackDevice` tests in PR on `labjack-rewrite` are the cleanest reference.
@@ -30,6 +35,7 @@ Core triad — all under `hardwarelibrary/`:
 
 Communication abstractions under `hardwarelibrary/communication/`:
 
+- Always try to use the primitives of `CommunicationPort`
 - `commands.py` — `Command` / `TextCommand` / `MultilineTextCommand` / `DataCommand` classes that bundle outgoing payload + reply parser.
 - `debugport.py:DebugPort` — table-driven mock port. Used by the few devices that adopt the `commands` dict pattern.
 - `serialport.py`, `usbport.py` — concrete port implementations.
@@ -49,7 +55,7 @@ Each family has an **abstract base class**. A driver subclasses it and implement
 | Laser source | `sources/` | `LaserSourceDevice` | `doTurnOn`, `doTurnOff`, `doSetPower`, `doGetPower`, `doGetOnOffState`, `doGetInterlockState` |
 | DAQ | `daq/` | capability mixins (see below) | one method per mixin: `getAnalogVoltage` / `setAnalogVoltage` / `getDigitalValue` / `setDigitalValue` |
 
-DAQ uses **interface-segregated capability mixins** instead of one base class, because a device may do any subset of read/write on analog/digital lines: `AnalogInputDevice` (`getAnalogVoltage`), `AnalogOutputDevice` (`setAnalogVoltage`), `DigitalInputDevice` (`getDigitalValue`), `DigitalOutputDevice` (`setDigitalValue`), plus `AnalogIODevice` / `DigitalIODevice` that combine each pair. The `configure*` and `direction*` methods are optional no-op hooks. A driver combines `PhysicalDevice` with the mixins it needs, e.g. `class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice)`.
+`DAQDevice` and `SourceDevice` uses **interface-segregated capability mixins** instead of one base class, because a device may do any subset of read/write on analog/digital lines: `AnalogInputDevice` (`getAnalogVoltage`), `AnalogOutputDevice` (`setAnalogVoltage`), `DigitalInputDevice` (`getDigitalValue`), `DigitalOutputDevice` (`setDigitalValue`), plus `AnalogIODevice` / `DigitalIODevice` that combine each pair. The `configure*` and `direction*` methods are optional no-op hooks. A driver combines `PhysicalDevice` with the mixins it needs, e.g. `class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice)`.
 
 ## Adding a new device
 
@@ -75,7 +81,6 @@ Reference implementation: `hardwarelibrary/daq/labjackdevice.py`. The pattern:
 ## Branch hygiene
 
 - The main branch is named `master`, not `main`.
-- `send-side-migration` has been unmerged for months — do not assume its changes are present on `master`. On `master`, `TextCommand` uses `self.text`, not `self.text_format`.
 - Open PRs against `master`. Prefer per-bug commits (each with a Problem/Solution body) over bundled commits — PR #74 is the template.
 
 ## Test running cheatsheet
