@@ -34,6 +34,31 @@ class OnOffControl(Capability):
         ...
 
 
+class ShutterControl(Capability):
+    # Distinct from OnOffControl: the shutter is a mechanical block in front of
+    # the output, so it can be opened or closed while the laser stays on.
+    def isShutterOpen(self) -> bool:
+        return self.doGetShutterState()
+
+    def openShutter(self):
+        self.doOpenShutter()
+
+    def closeShutter(self):
+        self.doCloseShutter()
+
+    @abstractmethod
+    def doOpenShutter(self):
+        ...
+
+    @abstractmethod
+    def doCloseShutter(self):
+        ...
+
+    @abstractmethod
+    def doGetShutterState(self) -> bool:
+        ...
+
+
 class PowerControl(Capability):
     unit = "W"
     isReadable = True
