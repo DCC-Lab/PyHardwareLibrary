@@ -1,5 +1,7 @@
 import env
 import unittest
+import time
+import u3
 
 from hardwarelibrary.devicemanager import *
 from hardwarelibrary.notificationcenter import NotificationCenter
@@ -9,14 +11,41 @@ from enum import Enum
 from typing import Union, Optional, Protocol
 
 class TestLabjackDevice(unittest.TestCase):
+    # The U3 DAC outputs are PWM-based, smoothed by a 2nd-order ~16 Hz low-pass
+    # filter (~10 ms time constant), so an AIN read immediately after setting a DAC
+    # returns the previous value. Wait for the output to settle before reading back.
+    analogSettlingTime = 0.15
+
+    def settledAnalogVoltage(self, value, channel):
+        self.device.setAnalogVoltage(value=value, channel=channel)
+        time.sleep(self.analogSettlingTime)
+        return self.device.getAnalogVoltage(channel=channel)
+
     def setUp(self):
         super().setUp()
+        self.device = LabjackDevice()
+        self.assertIsNotNone(self.device)
         try:
-            self.device = LabjackDevice()
-            self.assertIsNotNone(self.device)
             self.device.initializeDevice()
-        except Exception as err:
-            self.skipTest("No Labjack connected")
+        except PhysicalDevice.UnableToInitialize as err:
+            cause = err.args[0] if err.args else None
+            if isinstance(cause, u3.LabJackException):
+                self.skipTest("No Labjack connected")
+            raise
+
+    def skipUnlessAnalogLoopback(self, channel):
+        low = self.settledAnalogVoltage(0.5, channel)
+        high = self.settledAnalogVoltage(2.5, channel)
+        if high - low < 1.0:
+            self.skipTest(f"DAC{channel} not jumpered to AIN{channel}")
+
+    def skipUnlessDigitalLoopback(self, outputChannel, inputChannel):
+        self.device.setDigitalValue(channel=outputChannel, value=True)
+        high = self.device.getDigitalValue(channel=inputChannel)
+        self.device.setDigitalValue(channel=outputChannel, value=False)
+        low = self.device.getDigitalValue(channel=inputChannel)
+        if not (high and not low):
+            self.skipTest(f"FIO{outputChannel} not jumpered to FIO{inputChannel}")
 
     def tearDown(self):
         super().tearDown()
@@ -46,22 +75,46 @@ class TestLabjackDevice(unittest.TestCase):
         self.assertAlmostEqual(value, 4.53, 1)
 
     def testSetAnalogValueChannel0(self):
-        # DAC0 conected to AIN0
+        self.skipUnlessAnalogLoopback(0)
         expectedValue = 1.5
-        self.device.setAnalogVoltage(value=expectedValue, channel=0)
-
-        actualValue = self.device.getAnalogVoltage(channel=0)
+        actualValue = self.settledAnalogVoltage(expectedValue, 0)
         self.assertIsNotNone(actualValue)
         self.assertAlmostEqual(actualValue, expectedValue, 1)
 
     def testSetAnalogValueChannel1(self):
-        # DAC1 conected to AIN1
+        self.skipUnlessAnalogLoopback(1)
         expectedValue = 1.1
-        self.device.setAnalogVoltage(value=expectedValue, channel=1)
-
-        actualValue = self.device.getAnalogVoltage(channel=1)
+        actualValue = self.settledAnalogVoltage(expectedValue, 1)
         self.assertIsNotNone(actualValue)
         self.assertAlmostEqual(actualValue, expectedValue, 1)
+
+    def testMeasureAnalogSettlingTime(self):
+        channel = 0
+        self.skipUnlessAnalogLoopback(channel)
+
+        target = 3.0
+        tolerance = 0.05
+        timeout = 1.0
+
+        self.device.setAnalogVoltage(value=0.0, channel=channel)
+        time.sleep(0.5)
+
+        start = time.perf_counter()
+        self.device.setAnalogVoltage(value=target, channel=channel)
+        settlingTime = None
+        reads = 0
+        while time.perf_counter() - start < timeout:
+            reads += 1
+            if abs(self.device.getAnalogVoltage(channel=channel) - target) <= tolerance:
+                settlingTime = time.perf_counter() - start
+                break
+
+        self.assertIsNotNone(settlingTime, f"AIN{channel} never reached {target} V within {timeout} s")
+        print(f"\nDAC{channel}->AIN{channel} full-scale step settled within {tolerance} V "
+              f"in {settlingTime * 1000:.1f} ms over {reads} reads (USB + DAC RC + ADC)")
+        self.assertLess(settlingTime, self.analogSettlingTime,
+                        f"measured settling {settlingTime * 1000:.1f} ms exceeds "
+                        f"analogSettlingTime {self.analogSettlingTime * 1000:.0f} ms used by the suite")
 
     def testSetDigitalValueChannel4(self):
         expectedValue = True
@@ -82,17 +135,20 @@ class TestLabjackDevice(unittest.TestCase):
         self.assertEqual(actualValue, expectedValue)
 
     def testToggleDigitalValuesQuickly(self):
-        expectedValue = True
         outputChannel = 6
         inputChannel = 7
+        self.skipUnlessDigitalLoopback(outputChannel, inputChannel)
+
+        expectedValue = True
         loops = 1000
+        maxAttempts = 10
         while loops > 0:
             loops -= 1
             self.device.setDigitalValue(channel=outputChannel, value=expectedValue)
 
             actualValue = None
             attempts = 0
-            while actualValue != expectedValue:
+            while actualValue != expectedValue and attempts < maxAttempts:
                 actualValue = self.device.getDigitalValue(channel=inputChannel)
                 attempts = attempts + 1
             self.assertEqual(attempts, 1)
@@ -106,6 +162,66 @@ class TestLabjackDevice(unittest.TestCase):
     def testSetConfiguration(self):
         with self.assertRaises(NotImplementedError):
             self.device.setConfiguration(None)
+
+    def testOpenBySerialNumber(self):
+        serialNumber = str(self.device.configuration()['SerialNumber'])
+        self.device.shutdownDevice()
+        try:
+            bySerial = LabjackDevice(serialNumber=serialNumber)
+            bySerial.initializeDevice()
+            self.assertEqual(str(bySerial.configuration()['SerialNumber']), serialNumber)
+            bySerial.shutdownDevice()
+        finally:
+            self.device.initializeDevice()
+
+    def testIsHighVoltage(self):
+        self.assertIsInstance(self.device.isHighVoltage, bool)
+
+    def testGetTemperature(self):
+        kelvin = self.device.getTemperature()
+        self.assertGreater(kelvin, 250)
+        self.assertLess(kelvin, 350)
+
+    def testToggleLED(self):
+        self.device.toggleLED()
+
+    def testSetAnalogVoltageInvalidChannel(self):
+        with self.assertRaises(ValueError):
+            self.device.setAnalogVoltage(value=1.0, channel=2)
+
+    def testConfigureAnalogIO(self):
+        self.device.configureAnalogIO({})
+
+    def testConfigureDigitalIO(self):
+        self.device.configureDigitalIO({})
+
+    def testAcquireWaveformSampleCount(self):
+        waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=200)
+        self.assertEqual(len(waveform[0]), 200)
+
+    def testAcquireWaveformReadsLoopback(self):
+        self.skipUnlessAnalogLoopback(0)
+        self.device.setAnalogVoltage(value=2.0, channel=0)
+        time.sleep(self.analogSettlingTime)
+        waveform = self.device.acquireWaveform(channels=[0], scanRate=2000, sampleCount=500)
+        self.assertEqual(len(waveform[0]), 500)
+        mean = sum(waveform[0]) / len(waveform[0])
+        self.assertAlmostEqual(mean, 2.0, 1)
+
+    def testStreamPrimitives(self):
+        self.device.configureStream(channels=[0], scanRate=1000)
+        self.device.startStream()
+        try:
+            block = self.device.readStream()
+        finally:
+            self.device.stopStream()
+        self.assertIn(0, block)
+        self.assertGreater(len(block[0]), 0)
+
+    def testReadStreamHandlesEmptyPacket(self):
+        self.device._streamChannels = [0]
+        self.device._streamData = iter([None])
+        self.assertEqual(self.device.readStream(), {0: []})
 
 class TestDebugLabjackDevice(unittest.TestCase):
     def setUp(self):
@@ -176,6 +292,37 @@ class TestDebugLabjackDevice(unittest.TestCase):
 
     def testConfigureDigitalIO(self):
         self.device.configureDigitalIO({'FIOAnalog': 0x00})
+
+    def testConfigureAnalogIORejectsUnknownKey(self):
+        with self.assertRaises(ValueError):
+            self.device.configureAnalogIO({'FIOAnalog': 0xFF, 'Bogus': 1})
+
+    def testConfigureDigitalIORejectsUnknownKey(self):
+        with self.assertRaises(ValueError):
+            self.device.configureDigitalIO({'NotAParameter': 0})
+
+    def testAcquireWaveform(self):
+        self.device.setAnalogVoltage(value=2.5, channel=0)
+        waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=50)
+        self.assertEqual(len(waveform[0]), 50)
+        self.assertTrue(all(abs(value - 2.5) < 1e-9 for value in waveform[0]))
+
+    def testAcquireWaveformMultiChannel(self):
+        self.device.setAnalogVoltage(value=1.0, channel=0)
+        self.device.setAnalogVoltage(value=2.0, channel=1)
+        waveform = self.device.acquireWaveform(channels=[0, 1], scanRate=1000, sampleCount=30)
+        self.assertEqual(len(waveform[0]), 30)
+        self.assertEqual(len(waveform[1]), 30)
+        self.assertAlmostEqual(waveform[0][0], 1.0)
+        self.assertAlmostEqual(waveform[1][0], 2.0)
+
+    def testStreamPrimitives(self):
+        self.device.configureStream(channels=[0], scanRate=1000)
+        self.device.startStream()
+        block = self.device.readStream()
+        self.device.stopStream()
+        self.assertIn(0, block)
+        self.assertGreater(len(block[0]), 0)
 
 
 if __name__ == '__main__':
