@@ -52,6 +52,10 @@ docs = [
   "myst-parser",
   "sphinxcontrib-mermaid",
 ]
+thorlabs = [
+  # Backend for ThorlabsKinesisDevice (the Thorlabs Kinesis runtime wrapper).
+  "pylablib",
+]
 
 [project.urls]
 Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
