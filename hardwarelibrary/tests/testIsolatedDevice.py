@@ -17,8 +17,10 @@ class TestRemotableDeviceInSeparateProcess(unittest.TestCase):
 
     def setUp(self):
         from hardwarelibrary.remoting import launchIsolatedDevice
-        from hardwarelibrary.remoting.exampledevices import RemotableDebugStage
-        self.stage = launchIsolatedDevice(RemotableDebugStage)
+        from hardwarelibrary.motion.linearmotiondevice import DebugLinearMotionDevice
+        # Every device is Remotable (PhysicalDevice mixes it in), so a plain
+        # debug device can serve itself with no special subclass.
+        self.stage = launchIsolatedDevice(DebugLinearMotionDevice)
 
     def tearDown(self):
         try:
@@ -68,10 +70,10 @@ class TestInProcessRemotableDevice(unittest.TestCase):
 
     def testInProcessIsTheRealDevice(self):
         from hardwarelibrary.remoting import createDevice
-        from hardwarelibrary.remoting.exampledevices import RemotableDebugStage
-        from hardwarelibrary.motion.linearmotiondevice import LinearMotionDevice
+        from hardwarelibrary.motion.linearmotiondevice import (
+            DebugLinearMotionDevice, LinearMotionDevice)
 
-        device = createDevice(RemotableDebugStage, isolated=False)
+        device = createDevice(DebugLinearMotionDevice, isolated=False)
         self.assertIsInstance(device, LinearMotionDevice)  # real device: isinstance holds
         device.initializeDevice()
         device.moveTo((1, 2, 3))

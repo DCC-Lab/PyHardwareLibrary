@@ -4,6 +4,7 @@ from threading import Thread, RLock
 
 from hardwarelibrary import utils
 from hardwarelibrary.notificationcenter import NotificationCenter
+from hardwarelibrary.remotable import Remotable
 import typing
 import time
 import re
@@ -24,7 +25,7 @@ class PhysicalDeviceNotification(Enum):
     didShutdownDevice          = "didShutdownDevice"
     status                     = "status"
 
-class PhysicalDevice(ABC):
+class PhysicalDevice(ABC, Remotable):
     class UnableToInitialize(Exception):
         pass
     class UnableToShutdown(Exception):

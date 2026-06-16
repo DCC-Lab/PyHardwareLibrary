@@ -15,7 +15,7 @@ Requires the optional `Pyro5` dependency (`pip install hardwarelibrary[remote]`)
 """
 from hardwarelibrary.remoting.isolation import createDevice, launchIsolatedDevice
 from hardwarelibrary.remoting.deviceproxy import ProxyDevice, IsolatedDeviceError
-from hardwarelibrary.remoting.remotable import Remotable
+from hardwarelibrary.remotable import Remotable
 
 __all__ = [
     "createDevice",
