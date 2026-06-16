@@ -50,6 +50,33 @@ class TestRemotableDeviceInSeparateProcess(unittest.TestCase):
         self.assertIsInstance(self.stage.state, DeviceState)
         self.assertEqual(self.stage.state, DeviceState.Ready)
 
+    def testRemoteEventsViaDistributedNotificationCenter(self):
+        # Observe a remote device with the same addObserver(...) shape as local,
+        # but through the cross-process DistributedNotificationCenter.
+        import threading
+        from hardwarelibrary.remoting import DistributedNotificationCenter
+        from hardwarelibrary.motion.linearmotiondevice import LinearMotionNotification
+
+        received = []
+        gotEvent = threading.Event()
+
+        def onMove(notification):
+            received.append(notification)
+            gotEvent.set()
+
+        center = DistributedNotificationCenter()
+        center.addObserver(onMove, LinearMotionNotification.didMove, observedObject=self.stage)
+        try:
+            self.stage.initializeDevice()
+            self.stage.moveTo((10, 20, 30))
+            self.assertTrue(gotEvent.wait(timeout=5), "did not receive didMove event")
+            notification = received[0]
+            self.assertEqual(notification.name, LinearMotionNotification.didMove)
+            self.assertIs(notification.object, self.stage)        # notifying object is the proxy
+            self.assertEqual(tuple(notification.userInfo), (10, 20, 30))
+        finally:
+            center.removeObserver(onMove, LinearMotionNotification.didMove, observedObject=self.stage)
+
     def testProcessDeathIsIsolatedFromCaller(self):
         from hardwarelibrary.remoting import IsolatedDeviceError
         self.stage.initializeDevice()

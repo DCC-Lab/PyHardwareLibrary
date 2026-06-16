@@ -12,6 +12,7 @@ requests until the process is terminated.
 import argparse
 import importlib
 import json
+import os
 
 import Pyro5.api
 
@@ -36,6 +37,13 @@ def main():
     # The device serves itself: Remotable exposes callMethod/getAttribute, so no
     # servant wrapper is needed.
     uri = daemon.register(device)
+
+    # If a central broker is configured (inherited via HWLIB_DNC_URI), republish
+    # this device's notifications to it so remote observers receive them.
+    if os.environ.get("HWLIB_DNC_URI"):
+        from hardwarelibrary.remoting.distributednotificationcenter import bridgeDeviceToBroker
+        bridgeDeviceToBroker(device, str(uri))
+
     print(f"READY {uri}", flush=True)
     daemon.requestLoop()
 

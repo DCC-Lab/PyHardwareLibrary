@@ -28,6 +28,12 @@ def launchIsolatedDevice(deviceClass, *, startupTimeout=15.0, **kwargs):
 
     deviceClass must mix in Remotable so it can serve itself over Pyro5.
     """
+    from hardwarelibrary.remoting.distributednotificationcenter import DistributedNotificationCenter
+
+    # Ensure a central event broker exists and is exported (HWLIB_DNC_URI) so the
+    # spawned host can republish the device's notifications to it.
+    DistributedNotificationCenter.ensureBroker()
+
     classPath = f"{deviceClass.__module__}.{deviceClass.__qualname__}"
     process = subprocess.Popen(
         [sys.executable, "-m", "hardwarelibrary.remoting.devicehost",

@@ -26,6 +26,7 @@ class ProxyDevice:
         # Set via object.__setattr__ so they are not seen as remote attributes.
         object.__setattr__(self, "_pyro", pyroProxy)
         object.__setattr__(self, "_process", process)
+        object.__setattr__(self, "_deviceId", str(pyroProxy._pyroUri))
 
     # -- host-process supervision -------------------------------------------
     def isAlive(self):
@@ -40,6 +41,9 @@ class ProxyDevice:
             raise IsolatedDeviceError(
                 f"device process is not running (exit code {self._process.poll()})")
         try:
+            # A Pyro proxy is bound to one thread; let whichever thread drives the
+            # device (e.g. a command thread, or a notification handler) use it.
+            self._pyro._pyroClaimOwnership()
             return thunk()
         except Pyro5.errors.CommunicationError as error:
             if self._process is not None and self._process.poll() is not None:
@@ -69,6 +73,11 @@ class ProxyDevice:
     @property
     def idProduct(self):
         return self._get("idProduct")
+
+    # Events are delivered out-of-band by the DistributedNotificationCenter, keyed
+    # on this device's id; observe a remote device exactly like a local one:
+    #   DistributedNotificationCenter().addObserver(
+    #       self.onMove, LinearMotionNotification.didMove, observedObject=stage)
 
     # -- everything else forwards automatically -----------------------------
     def __getattr__(self, name):
