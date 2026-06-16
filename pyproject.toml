@@ -46,6 +46,10 @@ dev = [
   "pytest",
   "pytest-cov",
 ]
+remote = [
+  # Process-isolated / cross-machine device hosting (hardwarelibrary.remoting).
+  "Pyro5",
+]
 
 [project.urls]
 Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
