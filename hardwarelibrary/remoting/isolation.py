@@ -6,16 +6,17 @@ import time
 
 import Pyro5.api
 
-from hardwarelibrary.remoting.deviceproxy import RemoteDevice, IsolatedDeviceError
+from hardwarelibrary.remoting.deviceproxy import ProxyDevice, IsolatedDeviceError
 
 
 def createDevice(deviceClass, *, isolated=False, **kwargs):
     """Create a device either in this process or in its own supervised process.
 
-    ``isolated=False`` returns the real PhysicalDevice (in-process, direct, fast).
-    ``isolated=True`` returns a RemoteDevice proxy to the device running in a
+    ``isolated=False`` returns the real device (in-process, direct, fast) -- a
+    genuine instance of deviceClass, so isinstance against its family ABC holds.
+    ``isolated=True`` returns a ProxyDevice handle to the same device running in a
     separate process, so a crash in a (possibly buggy) driver cannot take down
-    this process. Both expose the same interface, so the caller is agnostic.
+    this process. Both are driven by the same method calls.
     """
     if not isolated:
         return deviceClass(**kwargs)
@@ -23,7 +24,10 @@ def createDevice(deviceClass, *, isolated=False, **kwargs):
 
 
 def launchIsolatedDevice(deviceClass, *, startupTimeout=15.0, **kwargs):
-    """Spawn a host process for deviceClass and return a RemoteDevice for it."""
+    """Spawn a host process for deviceClass and return a ProxyDevice for it.
+
+    deviceClass must mix in Remotable so it can serve itself over Pyro5.
+    """
     classPath = f"{deviceClass.__module__}.{deviceClass.__qualname__}"
     process = subprocess.Popen(
         [sys.executable, "-m", "hardwarelibrary.remoting.devicehost",
@@ -32,7 +36,7 @@ def launchIsolatedDevice(deviceClass, *, startupTimeout=15.0, **kwargs):
     )
     uri = _awaitReady(process, startupTimeout)
     proxy = Pyro5.api.Proxy(uri)
-    return RemoteDevice(proxy, process)
+    return ProxyDevice(proxy, process)
 
 
 def _awaitReady(process, timeout):
