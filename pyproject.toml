@@ -46,6 +46,16 @@ dev = [
   "pytest",
   "pytest-cov",
 ]
+docs = [
+  "sphinx",
+  "furo",
+  "myst-parser",
+  "sphinxcontrib-mermaid",
+]
+thorlabs = [
+  # Backend for ThorlabsKinesisDevice (the Thorlabs Kinesis runtime wrapper).
+  "pylablib",
+]
 remote = [
   # Process-isolated / cross-machine device hosting (hardwarelibrary.remoting).
   "Pyro5",

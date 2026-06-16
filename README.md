@@ -38,11 +38,13 @@ The library currently supports the following hardware:
 | | Ocean Insight USB2000+ | `USB2000Plus` | `0x2457:0x101E` | USB (PyUSB) |
 | | Ocean Insight USB4000 | `USB4000` | `0x2457:0x1022` | USB (PyUSB) |
 | | Ocean Insight USB650 | `USB650` | `0x2457:0x1014` | USB (PyUSB) |
+| | Ocean Insight SAS | `SAS` | `0x2457:0x1006` | USB (PyUSB) |
 | **Motion (linear)** | Sutter MP-285 | `SutterDevice` | `0x1342:0x0001` | Serial (FTDI) |
-| | Thorlabs KDC (K-Cube) | `ThorlabsDevice` | `0x0403:0xFAF0` | Serial (FTDI) |
-| | Thorlabs Kinesis | `ThorlabsKinesisDevice` | `0x0403:0xFAF0` | pylablib |
+| | Thorlabs (Kinesis) | `ThorlabsDevice` | `0x0403:0xFAF0` | Kinesis (pylablib) |
 | **Motion (rotation)** | Intellidrive | `IntellidriveDevice` | `0x0403:0x6001` | Serial (FTDI) |
 | **Laser sources** | Cobolt laser | `CoboltDevice` | (serial) | Serial |
+| | Spectra-Physics Millennia eV | `MillenniaEv25Device` | (serial) | Serial |
+| | Sirah Matisse | `MatisseDevice` | (TCP) | TCP/IP |
 | **Power meters** | Gentec-EO Integra | `IntegraDevice` | `0x1AD5:0x0300` | USB (PyUSB) |
 | **DAQ** | LabJack U3 | `LabjackDevice` | `0x0CD5:0x0003` | USB (LabJackPython) |
 | **Oscilloscopes** | Tektronix TDS series | `OscilloscopeDevice` | `0x0403:0x6001` | Serial (FTDI/SCPI) |
@@ -111,15 +113,14 @@ stage.home()                           # return to origin
 stage.shutdownDevice()
 ```
 
-Thorlabs K-Cube controllers use the same `LinearMotionDevice` interface:
+Thorlabs stages use the same `LinearMotionDevice` interface, driven through
+the Thorlabs Kinesis runtime via [pylablib](https://pylablib.readthedocs.io)
+(`pip install pylablib`):
 
 ```python
-from hardwarelibrary.motion.thorlabs import ThorlabsDevice, ThorlabsKinesisDevice
+from hardwarelibrary.motion.thorlabs import ThorlabsDevice
 
-stage = ThorlabsDevice()               # direct FTDI protocol
-# or
-stage = ThorlabsKinesisDevice()        # via pylablib Kinesis
-
+stage = ThorlabsDevice()               # routes to the Kinesis backend
 stage.initializeDevice()
 stage.moveTo((5000, 0, 0))
 stage.shutdownDevice()
