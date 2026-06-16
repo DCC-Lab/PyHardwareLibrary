@@ -29,7 +29,11 @@ class TestLabjackDevice(unittest.TestCase):
             self.device.initializeDevice()
         except PhysicalDevice.UnableToInitialize as err:
             cause = err.args[0] if err.args else None
-            if isinstance(cause, u3.LabJackException):
+            # No device attached raises u3.LabJackException; a host without the
+            # native LabJack exodriver library raises AttributeError, because
+            # LabJackPython's staticLib is None. Either way there is no hardware
+            # to exercise, so skip rather than fail.
+            if isinstance(cause, (u3.LabJackException, AttributeError)):
                 self.skipTest("No Labjack connected")
             raise
 
