@@ -112,15 +112,14 @@ stage.home()                           # return to origin
 stage.shutdownDevice()
 ```
 
-Thorlabs K-Cube controllers use the same `LinearMotionDevice` interface:
+Thorlabs stages use the same `LinearMotionDevice` interface, driven through
+the Thorlabs Kinesis runtime via [pylablib](https://pylablib.readthedocs.io)
+(`pip install pylablib`):
 
 ```python
-from hardwarelibrary.motion.thorlabs import ThorlabsDevice, ThorlabsKinesisDevice
+from hardwarelibrary.motion.thorlabs import ThorlabsDevice
 
-stage = ThorlabsDevice()               # direct FTDI protocol
-# or
-stage = ThorlabsKinesisDevice()        # via pylablib Kinesis
-
+stage = ThorlabsDevice()               # routes to the Kinesis backend
 stage.initializeDevice()
 stage.moveTo((5000, 0, 0))
 stage.shutdownDevice()
