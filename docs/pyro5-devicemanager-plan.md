@@ -1,7 +1,7 @@
-# Pyro5-Native DeviceManager Rewrite — Design Notes
+# Remote Device Access over Pyro5 — Design Notes
 
-> Status: **planned, not started.** Parked for later discussion (deliberately a
-> big change). This document captures the design and the Pyro5 research so we can
+> Status: **planned, not started.** Design decisions reviewed and updated
+> 2026-06-15. This document captures the design and the Pyro5 research so we can
 > pick it up without re-deriving everything.
 
 ## Motivation
@@ -9,28 +9,66 @@
 The current `DeviceManager` (`hardwarelibrary/devicemanager.py`) is an in-process
 singleton: it monitors USB, instantiates driver objects, holds them in a `set`,
 talks to them with direct method calls, and broadcasts state through an
-in-process `NotificationCenter`. The hand-rolled wiring between the manager and
-the device objects is clunky and buggy, and only works within one Python process
-on one machine.
+in-process `NotificationCenter`. That works well **on the machine the hardware is
+attached to**, and there is nothing wrong with it for local use.
+
+What is missing is **cross-machine control**: running an app on one machine that
+drives a device physically attached to another (e.g. a stage on a lab host). USB
+monitoring and a device's live object (it owns a port, an `RLock`, a monitoring
+`Thread`) are inherently local and single-owner — so the device must stay owned
+by a per-host server where the hardware lives, and a remote app reaches it through
+a handle.
 
 ## Goal
 
-Cross-machine control. A Pyro5 **name server runs on host `cafeine3`**. Any
-machine with hardware attached runs a **device server** that discovers its local
-devices and advertises each one in the name server. A client anywhere looks a
+Let a Python app on machine A drive a device attached to machine B as if it were
+local, and receive that device's events. Each machine with hardware runs a
+**device server** that discovers its local devices and advertises each one in a
+**Pyro5 name server assumed to be running somewhere on the LAN**. A client looks a
 device up and gets a **proxy it drives as if the device were local**. Device
 events reach remote clients via **Pyro5 callbacks**.
 
-This is a clean rewrite: new Pyro5-native API, existing callers rewritten, old
-singleton API removed.
+## Approach: additive transport, not a rewrite
+
+Remote access is a **new transport layered on top of the existing local API**, not
+a replacement for it:
+
+- The in-process `DeviceManager` and the direct-drive path **stay**. An app on the
+  same box as the hardware keeps driving the device directly, with no Pyro hop.
+- A remote app obtains a **`RemoteDevice` proxy that presents the same public
+  interface** as the device (`moveTo`, `moveBy`, `position`, `home`, …), so
+  **application code is identical** whether the handle is a local `PhysicalDevice`
+  or a remote proxy. Only how you obtain the handle differs: `DeviceManager`
+  locally vs `RemoteDeviceManager` remotely.
+- Driver files and the device/family classes are **unchanged**.
+
+This keeps the local path fast, de-risks the change (we add a layer instead of
+ripping out a working one), and means the remote API can be adopted incrementally.
 
 ### Locked-in decisions
 
-- Cross-machine, name server on `cafeine3`.
-- Events pushed to remote clients via Pyro5 callbacks.
-- Clean rewrite — do not preserve the old singleton / `anyLinearMotionDevice()` /
-  `matchPhysicalDevicesOfType()` / `DeviceManagerNotification` API.
-- Device discovery via the Pyro5 name server.
+- **Python-only clients** — so Pyro5 (Python-native remote objects) is an
+  acceptable, ergonomic transport.
+- **Cross-machine control** is the requirement that justifies a remoting layer.
+- **Name server assumed running somewhere on the LAN.** Servers and clients locate
+  it by **broadcast** (`Pyro5.api.locate_ns()` with no host), with a
+  **`PYRO_NS_HOST` env-var override** for when it must be pinned (e.g. across
+  subnets, where broadcast is dropped). Not hardcoded to a specific host.
+- **Additive** — keep the in-process `DeviceManager` and the local API
+  (`anyLinearMotionDevice()`, `matchPhysicalDevicesOfType()`,
+  `DeviceManagerNotification`, …). Remote access is a new, parallel transport.
+- The **client proxy presents the same interface as the device**, so app code is
+  transport-agnostic.
+- Events pushed to remote clients via Pyro5 **oneway callbacks**.
+- Device discovery via the Pyro5 name server (metadata lookup).
+- **Pyro5 is an optional extra** (`pip install hardwarelibrary[remote]`), not a
+  core dependency — only the server host and remote clients need it.
+- **Scale assumption: one or two known hardware hosts.** The name server is for
+  *location transparency* (the app asks for "the stage" without knowing which box
+  it is on), not for managing a fleet.
+- **The name server has no liveness checking.** A device can be listed while its
+  server is dead, so the client treats a looked-up proxy that will not connect as
+  *gone*, and servers unregister their devices on clean shutdown.
 
 ## Key Pyro5 facts driving the design (verified against pyro5.readthedocs.io)
 
@@ -47,9 +85,11 @@ singleton API removed.
 - **Callbacks**: the client runs its own daemon thread, registers a callback
   object, and passes its proxy to the server. Callback `notify` is `@oneway` so a
   slow/dead client can never block the device server.
-- Name server API: `Pyro5.api.locate_ns(host="cafeine3")`;
-  `ns.register(name, uri, metadata={...})`; `ns.yplookup(meta_all={...})`;
-  `ns.list(prefix=..., return_metadata=True)`.
+- **Name server discovery**: `Pyro5.api.locate_ns()` with no host broadcasts on
+  the LAN and finds the NS wherever it runs; `locate_ns(host=...)` (or
+  `PYRO_NS_HOST`) pins it. `pyro5-ns` runs the broadcast responder by default.
+  Registration/lookup: `ns.register(name, uri, metadata={...})`,
+  `ns.yplookup(meta_all={...})`, `ns.list(prefix=..., return_metadata=True)`.
 - A hardware-host daemon must bind a **network-reachable host** (not `localhost`)
   or the URIs it hands out are unreachable from other machines.
 
@@ -78,18 +118,21 @@ Wraps one `PhysicalDevice`; this is the object registered with the daemon.
 - event bridge: `subscribe(callbackProxy, notificationName)` /
   `unsubscribe(callbackProxy, notificationName=None)`.
 
-### `hardwarelibrary/server/usbmonitor.py`
-Port `USBDeviceDescriptor` and the connect/disconnect diff
-(`newlyConnectedAndDisconnectedUSBDevices`) out of the old `devicemanager.py`.
-Reuses `utils.connectedUSBDevices`, `utils.getAllUSBIds`,
-`utils.getCandidateDeviceClasses` (`hardwarelibrary/utils.py`) — no new discovery logic.
+### `hardwarelibrary/devicemonitor.py` — shared USB monitoring
+Factor `USBDeviceDescriptor` and the connect/disconnect diff
+(`newlyConnectedAndDisconnectedUSBDevices`) into a standalone module that **both**
+the existing in-process `DeviceManager` **and** the new `DeviceServer` import — one
+discovery implementation, no duplication, nothing deleted. Reuses
+`utils.connectedUSBDevices`, `utils.getAllUSBIds`, `utils.getCandidateDeviceClasses`
+(`hardwarelibrary/utils.py`) — no new discovery logic.
 
 ### `hardwarelibrary/server/deviceserver.py` — `DeviceServer`
-- `__init__(nameServerHost="cafeine3", hostname=None)` (`hostname` defaults to
-  `socket.gethostname()`).
-- `start()`: create threaded `Pyro5.api.Daemon(host=reachableHost)`,
-  `locate_ns(host=nameServerHost)`, discover local devices, instantiate each
-  driver, `uri = daemon.register(servant)`,
+- `__init__(nameServerHost=None, hostname=None)` — `nameServerHost=None` means
+  locate the NS by broadcast (honoring `PYRO_NS_HOST` if set); `hostname` defaults
+  to `socket.gethostname()`.
+- `start()`: create threaded `Pyro5.api.Daemon(host=reachableHost)`, `locate_ns()`
+  (broadcast or pinned), discover local devices, instantiate each driver,
+  `uri = daemon.register(servant)`,
   `ns.register(nameFor(servant), uri, metadata=metadataFor(servant))`, track
   `{serialNumber: (servant, uri, nsName)}`, start a hot-plug poll thread, then
   `daemon.requestLoop()`.
@@ -97,30 +140,38 @@ Reuses `utils.connectedUSBDevices`, `utils.getAllUSBIds`,
   `daemon.unregister(...)`, shut the device down.
 - `nameFor()` -> `hardware.<hostname>.<family>.<serialNumber>`.
 - `metadataFor()` -> `{"hardware", "family:<f>", "type:<t>", "host:<h>", "serial:<s>"}`.
-- `stop()` / SIGINT: unregister all, shut down devices, `daemon.shutdown()`.
+- `stop()` / SIGINT: unregister all (so the NS does not keep stale entries), shut
+  down devices, `daemon.shutdown()`.
 
 ### `hardwarelibrary/server/__main__.py`
-`python -m hardwarelibrary.server [--nameserver cafeine3] [--hostname HOST]`.
+`python -m hardwarelibrary.server [--nameserver HOST] [--hostname HOST]`
+(`--nameserver` optional; default is broadcast discovery).
 
 ### `hardwarelibrary/client/deviceproxy.py` — `RemoteDevice`
-Wraps a `Pyro5.api.Proxy`. `__getattr__` turns `device.moveTo(...)` into
-`proxy.callMethod("moveTo", ...)`; properties (`state`, `serialNumber`) call
+Wraps a `Pyro5.api.Proxy` and **presents the same public interface as the device**
+so callers cannot tell local from remote. `__getattr__` turns `device.moveTo(...)`
+into `proxy.callMethod("moveTo", ...)`; properties (`state`, `serialNumber`) call
 `getProperty`/`stateValue` and coerce types back (int -> `DeviceState`, list ->
 `tuple` for `position()`). `subscribe(notificationName, handler)` /
-`unsubscribe(...)`. Surfaces `Pyro5.errors.get_pyro_traceback()` on errors.
+`unsubscribe(...)`. A proxy that will not connect is reported as *gone* (the NS may
+list a device whose server has died). Surfaces `Pyro5.errors.get_pyro_traceback()`
+on errors.
 
 ### `hardwarelibrary/client/notificationcallback.py` — `NotificationCallback`
 `@Pyro5.api.expose` class with `@Pyro5.api.callback @Pyro5.api.oneway notify(self,
 payload: dict)` that rebuilds typed values and dispatches to registered handlers.
 
 ### `hardwarelibrary/client/remotedevicemanager.py` — `RemoteDeviceManager`
-- `__init__(nameServerHost="cafeine3")`; lazy `locate_ns`.
+Presents a lookup API **compatible with the local `DeviceManager`**, so swapping
+local for remote is mechanical.
+- `__init__(nameServerHost=None)` — broadcast discovery by default; lazy `locate_ns`.
 - `availableDevices() -> list[dict]` via `ns.list(prefix="hardware.", return_metadata=True)`.
 - `devicesOfFamily(family) -> list[RemoteDevice]` via `ns.yplookup(meta_all={f"family:{family}"})`.
 - `anyDeviceOfFamily(family)`, `deviceWithSerialNumber(serialNumber)`.
-- Convenience wrappers: `linearMotionDevices()`, `anyLinearMotionDevice()`,
-  `spectrometerDevices()`, `powerMeterDevices()` (classify via NS metadata /
-  servant `family()`, since `isinstance` is impossible across a proxy).
+- Convenience wrappers mirroring the local API: `linearMotionDevices()`,
+  `anyLinearMotionDevice()`, `spectrometerDevices()`, `powerMeterDevices()`
+  (classify via NS metadata / servant `family()`, since `isinstance` is impossible
+  across a proxy).
 - Lazily starts a background `Pyro5.api.Daemon` thread and one shared
   `NotificationCallback` used for all subscriptions.
 
@@ -131,7 +182,7 @@ In-process name server + daemon (no hardware, no network). Uses the existing
 `DeviceState` round-trips as an IntEnum; forced init error propagates as
 `PhysicalDevice.UnableToInitialize`; subscribe to `didMove`, drive `moveTo`, and
 assert the callback handler receives a payload with `name == "didMove"`. Any test
-needing real hardware or the real `cafeine3` NS calls `self.skipTest(...)`.
+needing real hardware, a real network, or a broadcast NS calls `self.skipTest(...)`.
 
 ## Event bridge
 
@@ -146,61 +197,65 @@ removes the observer.
 
 ## Existing files to modify
 
-- `pyproject.toml` — add `Pyro5` to `[project].dependencies`; add a
-  `[project.scripts]` server entry.
-- `hardwarelibrary/__init__.py` — drop `from .devicemanager import *`; export
-  `RemoteDeviceManager` and the server package.
-- `hardwarelibrary/__main__.py` — replace the `-dm` branch (old singleton +
-  SIGINT handler) with `--serve` (run `DeviceServer`) and a rewritten `-dm`
-  (`RemoteDeviceManager` lists/subscribes against `cafeine3`).
-- `hardwarelibrary/devicemanager.py` — remove the singleton DM API
-  (`DeviceManagerNotification`, per-family queries, `matchPhysicalDevicesOfType`,
-  monitoring loop). Useful pieces (`USBDeviceDescriptor`, connect/disconnect diff)
-  move to `server/usbmonitor.py`. File is then deleted.
-- `hardwarelibrary/tests/testDeviceManager.py` — removed/replaced by
-  `testPyroDeviceManager.py`. `testPhysicalDevice.py` keeps device-lifecycle
-  tests, loses any DM-coupled cases.
+- `pyproject.toml` — add an optional extra `remote = ["Pyro5"]` (matching the
+  existing `dev` / `docs` / `thorlabs` extras), and a `[project.scripts]` server
+  entry. Pyro5 stays out of the core dependencies.
+- `hardwarelibrary/__init__.py` — **keep** `from .devicemanager import *`;
+  **additionally** export `RemoteDeviceManager` and the server package.
+- `hardwarelibrary/__main__.py` — **keep** the existing local `-dm` branch; **add**
+  `--serve` (run `DeviceServer`) and a remote lookup mode
+  (`RemoteDeviceManager` lists/subscribes via the broadcast NS).
+- `hardwarelibrary/devicemanager.py` — **kept.** Move the reusable monitoring
+  pieces (`USBDeviceDescriptor`, connect/disconnect diff) into
+  `devicemonitor.py` and have `DeviceManager` import them, so the local manager and
+  the server share one implementation. The singleton DM API is unchanged.
+- `hardwarelibrary/tests/testDeviceManager.py` — **kept** (local path still works);
+  `testPyroDeviceManager.py` is added alongside it.
 - `physicaldevice.py` and family bases — **no changes** (the servant handles
   exposure; this is the payoff of the dispatcher design).
 
 ## Deployment
 
-- Name server on cafeine3: `pyro5-ns -n cafeine3`.
-- Each hardware host: `python -m hardwarelibrary.server --nameserver cafeine3`.
-- Clients: `RemoteDeviceManager(nameServerHost="cafeine3")`.
+- Name server: run it **somewhere** on the LAN (e.g. a `systemd` service on one
+  lab box) with `pyro5-ns` — the broadcast responder is on by default. It need not
+  be on any particular host.
+- Each hardware host: `python -m hardwarelibrary.server` (add `--nameserver HOST`
+  or set `PYRO_NS_HOST` only if broadcast cannot reach the NS).
+- Clients: `RemoteDeviceManager()` (broadcast) or `RemoteDeviceManager("host")`.
 - Document the network-reachable-host binding gotcha (daemon must bind a routable
   host, not localhost).
 
 ## Implementation order
 
-1. `pyproject.toml` dep; `pip install` into `.venv`.
+1. `pyproject.toml` `remote` extra; `pip install -e ".[remote]"` into `.venv`.
 2. `serialization.py` + round-trip unit checks.
-3. `server/deviceservant.py` (dispatcher, `FAMILY_METHODS`, lifecycle, subscribe).
-4. `client/deviceproxy.py` + `client/notificationcallback.py`.
-5. `server/usbmonitor.py` + `server/deviceserver.py` + `server/__main__.py`.
-6. `client/remotedevicemanager.py`.
-7. `tests/testPyroDeviceManager.py` (in-process NS + daemon).
-8. Migrate `__main__.py`; prune tests; delete old `devicemanager.py`; update
-   `__init__.py`.
+3. `devicemonitor.py` (extract shared monitoring; `DeviceManager` keeps working).
+4. `server/deviceservant.py` (dispatcher, `FAMILY_METHODS`, lifecycle, subscribe).
+5. `client/deviceproxy.py` + `client/notificationcallback.py`.
+6. `server/deviceserver.py` + `server/__main__.py`.
+7. `client/remotedevicemanager.py`.
+8. `tests/testPyroDeviceManager.py` (in-process NS + daemon).
+9. Wire `__init__.py` / `__main__.py` additively (local `-dm` stays; add `--serve`
+   and remote lookup). No deletions.
 
 ## Verification
 
 - `.venv/bin/python -m pytest hardwarelibrary/tests/testPyroDeviceManager.py -v`
   (in-process NS + daemon; debug device; covers proxy drive, state serialization,
   exception propagation, and a callback round-trip).
-- Confirm existing suites still pass:
-  `.venv/bin/python -m pytest hardwarelibrary/tests/testPhysicalDevice.py -v`.
-- Manual cross-machine smoke test (needs the real NS): `pyro5-ns -n cafeine3`,
-  then `python -m hardwarelibrary.server --nameserver cafeine3` on a hardware
-  host, then on another machine
-  `RemoteDeviceManager(nameServerHost="cafeine3").availableDevices()` and drive a
-  returned `RemoteDevice`.
+- Confirm the local path is untouched:
+  `.venv/bin/python -m pytest hardwarelibrary/tests/testDeviceManager.py hardwarelibrary/tests/testPhysicalDevice.py -v`.
+- Manual cross-machine smoke test (needs a running NS): start `pyro5-ns` somewhere,
+  then `python -m hardwarelibrary.server` on a hardware host, then on another
+  machine `RemoteDeviceManager().availableDevices()` and drive a returned
+  `RemoteDevice`.
 
 ## Open questions to revisit
 
-- Whether to keep the family-convenience wrappers (`anyLinearMotionDevice()` etc.)
-  or go fully to `devicesOfFamily("linearMotion")`.
 - Authentication / access control on the lab network (Pyro5 HMAC key, serializer
   trust). Currently assumed trusted network.
 - Whether the per-device background status thread should run on the server and
   forward via callbacks, or be driven on demand by client polling.
+- Whether to add active liveness checking (the client currently treats an
+  unreachable proxy as gone; a periodic NS sweep that prunes dead servers is an
+  option if stale entries become a nuisance).
