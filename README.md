@@ -40,6 +40,7 @@ The library currently supports the following hardware:
 | | Ocean Insight USB650 | `USB650` | `0x2457:0x1014` | USB (PyUSB) |
 | | Ocean Insight SAS | `SAS` | `0x2457:0x1006` | USB (PyUSB) |
 | **Motion (linear)** | Sutter MP-285 | `SutterDevice` | `0x1342:0x0001` | Serial (FTDI) |
+| | Thorlabs (Kinesis) | `ThorlabsDevice` | `0x0403:0xFAF0` | Kinesis (pylablib) |
 | **Motion (rotation)** | Intellidrive | `IntellidriveDevice` | `0x0403:0x6001` | Serial (FTDI) |
 | **Laser sources** | Cobolt laser | `CoboltDevice` | (serial) | Serial |
 | | Spectra-Physics Millennia eV | `MillenniaEv25Device` | (serial) | Serial |
