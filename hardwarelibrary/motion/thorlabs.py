@@ -179,18 +179,7 @@ class ThorlabsFTDIDevice(ThorlabsDevice):
         if replyBytes is None:
             raise Exception(f"Nothing received in respnse to {commandBytes}")
         if replyBytes != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {replyBytes} instead.")     
-        
-    def work(self):
-        self.home()
-        commandBytes = pack('<cc', b'Y', b'\r')
-        self.sendCommandBytes(commandBytes)
-        replyBytes = self.readReply(1, '<c')
-        if replyBytes is None:
-            raise Exception(f"Nothing received in respnse to {commandBytes}")
-        if replyBytes != (b'\r',):
             raise Exception(f"Expected carriage return, but got {replyBytes} instead.")
-
 
     class DebugSerialPort(DebugPort):
         def __init__(self):
