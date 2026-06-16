@@ -46,6 +46,12 @@ dev = [
   "pytest",
   "pytest-cov",
 ]
+docs = [
+  "sphinx",
+  "furo",
+  "myst-parser",
+  "sphinxcontrib-mermaid",
+]
 
 [project.urls]
 Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"
