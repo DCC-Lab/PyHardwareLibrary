@@ -26,6 +26,7 @@ from .devicemanager import *
 
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import *
+from hardwarelibrary.devicecontroller import *
 from hardwarelibrary.communication import *
 
 # We want these modules in their namespace
