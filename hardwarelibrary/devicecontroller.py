@@ -37,13 +37,15 @@ Example::
     NotificationCenter().addObserver(self, on_status, N.status)
     controller.start()
     controller.connect()
-    controller.submit(lambda device: device.turnOn())
+    controller.submit(lambda device: device.turnOn())       # fire-and-forget
+    reading = controller.submit(lambda device: device.power()).result()  # query
     ...
     controller.stop()
 """
 
 import queue
 import time
+from concurrent.futures import Future
 from enum import Enum
 from threading import Event, RLock, Thread
 
@@ -152,13 +154,18 @@ class DeviceController:
         self._queue.put(("disconnect", None))
 
     def submit(self, action, name=None):
-        """Run ``action(device)`` on the worker thread.
+        """Run ``action(device)`` on the worker thread; return a Future.
 
-        Returns immediately. On failure a commandFailed notification is posted
-        with the exception. A status poll is forced right after a successful
-        command so observers see the new state promptly.
+        The Future resolves with the action's return value (so query-style
+        devices can read a measurement back: ``controller.submit(lambda d:
+        d.power()).result()``) or with its exception. On failure a commandFailed
+        notification is also posted, for observers that don't hold the Future.
+        A status poll is forced after a successful command so observers see the
+        new state promptly. Do not block on ``.result()`` from a UI thread.
         """
-        self._queue.put(("command", (action, name)))
+        future = Future()
+        self._queue.put(("command", (action, name, future)))
+        return future
 
     def stop(self):
         """Stop the worker thread and shut the device down."""
@@ -258,19 +265,24 @@ class DeviceController:
             return
         self._post(DeviceControllerNotification.status, userInfo=info)
 
-    def _do_command(self, action, name):
+    def _do_command(self, action, name, future):
+        if not future.set_running_or_notify_cancel():
+            return  # the caller cancelled the Future before it ran
         if not self.is_connected:
-            self._post(DeviceControllerNotification.commandFailed,
-                       userInfo=RuntimeError(
-                           "Cannot run command {0!r}: not connected".format(name)))
+            error = RuntimeError(
+                "Cannot run command {0!r}: not connected".format(name))
+            self._post(DeviceControllerNotification.commandFailed, userInfo=error)
+            future.set_exception(error)
             return
         try:
-            action(self.device)
+            result = action(self.device)
         except Exception as error:
             # A failed command may mean the link dropped; verify with a poll.
             self._post(DeviceControllerNotification.commandFailed, userInfo=error)
+            future.set_exception(error)
             self._poll()
             return
+        future.set_result(result)
         # Reflect the new state promptly.
         if self._supports_status:
             self._next_poll = time.monotonic()

@@ -131,7 +131,15 @@ class TestDeviceController(unittest.TestCase):
         self.assertTrue(status["isLaserOn"])
         self.assertTrue(status["isShutterOpen"])
 
-    def testFailedCommandPostsCommandFailed(self):
+    def testSubmitReturnsResultViaFuture(self):
+        controller, rec = self.make()
+        controller.connect()
+        rec.wait_for(DeviceControllerNotification.didConnect)
+        controller.submit(lambda device: device.setPower(8.0)).result(timeout=3.0)
+        reading = controller.submit(lambda device: device.power()).result(timeout=3.0)
+        self.assertEqual(reading, 8.0)
+
+    def testFailedCommandPostsCommandFailedAndRaisesInFuture(self):
         controller, rec = self.make()
         controller.connect()
         rec.wait_for(DeviceControllerNotification.didConnect)
@@ -139,7 +147,9 @@ class TestDeviceController(unittest.TestCase):
         def boom(device):
             raise ValueError("nope")
 
-        controller.submit(boom)
+        future = controller.submit(boom)
+        with self.assertRaises(ValueError):
+            future.result(timeout=3.0)
         info = rec.wait_for(DeviceControllerNotification.commandFailed)
         self.assertIsInstance(info, ValueError)
 
