@@ -104,6 +104,15 @@ class TestDebugMillenniaEv25Device(unittest.TestCase):
         self.assertFalse(self.laser.isLaserOn())
         self.assertTrue(self.laser.isShutterOpen())  # off, shutter unchanged
 
+    def testStatusUserInfoSnapshotsPowerOnOffAndShutter(self):
+        self.laser.setPower(7.5)
+        self.laser.turnOn()
+        self.laser.openShutter()
+        self.assertEqual(
+            self.laser.doGetStatusUserInfo(),
+            {"power": 7.5, "isLaserOn": True, "isShutterOpen": True},
+        )
+
 
 class TestMillenniaEv25Device(unittest.TestCase):
     def setUp(self):

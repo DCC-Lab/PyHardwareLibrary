@@ -80,10 +80,13 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
             self.port = SerialPort(portPath=self.portPath)
             self.port.open(baudRate=self.defaultBaudRate)
             self.readIdentity()
-        except Exception:
+        except Exception as error:
             if self.port is not None and self.port.isOpen:
                 self.port.close()
-            raise PhysicalDevice.UnableToInitialize()
+            # Preserve the underlying error (e.g. pyserial's "[Errno 16]
+            # Resource busy") so callers can tell a busy port from a missing
+            # one instead of seeing a bare, info-less UnableToInitialize.
+            raise PhysicalDevice.UnableToInitialize(error) from error
 
     def readIdentity(self):
         # The eV identifies via the SCPI-style *IDN? query. The ?IDN form in
@@ -196,6 +199,20 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
         # ("4.90 W") depending on firmware; take the first whitespace-separated
         # token.
         return float(self.queryString("?P").split()[0])
+
+    # Status snapshot
+
+    def doGetStatusUserInfo(self) -> dict:
+        # Single-call snapshot for PhysicalDevice.startBackgroundStatusUpdates()
+        # (posted as PhysicalDeviceNotification.status) and for GUI polling: the
+        # output power plus the diode (emission) and shutter states. Without this
+        # override the base returns None, so the monitoring loop posts nothing
+        # useful for the eV.
+        return {
+            "power": self.doGetPower(),
+            "isLaserOn": self.doGetOnOffState(),
+            "isShutterOpen": self.doGetShutterState(),
+        }
 
 
 class DebugMillenniaEv25Device(MillenniaEv25Device):
