@@ -31,10 +31,10 @@ Example::
 
     controller = DeviceController(MillenniaDevice(portPath="/dev/cu.usbmodem1"))
 
-    def on_status(notification):
+    def onStatus(notification):
         print(notification.userInfo)   # {'power': .., 'isLaserOn': .., ...}
 
-    NotificationCenter().addObserver(self, on_status, N.status)
+    NotificationCenter().addObserver(self, onStatus, N.status)
     controller.start()
     controller.connect()
     controller.submit(lambda device: device.turnOn())       # fire-and-forget
@@ -54,7 +54,7 @@ from hardwarelibrary.notificationcenter import NotificationCenter
 __all__ = [
     "DeviceController",
     "DeviceControllerNotification",
-    "connection_error_reason",
+    "connectionErrorReason",
 ]
 
 
@@ -77,7 +77,7 @@ class DeviceControllerNotification(Enum):
     commandFailed = "commandFailed"
 
 
-def connection_error_reason(error):
+def connectionErrorReason(error):
     """Classify a connection exception as 'busy'/'permission'/'missing'/None.
 
     Walks the exception's __cause__/__context__ chain (PhysicalDevice drivers
@@ -109,49 +109,49 @@ class DeviceController:
 
     Args:
         device: any PhysicalDevice instance.
-        poll_interval: seconds between status polls while connected. The poll
+        pollInterval: seconds between status polls while connected. The poll
             calls device.doGetStatusUserInfo(); if the device has none (returns
             None), polling is disabled automatically.
-        reconnect_interval: seconds between reconnection attempts while
+        reconnectInterval: seconds between reconnection attempts while
             disconnected-but-wanted.
-        auto_reconnect: when True, an unexpected drop (or a connect that fails
+        autoReconnect: when True, an unexpected drop (or a connect that fails
             because the device is not yet present) is retried until it succeeds
             or disconnect() is called. When False, a single failure gives up.
     """
 
-    def __init__(self, device, poll_interval=1.0, reconnect_interval=2.0,
-                 auto_reconnect=True):
+    def __init__(self, device, pollInterval=1.0, reconnectInterval=2.0,
+                 autoReconnect=True):
         self.device = device
-        self.poll_interval = poll_interval
-        self.reconnect_interval = reconnect_interval
-        self.auto_reconnect = auto_reconnect
+        self.pollInterval = pollInterval
+        self.reconnectInterval = reconnectInterval
+        self.autoReconnect = autoReconnect
 
-        self._queue = queue.Queue()
-        self._stop = Event()
-        self._lock = RLock()
-        self._thread = Thread(target=self._run, name="DeviceController",
-                              daemon=True)
+        self.commandQueue = queue.Queue()
+        self.stopEvent = Event()
+        self.lock = RLock()
+        self.thread = Thread(target=self.runLoop, name="DeviceController",
+                             daemon=True)
 
-        self._connected = False
-        self._want_connected = False
-        self._supports_status = True   # set False if doGetStatusUserInfo()->None
-        self._next_poll = 0.0
-        self._next_reconnect = 0.0
-        self._last_failure_signature = None
+        self.connected = False
+        self.wantConnected = False
+        self.supportsStatus = True   # set False if doGetStatusUserInfo()->None
+        self.nextPoll = 0.0
+        self.nextReconnect = 0.0
+        self.lastFailureSignature = None
 
     # -- public API (any thread) --
 
     def start(self):
         """Start the worker thread."""
-        self._thread.start()
+        self.thread.start()
 
     def connect(self):
-        """Request connection (and, with auto_reconnect, keep it connected)."""
-        self._queue.put(("connect", None))
+        """Request connection (and, with autoReconnect, keep it connected)."""
+        self.commandQueue.put(("connect", None))
 
     def disconnect(self):
         """Request disconnection; clears the reconnect intent."""
-        self._queue.put(("disconnect", None))
+        self.commandQueue.put(("disconnect", None))
 
     def submit(self, action, name=None):
         """Run ``action(device)`` on the worker thread; return a Future.
@@ -164,163 +164,163 @@ class DeviceController:
         new state promptly. Do not block on ``.result()`` from a UI thread.
         """
         future = Future()
-        self._queue.put(("command", (action, name, future)))
+        self.commandQueue.put(("command", (action, name, future)))
         return future
 
     def stop(self):
         """Stop the worker thread and shut the device down."""
-        self._stop.set()
-        self._queue.put(("disconnect", None))
-        if self._thread.is_alive():
-            self._thread.join(timeout=5.0)
+        self.stopEvent.set()
+        self.commandQueue.put(("disconnect", None))
+        if self.thread.is_alive():
+            self.thread.join(timeout=5.0)
 
     @property
-    def is_connected(self):
-        with self._lock:
-            return self._connected
+    def isConnected(self):
+        with self.lock:
+            return self.connected
 
     @property
-    def is_running(self):
-        return self._thread.is_alive()
+    def isRunning(self):
+        return self.thread.is_alive()
 
     # -- worker thread --
 
-    def _post(self, name, userInfo=None):
+    def post(self, name, userInfo=None):
         NotificationCenter().postNotification(name, notifyingObject=self,
                                               userInfo=userInfo)
 
-    def _run(self):
-        while not self._stop.is_set():
+    def runLoop(self):
+        while not self.stopEvent.is_set():
             try:
-                task = self._queue.get(timeout=self._seconds_until_due())
+                task = self.commandQueue.get(timeout=self.secondsUntilDue())
             except queue.Empty:
                 task = None
 
             if task is not None:
-                self._handle(task)
+                self.handleTask(task)
 
             now = time.monotonic()
-            if self._connected and self._supports_status and now >= self._next_poll:
-                self._next_poll = now + self.poll_interval
-                self._poll()
-            elif (not self._connected and self._want_connected
-                  and now >= self._next_reconnect):
-                self._next_reconnect = now + self.reconnect_interval
-                self._attempt_connect()
+            if self.connected and self.supportsStatus and now >= self.nextPoll:
+                self.nextPoll = now + self.pollInterval
+                self.poll()
+            elif (not self.connected and self.wantConnected
+                  and now >= self.nextReconnect):
+                self.nextReconnect = now + self.reconnectInterval
+                self.attemptConnect()
 
-        self._teardown()
+        self.teardown()
 
-    def _seconds_until_due(self):
+    def secondsUntilDue(self):
         now = time.monotonic()
-        if self._connected:
-            target = self._next_poll if self._supports_status else now + 0.5
-        elif self._want_connected:
-            target = self._next_reconnect
+        if self.connected:
+            target = self.nextPoll if self.supportsStatus else now + 0.5
+        elif self.wantConnected:
+            target = self.nextReconnect
         else:
             return None  # nothing scheduled; block until a task arrives
         return max(0.0, target - now)
 
-    def _handle(self, task):
+    def handleTask(self, task):
         kind, payload = task
         if kind == "connect":
-            self._want_connected = True
-            self._next_reconnect = 0.0
-            self._attempt_connect()
+            self.wantConnected = True
+            self.nextReconnect = 0.0
+            self.attemptConnect()
         elif kind == "disconnect":
-            self._want_connected = False
-            self._do_disconnect()
+            self.wantConnected = False
+            self.doDisconnect()
         elif kind == "command":
-            self._do_command(*payload)
+            self.doCommand(*payload)
 
-    def _attempt_connect(self):
-        with self._lock:
-            if self._connected:
+    def attemptConnect(self):
+        with self.lock:
+            if self.connected:
                 return
         try:
             self.device.initializeDevice()
         except Exception as error:
-            self._connected = False
-            self._post_failure_if_new(
+            self.connected = False
+            self.postFailureIfNew(
                 DeviceControllerNotification.connectionFailed, error)
-            if not self.auto_reconnect:
-                self._want_connected = False
+            if not self.autoReconnect:
+                self.wantConnected = False
             return
 
-        with self._lock:
-            self._connected = True
-        self._supports_status = True
-        self._next_poll = time.monotonic()  # poll immediately
-        self._last_failure_signature = None
-        self._post(DeviceControllerNotification.didConnect, userInfo=self.device)
+        with self.lock:
+            self.connected = True
+        self.supportsStatus = True
+        self.nextPoll = time.monotonic()  # poll immediately
+        self.lastFailureSignature = None
+        self.post(DeviceControllerNotification.didConnect, userInfo=self.device)
 
-    def _poll(self):
+    def poll(self):
         try:
             info = self.device.doGetStatusUserInfo()
         except Exception as error:
-            self._handle_lost(error)
+            self.handleConnectionLost(error)
             return
         if info is None:
             # Device exposes no status snapshot; stop polling for it.
-            self._supports_status = False
+            self.supportsStatus = False
             return
-        self._post(DeviceControllerNotification.status, userInfo=info)
+        self.post(DeviceControllerNotification.status, userInfo=info)
 
-    def _do_command(self, action, name, future):
+    def doCommand(self, action, name, future):
         if not future.set_running_or_notify_cancel():
             return  # the caller cancelled the Future before it ran
-        if not self.is_connected:
+        if not self.isConnected:
             error = RuntimeError(
                 "Cannot run command {0!r}: not connected".format(name))
-            self._post(DeviceControllerNotification.commandFailed, userInfo=error)
+            self.post(DeviceControllerNotification.commandFailed, userInfo=error)
             future.set_exception(error)
             return
         try:
             result = action(self.device)
         except Exception as error:
             # A failed command may mean the link dropped; verify with a poll.
-            self._post(DeviceControllerNotification.commandFailed, userInfo=error)
+            self.post(DeviceControllerNotification.commandFailed, userInfo=error)
             future.set_exception(error)
-            self._poll()
+            self.poll()
             return
         future.set_result(result)
         # Reflect the new state promptly.
-        if self._supports_status:
-            self._next_poll = time.monotonic()
-            self._poll()
+        if self.supportsStatus:
+            self.nextPoll = time.monotonic()
+            self.poll()
 
-    def _handle_lost(self, error):
-        was_connected = self._connected
-        with self._lock:
-            self._connected = False
-        self._safe_shutdown()
-        self._next_reconnect = time.monotonic() + self.reconnect_interval
-        if not self.auto_reconnect:
-            self._want_connected = False
-        if was_connected:
-            self._post(DeviceControllerNotification.connectionLost, userInfo=error)
+    def handleConnectionLost(self, error):
+        wasConnected = self.connected
+        with self.lock:
+            self.connected = False
+        self.safeShutdown()
+        self.nextReconnect = time.monotonic() + self.reconnectInterval
+        if not self.autoReconnect:
+            self.wantConnected = False
+        if wasConnected:
+            self.post(DeviceControllerNotification.connectionLost, userInfo=error)
 
-    def _do_disconnect(self):
-        with self._lock:
-            self._connected = False
-        self._safe_shutdown()
-        self._post(DeviceControllerNotification.didDisconnect)
+    def doDisconnect(self):
+        with self.lock:
+            self.connected = False
+        self.safeShutdown()
+        self.post(DeviceControllerNotification.didDisconnect)
 
-    def _safe_shutdown(self):
+    def safeShutdown(self):
         try:
             self.device.shutdownDevice()
         except Exception:
             pass
 
-    def _post_failure_if_new(self, name, error):
+    def postFailureIfNew(self, name, error):
         # Avoid flooding identical connectionFailed notifications every interval
         # while a device stays unavailable; re-post only when the reason changes.
-        signature = (type(error).__name__, connection_error_reason(error) or str(error))
-        if signature != self._last_failure_signature:
-            self._last_failure_signature = signature
-            self._post(name, userInfo=error)
+        signature = (type(error).__name__, connectionErrorReason(error) or str(error))
+        if signature != self.lastFailureSignature:
+            self.lastFailureSignature = signature
+            self.post(name, userInfo=error)
 
-    def _teardown(self):
-        if self._connected:
-            with self._lock:
-                self._connected = False
-            self._safe_shutdown()
+    def teardown(self):
+        if self.connected:
+            with self.lock:
+                self.connected = False
+            self.safeShutdown()

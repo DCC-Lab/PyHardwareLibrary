@@ -4,7 +4,7 @@ import unittest
 from threading import Lock
 
 from hardwarelibrary.devicecontroller import (
-    DeviceController, DeviceControllerNotification, connection_error_reason)
+    DeviceController, DeviceControllerNotification, connectionErrorReason)
 from hardwarelibrary.notificationcenter import NotificationCenter
 from hardwarelibrary.sources.millennia import DebugMillenniaDevice
 
@@ -96,8 +96,8 @@ class TestDeviceController(unittest.TestCase):
 
     def make(self, device=None, **kwargs):
         device = device or DebugMillenniaDevice()
-        kwargs.setdefault("poll_interval", 0.2)
-        kwargs.setdefault("reconnect_interval", 0.3)
+        kwargs.setdefault("pollInterval", 0.2)
+        kwargs.setdefault("reconnectInterval", 0.3)
         controller = DeviceController(device, **kwargs)
         recorder = Recorder(controller)
         self.controllers.append(controller)
@@ -114,7 +114,7 @@ class TestDeviceController(unittest.TestCase):
         status = rec.wait_for(DeviceControllerNotification.status)
         self.assertIsNotNone(status)
         self.assertEqual(set(status), {"power", "isLaserOn", "isShutterOpen"})
-        self.assertTrue(controller.is_connected)
+        self.assertTrue(controller.isConnected)
 
     def testSubmittedCommandRunsAndStatusReflectsIt(self):
         controller, rec = self.make()
@@ -171,7 +171,7 @@ class TestDeviceController(unittest.TestCase):
         self.assertIsNotNone(
             rec.wait_for(DeviceControllerNotification.connectionLost),
             "should report the drop")
-        self.assertFalse(controller.is_connected)
+        self.assertFalse(controller.isConnected)
 
         # Count reconnects so we can confirm a *new* one after recovery.
         before = rec.names().count(DeviceControllerNotification.didConnect)
@@ -179,10 +179,10 @@ class TestDeviceController(unittest.TestCase):
         deadline = time.time() + 3.0
         while time.time() < deadline:
             if (rec.names().count(DeviceControllerNotification.didConnect) > before
-                    and controller.is_connected):
+                    and controller.isConnected):
                 break
             time.sleep(0.05)
-        self.assertTrue(controller.is_connected, "should have auto-reconnected")
+        self.assertTrue(controller.isConnected, "should have auto-reconnected")
 
     def testExplicitDisconnectDoesNotReconnect(self):
         controller, rec = self.make()
@@ -191,11 +191,11 @@ class TestDeviceController(unittest.TestCase):
         controller.disconnect()
         self.assertTrue(rec.wait_seen(DeviceControllerNotification.didDisconnect))
         time.sleep(0.8)  # longer than a couple of reconnect intervals
-        self.assertFalse(controller.is_connected)
+        self.assertFalse(controller.isConnected)
 
     def testNoAutoReconnectGivesUpAfterDrop(self):
         device = FlakyMillennia()
-        controller, rec = self.make(device=device, auto_reconnect=False)
+        controller, rec = self.make(device=device, autoReconnect=False)
         controller.connect()
         rec.wait_for(DeviceControllerNotification.didConnect)
         device.online = False
@@ -205,7 +205,7 @@ class TestDeviceController(unittest.TestCase):
         time.sleep(1.0)
         self.assertEqual(
             rec.names().count(DeviceControllerNotification.didConnect), before,
-            "must not reconnect when auto_reconnect is False")
+            "must not reconnect when autoReconnect is False")
 
     # -- misc --
 
@@ -220,8 +220,8 @@ class TestDeviceController(unittest.TestCase):
         cause = OSError("[Errno 16] Resource busy: '/dev/cu.x'")
         wrapper = RuntimeError("could not initialize")
         wrapper.__cause__ = cause
-        self.assertEqual(connection_error_reason(wrapper), "busy")
-        self.assertIsNone(connection_error_reason(RuntimeError("weird")))
+        self.assertEqual(connectionErrorReason(wrapper), "busy")
+        self.assertIsNone(connectionErrorReason(RuntimeError("weird")))
 
 
 if __name__ == "__main__":
