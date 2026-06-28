@@ -82,7 +82,11 @@ stage.home()
 stage.moveInMicronsTo((x_um, y_um, z_um))     # micron helpers
 stage.moveInMicronsBy((dx_um, dy_um, dz_um))
 posUm = stage.positionInMicrons()
-points = stage.mapPositions(width, height, stepInMicrons)  # raster a sample
+
+# Raster a sample: returns dicts {"index": (i, j), "position": (x, y, depth)},
+# positions in microns relative to the current position.
+for point in stage.mapPositions(width, height, stepInMicrons):
+    stage.moveInMicronsTo(point["position"])
 stage.shutdownDevice()
 ```
 

@@ -23,7 +23,7 @@ This file is for AI-assisted contributors. Humans should read `README.md` and th
 - Always try to use a local virtual environment if present in `.venv`. Python can be `python3`, or in a venv `python`.
 - Tests: `python3 -m pytest hardwarelibrary/tests/<file>.py -v`.
 - Directory collection (`pytest hardwarelibrary/tests/`) now works: `pyproject.toml` sets `python_files = ["test*.py"]` and `testpaths = ["hardwarelibrary/tests"]`, so the `testFoo.py` naming is collected. (The historical "zero tests" gotcha — pytest's default `test_*.py` pattern not matching `testFoo.py` — is resolved.)
-- Tests for hardware-dependent code must `skipTest(...)` when no hardware is attached — they must not fail. Pattern established in PRs #65 and #66; the `DebugLabjackDevice` tests (`tests/testLabjackU3.py`) and the `skipUnless` library-presence guards in `tests/test_pylablib_kinesis.py` are the cleanest references.
+- Tests for hardware-dependent code must `skipTest(...)` when no hardware is attached — they must not fail. Pattern established in PRs #65 and #66; the `DebugLabjackDevice` tests (`tests/testLabjackU3.py`) and the library-presence `skipTest(...)` guards in `tests/test_pylablib_kinesis.py` are the cleanest references.
 - CI runs the suite on push/PR via `.github/workflows/tests.yml`; Sphinx docs build and publish to ReadTheDocs (`.readthedocs.yaml`, `docs/`).
 
 ## Architecture
