@@ -22,8 +22,9 @@ This file is for AI-assisted contributors. Humans should read `README.md` and th
 
 - Always try to use a local virtual environment if present in `.venv`. Python can be `python3`, or in a venv `python`.
 - Tests: `python3 -m pytest hardwarelibrary/tests/<file>.py -v`.
-- Directory collection (`pytest hardwarelibrary/tests/`) currently returns **zero tests** because pytest's default `python_files` pattern is `test_*.py` and the files here are `testFoo.py`. Name files explicitly until `pyproject.toml` is updated.
-- Tests for hardware-dependent code must `skipTest(...)` when no hardware is attached — they must not fail. Pattern established in PRs #65 and #66; the `DebugLabjackDevice` tests in PR on `labjack-rewrite` are the cleanest reference.
+- Directory collection (`pytest hardwarelibrary/tests/`) now works: `pyproject.toml` sets `python_files = ["test*.py"]` and `testpaths = ["hardwarelibrary/tests"]`, so the `testFoo.py` naming is collected. (The historical "zero tests" gotcha — pytest's default `test_*.py` pattern not matching `testFoo.py` — is resolved.)
+- Tests for hardware-dependent code must `skipTest(...)` when no hardware is attached — they must not fail. Pattern established in PRs #65 and #66; the `DebugLabjackDevice` tests (`tests/testLabjackU3.py`) and the library-presence `skipTest(...)` guards in `tests/test_pylablib_kinesis.py` are the cleanest references.
+- CI runs the suite on push/PR via `.github/workflows/tests.yml`; Sphinx docs build and publish to ReadTheDocs (`.readthedocs.yaml`, `docs/`).
 
 ## Architecture
 
@@ -32,6 +33,7 @@ Core triad — all under `hardwarelibrary/`:
 - `physicaldevice.py:PhysicalDevice` — abstract base (`abc.ABC`) for every device. Owns lifecycle (`initializeDevice` / `shutdownDevice`), state machine (`DeviceState`), port handle, and monitoring thread. The lifecycle hooks `doInitializeDevice` / `doShutdownDevice` are `@abstractmethod`, so a driver that omits either fails at instantiation rather than at call time.
 - `devicemanager.py:DeviceManager` — singleton. Discovers connected USB devices, dispatches add/remove notifications.
 - `notificationcenter.py:NotificationCenter` — Cocoa-style pub/sub. Devices post notifications on state changes and measurements.
+- `devicecontroller.py:DeviceController` — headless, toolkit-agnostic wrapper around *any* `PhysicalDevice`. Owns a single worker thread through which all device access flows (submitted actions and the periodic status poll alike), so blocking calls never touch a UI thread and port access is serialized. `submit(action)` runs `action(device)` on that thread and returns a `concurrent.futures.Future`; `connect()`/`disconnect()` manage the link with optional auto-reconnect. Everything is reported through `NotificationCenter` (`DeviceControllerNotification`), so any front-end (Tk, Qt, CLI, a test) just observes. Use this instead of hand-rolling a thread per app.
 
 Communication abstractions under `hardwarelibrary/communication/`:
 
@@ -52,10 +54,15 @@ Each family has an **abstract base class**. A driver subclasses it and implement
 | Spectrometer | `spectrometers/` | `Spectrometer` (`base.py`) | `getSpectrum`, `getSerialNumber` (here the public method *is* the hook; no `doXxx` wrapper) |
 | Oscilloscope | `oscilloscope/` | `OscilloscopeDevice` | instantiated directly (Tektronix), no family/driver split; per-instrument SCPI methods |
 | Camera | `cameras/` | `CameraDevice` | `doCaptureFrame` |
-| Laser source | `sources/` | `LaserSourceDevice` | `doTurnOn`, `doTurnOff`, `doSetPower`, `doGetPower`, `doGetOnOffState`, `doGetInterlockState` |
+| Laser source | `sources/` | `LaserSourceDevice` (marker) + capability mixins (see below) | the `do*` hooks of whichever mixins the driver declares |
 | DAQ | `daq/` | capability mixins (see below) | one method per mixin: `getAnalogVoltage` / `setAnalogVoltage` / `getDigitalValue` / `setDigitalValue` |
 
-`DAQDevice` and `SourceDevice` uses **interface-segregated capability mixins** instead of one base class, because a device may do any subset of read/write on analog/digital lines: `AnalogInputDevice` (`getAnalogVoltage`), `AnalogOutputDevice` (`setAnalogVoltage`), `DigitalInputDevice` (`getDigitalValue`), `DigitalOutputDevice` (`setDigitalValue`), plus `AnalogIODevice` / `DigitalIODevice` that combine each pair. The `configure*` and `direction*` methods are optional no-op hooks. A driver combines `PhysicalDevice` with the mixins it needs, e.g. `class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice)`.
+**Thorlabs linear motion** is a backend dispatcher: `ThorlabsDevice` (in `motion/thorlabs.py`) routes to `ThorlabsKinesisDevice`, which drives the stage through `pylablib`'s Kinesis support. The old FTDI path (`ThorlabsFTDIDevice`) was dropped. Install with the `thorlabs` extra (`pip install -e .[thorlabs]`).
+
+Both the **DAQ and laser-source families use interface-segregated capability mixins** instead of one fat base class, because a device may implement any subset of the capabilities.
+
+- DAQ (`daq/daqdevice.py`): `AnalogInputDevice` (`getAnalogVoltage`), `AnalogOutputDevice` (`setAnalogVoltage`), `DigitalInputDevice` (`getDigitalValue`), `DigitalOutputDevice` (`setDigitalValue`), plus `AnalogIODevice` / `DigitalIODevice` that combine each pair, and `AnalogInputStreamDevice` for hardware-timed acquisition. The `configure*` and `direction*` methods are optional no-op hooks. Example: `class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice)`.
+- Laser sources (`sources/capabilities.py`): `OnOffControl` (`turnOn`/`turnOff`/`isLaserOn`), `ShutterControl` (`openShutter`/`closeShutter`/`isShutterOpen`), `PowerControl` (`setPower`/`power`), `InterlockControl` (`interlock`), `AutostartControl`, `WavelengthControl` (`setWavelength`/`wavelength`), `DispersionControl`. Each exposes a public method that calls a `do*` abstract hook the driver implements. `LaserSourceDevice` is a thin marker base; the behavior comes from the mixins. Examples: `class CoboltDevice(LaserSourceDevice, OnOffControl, PowerControl, ...)`, `class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl)`, `class MatisseDevice(PhysicalDevice, WavelengthControl)`.
 
 ## Adding a new device
 
@@ -83,13 +90,23 @@ Reference implementation: `hardwarelibrary/daq/labjackdevice.py`. The pattern:
 - The main branch is named `master`, not `main`.
 - Open PRs against `master`. Prefer per-bug commits (each with a Problem/Solution body) over bundled commits — PR #74 is the template.
 
+## Versioning and releases
+
+- The version is **not** stored in a file — `setuptools-scm` derives it from the latest git tag (`pyproject.toml` has `dynamic = ["version"]`). `hardwarelibrary.__version__` reads it back at runtime.
+- A release is cut by creating and pushing an annotated tag `vX.Y.Z`. That triggers `.github/workflows/publish.yml`, which builds the sdist/wheel, publishes to PyPI via Trusted Publishing (OIDC, no token), and creates a GitHub Release with auto-generated notes.
+- Follow semver: new device/feature with no breakage → minor; fixes only → patch.
+- Record API-affecting changes in `CHANGELOG.md` (Keep a Changelog format). Note the project's standing warning: **API changes can land even when the minor version is unchanged**, so the changelog and release notes are the source of truth, not the version number.
+
 ## Test running cheatsheet
 
 ```
+python3 -m pytest hardwarelibrary/tests/ -v          # whole suite (collection now works)
 python3 -m pytest hardwarelibrary/tests/testCommandRecognition.py -v
 python3 -m pytest hardwarelibrary/tests/testPhysicalDevice.py -v
 python3 -m pytest hardwarelibrary/tests/testTableDrivenDebugPort.py -v
 python3 -m pytest hardwarelibrary/tests/testLabjackU3.py -v
+python3 -m pytest hardwarelibrary/tests/testDeviceController.py -v
+python3 -m pytest hardwarelibrary/tests/testThorlabs.py -v
 ```
 
 Single test:
