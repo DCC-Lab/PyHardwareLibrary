@@ -12,9 +12,12 @@ API changes can land even when the minor version is unchanged.
   FTDI adaptor (9600 8N1, LF terminator, `pw?`/`en?`/`wv?`/`v` commands). The
   meter has no USB identity of its own, so `classIdVendor`/`classIdProduct` are
   the generic FTDI values (0x0403/0x6001); disambiguate multiple FTDI adaptors
-  with the adaptor `serialNumber` or an explicit `portPath`. Note: the meter
-  only answers RS-232 while on its Home or Trend screen, and
-  `initializeDevice` raises with that hint when it does not respond.
+  with the adaptor `serialNumber` or an explicit `portPath`. The message
+  terminator is a front-panel Menu setting (LF/CR/CR-LF); `initializeDevice`
+  probes with the configured `terminator` (default LF) and falls through the
+  other combinations until one replies, so a mismatched Menu self-heals. Note:
+  the meter only answers RS-232 while on its Home or Trend screen, and
+  `initializeDevice` raises with that hint when none of the terminators reply.
 
 ## [1.1.0] - 2026-05-29
 

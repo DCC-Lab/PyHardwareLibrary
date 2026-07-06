@@ -1,4 +1,5 @@
 import re
+import time
 
 from hardwarelibrary.communication import SerialPort
 from hardwarelibrary.communication.communicationport import (
@@ -25,16 +26,20 @@ class FieldMasterDevice(PowerMeterDevice):
       e.g. '1.430000e-03'.
 
     The message terminator is a front-panel Menu setting on the meter: LF
-    ('\\n'), CR ('\\r'), or both/CR-LF ('\\r\\n'). Pass the matching value as
-    the `terminator` argument (default LF); it is applied to the port's
-    `terminator`, which both readString and the command writes use, so reads
-    and writes stay in sync with the meter's Menu setting.
+    ('\\n'), CR ('\\r'), or both/CR-LF ('\\r\\n'). The `terminator` argument
+    (default LF) is only the first guess: doInitializeDevice probes with it and,
+    if the meter does not answer, tries the remaining combinations until one
+    replies, so a mismatched Menu setting self-heals. The working value is left
+    on the port's `terminator`, which both readString and the command writes
+    use, keeping reads and writes in sync with the meter.
 
     Important operational constraint from the manual: the FieldMaster GS only
     answers RS-232 while it is on its Home or Trend screen. On any other screen
-    it silently buffers commands. doInitializeDevice verifies communication and
-    raises with that hint when the meter does not answer.
+    it silently buffers commands. When no terminator elicits a reply,
+    doInitializeDevice raises with that hint.
     """
+
+    candidateTerminators = (b'\n', b'\r', b'\r\n')
 
     classIdVendor = 0x0403
     classIdProduct = 0x6001
@@ -57,19 +62,46 @@ class FieldMasterDevice(PowerMeterDevice):
                 raise PhysicalDevice.UnableToInitialize("No FieldMaster (FTDI adaptor) connected")
 
         self.port.open(baudRate=9600, timeout=1.0)
-        self.port.terminator = self.terminator
-        self.port.flush()
 
-        try:
-            self.doGetVersion()
-            self.doGetAbsolutePower()
-        except (CommunicationReadTimeout, CommunicationReadNoMatch) as error:
+        if not self.detectTerminator():
             self.port.close()
             self.port = None
             raise PhysicalDevice.UnableToInitialize(
-                "FieldMaster is connected but not answering. Put it on its HOME "
-                "screen (front panel): it ignores RS-232 from any other screen."
-            ) from error
+                "FieldMaster is connected but not answering on any terminator "
+                "(LF/CR/CR-LF). Put it on its HOME screen (front panel): it "
+                "ignores RS-232 from any other screen."
+            )
+
+        self.doGetVersion()
+
+    def detectTerminator(self):
+        """Set port.terminator to the meter's Menu terminator by probing.
+
+        The terminator is a front-panel Menu setting (LF/CR/CR-LF), so a query
+        only draws a reply when the terminator matches. The configured
+        self.terminator is tried first, then the remaining candidates. On the
+        first probe that answers, the working value is kept on the port and on
+        self.terminator and True is returned; False means none replied.
+        """
+        ordered = [self.terminator]
+        ordered += [term for term in self.candidateTerminators if term != self.terminator]
+        for term in ordered:
+            self.clearMeterLineBuffer()
+            self.port.terminator = term
+            try:
+                self.doGetAbsolutePower()
+            except (CommunicationReadTimeout, CommunicationReadNoMatch):
+                continue
+            self.terminator = term
+            return True
+        return False
+
+    def clearMeterLineBuffer(self):
+        """Complete and drain any partial command a previous probe left in the
+        meter's input buffer so it cannot corrupt the next probe."""
+        self.port.writeData(b"\r\n")
+        time.sleep(0.2)
+        self.port.flush()
 
     def doShutdownDevice(self):
         self.port.close()
