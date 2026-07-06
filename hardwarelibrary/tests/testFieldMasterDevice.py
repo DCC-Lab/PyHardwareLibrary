@@ -2,6 +2,9 @@ import env
 import unittest
 
 from hardwarelibrary.powermeters import FieldMasterDevice, DebugFieldMasterDevice
+from hardwarelibrary.powermeters import (
+    WavelengthCalibratable, AutoScalable, ScaleAdjustable,
+)
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterNotification
 from hardwarelibrary.notificationcenter import NotificationCenter
 
@@ -42,6 +45,28 @@ class TestDebugFieldMasterDevice(unittest.TestCase):
 
     def testEnergy(self):
         self.assertIsInstance(self.device.getEnergy(), float)
+
+
+class TestFieldMasterCapabilities(unittest.TestCase):
+    def setUp(self):
+        self.device = DebugFieldMasterDevice()
+
+    def testDeclaresWavelengthCalibratable(self):
+        self.assertTrue(self.device.hasCapability(WavelengthCalibratable))
+
+    def testDoesNotDeclareScaleCapabilities(self):
+        self.assertFalse(self.device.hasCapability(AutoScalable))
+        self.assertFalse(self.device.hasCapability(ScaleAdjustable))
+
+    def testCapabilitiesListsOnlyDeclaredMixins(self):
+        self.assertEqual(self.device.capabilities(), [WavelengthCalibratable])
+
+    def testCapabilitiesExcludeDeviceClass(self):
+        # The driver is itself a Capability subclass, but capabilities() must
+        # report only the mixins, never the device class or its base.
+        capabilities = self.device.capabilities()
+        self.assertNotIn(DebugFieldMasterDevice, capabilities)
+        self.assertNotIn(FieldMasterDevice, capabilities)
 
 
 class TestFieldMasterDevice(unittest.TestCase):
