@@ -43,6 +43,7 @@ class FieldMasterDevice(PowerMeterDevice):
 
     classIdVendor = 0x0403
     classIdProduct = 0x6001
+    usesGenericSerialConverter = True
 
     def __init__(self, serialNumber: str = None, idProduct: int = 0x6001,
                  idVendor: int = 0x0403, portPath: str = None,
@@ -152,6 +153,7 @@ class DebugFieldMasterDevice(FieldMasterDevice):
 
     classIdVendor = 0xFFFF
     classIdProduct = 0xFFF1
+    usesGenericSerialConverter = False   # debug device has its own fake identity
 
     def __init__(self, serialNumber='debug'):
         PhysicalDevice.__init__(self, serialNumber=serialNumber,

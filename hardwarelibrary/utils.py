@@ -77,7 +77,12 @@ def connectedUSBDevices(vidpids = None, serialNumberPattern=None):
     devices = []
     if vidpids is not None:
         for (idVendor, idProduct) in vidpids:
-            devices.extend(list(usb.core.find(find_all=True, idVendor=idVendor, idProduct=idProduct)))
+            if idProduct is None:
+                # A None product id means "any product from this vendor". pyusb's
+                # find matches on equality, so idProduct must be omitted, not None.
+                devices.extend(list(usb.core.find(find_all=True, idVendor=idVendor)))
+            else:
+                devices.extend(list(usb.core.find(find_all=True, idVendor=idVendor, idProduct=idProduct)))
     else:
         devices.extend(list(usb.core.find(find_all=True)))
 

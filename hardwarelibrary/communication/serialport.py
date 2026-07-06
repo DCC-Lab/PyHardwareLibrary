@@ -17,7 +17,7 @@ class MoreThanOneMatch(serial.SerialException):
 class SerialPort(CommunicationPort):
     """
     An implementation of CommunicationPort using BSD-style serial port
-    
+
     Two strategies to initialize the SerialPort:
     1. with a portPath/port name (i.e. "COM1" or "/dev/cu.serial")
     2. with an instance of pyserial.Serial() that will support the same
@@ -26,6 +26,17 @@ class SerialPort(CommunicationPort):
        or the find_url.py script from the distribution. More info: https://eblot.github.io/pyftdi/api/usbtools.html
        You have to add any custom VID/PID when using tools (but they are added here in SerialPort) @line 30.
     """
+
+    # USB idVendor of the common, generic RS-232/USB serial-converter chips.
+    # A device behind one of these bridges inherits the bridge's anonymous
+    # VID/PID and carries no identity of its own, so it can only be told apart
+    # from other adaptors by its serial number. Extend as needed.
+    genericSerialConverterVendors = {
+        0x0403: "FTDI",
+        0x067b: "Prolific",
+        0x10c4: "Silicon Labs (CP210x)",
+        0x1a86: "WCH (CH340/CH341)",
+    }
     def __init__(self, idVendor=None, idProduct=None, serialNumber=None, portPath=None, port=None, delay=0):
         CommunicationPort.__init__(self)
 
@@ -137,6 +148,27 @@ class SerialPort(CommunicationPort):
             pass
 
         return urls
+
+    @classmethod
+    def isGenericSerialConverter(cls, idVendor) -> bool:
+        """Whether idVendor belongs to a known generic USB/RS-232 converter
+        chip (FTDI, Prolific, Silicon Labs, WCH, ...). A None idVendor (a
+        non-USB port such as a Bluetooth channel) is not a converter."""
+        return idVendor in cls.genericSerialConverterVendors
+
+    @classmethod
+    def genericSerialConverterPorts(cls):
+        """Return the connected serial ports that come from a generic USB/RS-232
+        converter chip, as pyserial ListPortInfo objects.
+
+        Useful when the instrument at the other end has no USB identity of its
+        own (it sits behind an FTDI/Prolific/CP210x/CH34x cable): this lists the
+        candidate adaptors so the caller can pick one, typically by its
+        `serial_number`. Open a match with its `.device` path. The recognized
+        chips are in `genericSerialConverterVendors`; read a port's chip name
+        with `genericSerialConverterVendors[port.vid]`.
+        """
+        return [port for port in comports() if cls.isGenericSerialConverter(port.vid)]
 
     @property
     def isOpen(self):
