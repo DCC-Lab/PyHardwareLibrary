@@ -4,6 +4,18 @@ Notable changes to PyHardwareLibrary, loosely following
 [Keep a Changelog](https://keepachangelog.com/). Read this before upgrading:
 API changes can land even when the minor version is unchanged.
 
+## [Unreleased]
+
+### Added
+- `FieldMasterDevice` and `DebugFieldMasterDevice` (`powermeters/`): a driver
+  for the Coherent FieldMaster GS laser power/energy meter over RS-232 via an
+  FTDI adaptor (9600 8N1, LF terminator, `pw?`/`en?`/`wv?`/`v` commands). The
+  meter has no USB identity of its own, so `classIdVendor`/`classIdProduct` are
+  the generic FTDI values (0x0403/0x6001); disambiguate multiple FTDI adaptors
+  with the adaptor `serialNumber` or an explicit `portPath`. Note: the meter
+  only answers RS-232 while on its Home or Trend screen, and
+  `initializeDevice` raises with that hint when it does not respond.
+
 ## [1.1.0] - 2026-05-29
 
 ### Changed
