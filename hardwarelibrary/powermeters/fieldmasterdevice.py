@@ -7,11 +7,12 @@ from hardwarelibrary.communication.communicationport import (
 )
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterDevice
+from hardwarelibrary.powermeters.capabilities import WavelengthCalibratable
 
 FLOAT_PATTERN = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 
 
-class FieldMasterDevice(PowerMeterDevice):
+class FieldMasterDevice(PowerMeterDevice, WavelengthCalibratable):
     """Coherent FieldMaster GS laser power/energy meter over RS-232.
 
     The meter has no USB identity of its own: it connects through a generic
@@ -156,10 +157,11 @@ class DebugFieldMasterDevice(FieldMasterDevice):
     usesGenericSerialConverter = False   # debug device has its own fake identity
 
     def __init__(self, serialNumber='debug'):
-        PhysicalDevice.__init__(self, serialNumber=serialNumber,
-                                idProduct=self.classIdProduct, idVendor=self.classIdVendor)
-        self.portPath = None
-        self.terminator = b'\n'
+        # Go through the full cooperative chain (FieldMaster -> PowerMeter ->
+        # PhysicalDevice -> mixins) with the debug identity, rather than jumping
+        # straight to PhysicalDevice and skipping the intermediate __init__s.
+        super().__init__(serialNumber=serialNumber,
+                         idProduct=self.classIdProduct, idVendor=self.classIdVendor)
         self.version = "Debug FieldMaster GS 1.0"
         self._simulatedPower = 1.43e-3
         self._calibrationWavelengthInNanometers = 1064.0
