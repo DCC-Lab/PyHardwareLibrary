@@ -6,6 +6,8 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-06
+
 ### Added
 - `FieldMasterDevice` and `DebugFieldMasterDevice` (`powermeters/`): a driver
   for the Coherent FieldMaster GS laser power/energy meter over RS-232 via an
@@ -18,6 +20,31 @@ API changes can land even when the minor version is unchanged.
   other combinations until one replies, so a mismatched Menu self-heals. Note:
   the meter only answers RS-232 while on its Home or Trend screen, and
   `initializeDevice` raises with that hint when none of the terminators reply.
+- `SerialPort.genericSerialConverterPorts()` and `isGenericSerialConverter()`,
+  plus the `genericSerialConverterVendors` table: discover connected ports that
+  come from a generic USB/RS-232 converter chip (FTDI, Prolific, Silicon Labs
+  CP210x, WCH CH34x), so an instrument with no USB identity of its own can be
+  located and disambiguated by the adaptor's serial number.
+- `PhysicalDevice.usesGenericSerialConverter` flag (default `False`). A device
+  behind a generic converter matches any converter vendor (its `vidpids()`
+  expands to the whole table, product id wildcarded), and
+  `DeviceManager.candidateClassesForAutoDiscovery()` excludes such classes from
+  automatic probing, since their VID/PID identifies only the cable. FieldMaster,
+  oscilloscope, Echo and IntelliDrive are flagged and must be constructed
+  explicitly; Thorlabs (custom-EEPROM FTDI PID) stays a specific identity.
+
+### Changed
+- `PhysicalDevice.isCompatibleWith` treats a `None` product id in a `vidpids()`
+  pair as a wildcard that matches any product from that vendor. Concrete
+  `(vendor, product)` pairs are unaffected.
+
+### Fixed
+- `OISpectrometer.getSpectrum` no longer hangs. The wait for the "spectrum
+  ready" flag is now bounded (`maxRequests`/`maxWait`) and raises
+  `SpectrumRequestTimeoutError` instead of re-requesting a spectrum forever on a
+  transient USB glitch; transient `usb.core.USBError` (incl. `USBTimeoutError`)
+  during polling is absorbed and retried. `integrationTime` remains the first
+  optional argument, so all existing callers are unaffected.
 
 ## [1.1.0] - 2026-05-29
 
