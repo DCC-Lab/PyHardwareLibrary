@@ -38,6 +38,14 @@ class PhysicalDevice(ABC):
     classIdProduct = None
     commands = None
 
+    # True when classIdVendor/classIdProduct are those of a generic, off-the-shelf
+    # USB/RS-232 converter (a stock FTDI/Prolific/CP210x/CH34x cable) rather than
+    # the instrument's own identity. Such a device shares its VID/PID with every
+    # other instrument behind the same cable model, so it cannot be identified by
+    # VID/PID alone: it matches any generic converter (see vidpids) and must be
+    # disambiguated by serial number, and DeviceManager will not auto-probe it.
+    usesGenericSerialConverter = False
+
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
         if serialNumber == "*" or serialNumber is None:
             serialNumber = ".*"
@@ -65,13 +73,22 @@ class PhysicalDevice(ABC):
 
     @classmethod
     def vidpids(cls):
+        if cls.usesGenericSerialConverter:
+            # Identity is not in the VID/PID: match any generic converter chip,
+            # PID wildcarded (None). Local import avoids a physicaldevice <->
+            # communication import cycle.
+            from hardwarelibrary.communication.serialport import SerialPort
+            return [(idVendor, None) for idVendor in SerialPort.genericSerialConverterVendors]
         return [(cls.classIdVendor, cls.classIdProduct)]
 
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
         for compatibleIdVendor, compatibleIdProduct in cls.vidpids():
-            if idVendor == compatibleIdVendor and idProduct == compatibleIdProduct:
-                return True
+            if idVendor == compatibleIdVendor:
+                # A None product id in the pair is a wildcard: it matches any
+                # product behind that vendor (used for generic converters).
+                if compatibleIdProduct is None or idProduct == compatibleIdProduct:
+                    return True
 
         return False
 

@@ -207,13 +207,23 @@ class DeviceManager:
         else:
             raise RuntimeError("No monitoring loop running")
 
+    @classmethod
+    def candidateClassesForAutoDiscovery(cls, idVendor, idProduct):
+        """Device classes matching a plugged-in USB device that are safe to
+        instantiate automatically. Classes behind a generic serial converter are
+        excluded: their VID/PID identifies only the cable, so several instruments
+        share it and auto-probing them would send arbitrary protocol bytes to an
+        unknown device. Those must be constructed explicitly instead."""
+        candidates = utils.getCandidateDeviceClasses(PhysicalDevice, idVendor, idProduct)
+        return [aClass for aClass in candidates if not aClass.usesGenericSerialConverter]
+
     def usbDeviceConnected(self, usbDevice):
         descriptor = USBDeviceDescriptor.fromUSBDevice(usbDevice)
         NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidConnect, notifyingObject=self, userInfo=descriptor)
         if descriptor not in self.usbDeviceDescriptors:
             self.usbDeviceDescriptors.append(descriptor)
 
-        candidates = utils.getCandidateDeviceClasses(PhysicalDevice, descriptor.idVendor, descriptor.idProduct)
+        candidates = self.candidateClassesForAutoDiscovery(descriptor.idVendor, descriptor.idProduct)
         for candidateClass in candidates:
             # This may throw if incompat:
             #                 deviceInstanceible
