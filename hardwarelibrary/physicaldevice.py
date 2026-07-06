@@ -71,6 +71,13 @@ class PhysicalDevice(ABC):
         self.monitoring = None
         self.refreshInterval = 1.0
 
+        # Cooperative base: forward to the rest of the MRO so capability mixins
+        # mixed in alongside a device (e.g. WavelengthCalibratable) get their
+        # own __init__ run. The device-identity arguments are consumed here, so
+        # nothing is forwarded; a mixin __init__ must therefore take no required
+        # arguments and call super().__init__() itself.
+        super().__init__()
+
     @classmethod
     def vidpids(cls):
         if cls.usesGenericSerialConverter:

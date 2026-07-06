@@ -157,10 +157,11 @@ class DebugFieldMasterDevice(FieldMasterDevice):
     usesGenericSerialConverter = False   # debug device has its own fake identity
 
     def __init__(self, serialNumber='debug'):
-        PhysicalDevice.__init__(self, serialNumber=serialNumber,
-                                idProduct=self.classIdProduct, idVendor=self.classIdVendor)
-        self.portPath = None
-        self.terminator = b'\n'
+        # Go through the full cooperative chain (FieldMaster -> PowerMeter ->
+        # PhysicalDevice -> mixins) with the debug identity, rather than jumping
+        # straight to PhysicalDevice and skipping the intermediate __init__s.
+        super().__init__(serialNumber=serialNumber,
+                         idProduct=self.classIdProduct, idVendor=self.classIdVendor)
         self.version = "Debug FieldMaster GS 1.0"
         self._simulatedPower = 1.43e-3
         self._calibrationWavelengthInNanometers = 1064.0

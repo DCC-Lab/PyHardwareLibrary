@@ -2,6 +2,11 @@ from abc import ABC, abstractmethod
 
 
 class Capability(ABC):
+    # Capability mixins are combined with a PhysicalDevice subclass, which sits
+    # ahead of them in the MRO. PhysicalDevice is a cooperative base (it calls
+    # super().__init__() after consuming the device-identity arguments), so a
+    # mixin that holds per-instance state may define __init__ as long as it
+    # takes no required arguments and forwards with super().__init__().
     pass
 
 
@@ -9,7 +14,10 @@ class WavelengthCalibratable(Capability):
     unit = "nm"
     isReadable = True
     isWritable = True
-    calibrationWavelength = None
+
+    def __init__(self):
+        super().__init__()
+        self.calibrationWavelength = None
 
     def getCalibrationWavelength(self):
         self.doGetCalibrationWavelength()
@@ -60,7 +68,10 @@ class ScaleAdjustable(Capability):
     unit = "W"
     isReadable = True
     isWritable = True
-    scale = None
+
+    def __init__(self):
+        super().__init__()
+        self.scale = None
 
     def getScale(self):
         self.doGetScale()
