@@ -14,6 +14,7 @@ from pyftdi.ftdi import Ftdi #FIXME: should not be here.
 class EchoDevice(PhysicalDevice):
     classIdProduct = 0x6001
     classIdVendor = 0x0403
+    usesGenericSerialConverter = True
     commands = {
         "ECHO1": TextCommand(name="ECHO1", requestEncoder="someText", replyDecoder="someText"),
         "ECHO2": TextCommand(name="ECHO2", requestEncoder="someOtherText", replyDecoder="someOtherText"),

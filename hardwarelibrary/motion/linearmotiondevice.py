@@ -114,9 +114,15 @@ class LinearMotionDevice(PhysicalDevice):
         stepInMicrons: float,
         direction: Direction = Direction.unidirectional,
     ):
-        """mapPositions(width, height, stepInMicrons[, direction == "leftRight" or "zigzag"])
+        """Build a raster of positions covering a width x height grid.
 
-        Returns a list of position tuples, which can be used directly in moveTo functions, to map a sample.
+        direction is a Direction: unidirectional (every row left to right) or
+        bidirectional (alternate rows reversed, a serpentine/zigzag path).
+
+        Returns a list of dicts, one per grid point, each shaped
+        {"index": (i, j), "position": (x, y, depth)}. Positions are in microns
+        (relative to the current position), so feed point["position"] to
+        moveInMicronsTo, not moveTo (which expects native steps).
         """
 
         (initWidth, initHeight, depth) = self.positionInMicrons()

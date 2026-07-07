@@ -22,6 +22,7 @@ class State(Enum):
 class IntellidriveDevice(RotationDevice):
     classIdVendor = 0x0403
     classIdProduct = 0x6001
+    usesGenericSerialConverter = True
 
     commands = {
         "SET_REGISTER": TextCommand(name="SET_REGISTER",
