@@ -6,6 +6,19 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-07-07
+
+### Added
+- `MillenniaEv25Device` (and its `MillenniaDevice` alias) now discovers its port
+  by USB identity when constructed without a `portPath`. The class carries the
+  STM32 Virtual COM Port identity `classIdVendor = 0x0483` /
+  `classIdProduct = 0x5740`, and `doInitializeDevice` matches it over pyserial's
+  ports, raising `UnableToInitialize` naming the identity when none is found. An
+  explicit `portPath` still takes precedence, and a `serialNumber` narrows
+  discovery when several STM32 USB-CDC ports are present. Note: `0x0483:0x5740`
+  is STMicro's generic STM32 VCP identity shared by unrelated STM32 boards, so
+  pin `portPath` on a host that has more than one.
+
 ## [1.3.1] - 2026-07-06
 
 ### Added
