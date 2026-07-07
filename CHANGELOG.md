@@ -6,6 +6,31 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+### Added
+- Power-meter capability mixins (`powermeters/capabilities.py`), mirroring the
+  laser-source `Capability` structure: `WavelengthCalibratable`
+  (`getCalibrationWavelength` / `setCalibrationWavelength`), `AutoScalable`
+  (`autoScaleIsOn` / `turnAutoScaleOn` / `turnAutoScaleOff`), and
+  `ScaleAdjustable` (`getScale` / `setScale` / `availableScales`), each
+  delegating to `do*` hooks the driver implements. `PowerMeterDevice` gains
+  `capabilities()` and `hasCapability(capabilityClass)` for introspection.
+
+### Changed
+- The wavelength-calibration hooks (`doGetCalibrationWavelength`,
+  `doSetCalibrationWavelength`) and their public methods move off
+  `PowerMeterDevice` into the new `WavelengthCalibratable` mixin. The base now
+  requires only `doGetAbsolutePower`. `IntegraDevice` and `FieldMasterDevice`
+  declare `WavelengthCalibratable`, so their public API is unchanged; a new
+  power meter that calibrates by wavelength must now mix in
+  `WavelengthCalibratable` to expose those methods.
+- `PhysicalDevice.__init__` is now a cooperative base: it calls
+  `super().__init__()` after consuming the device-identity arguments, so a
+  capability mixin combined with a device (e.g.
+  `IntegraDevice(PowerMeterDevice, WavelengthCalibratable)`) has its `__init__`
+  run instead of being skipped by the MRO. A mixin `__init__` must therefore
+  take no required arguments and call `super().__init__()` itself. No existing
+  device changes behavior.
+
 ## [1.3.0] - 2026-07-06
 
 ### Added
