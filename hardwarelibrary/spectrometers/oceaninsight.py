@@ -473,18 +473,29 @@ class OISpectrometer(Spectrometer):
         """
         raise NotImplementedError('You must implemented getSpectrumData for your subclass.')
 
-    def getSpectrum(self, integrationTime=None):
+    def getSpectrum(self, integrationTime=None, maxRequests=4, maxWait=2.0):
         """ Obtain a spectrum from the spectrometer. This implies:
         1- changing the integration time if needed.
         2- requesting a spectrum,
-        3- waiting until ready, then 
+        3- waiting until ready, then
         4- actually retrieving and returning the data.
-        
+
+        The wait is bounded: at most `maxRequests` requests are issued, each
+        awaited up to `maxWait` seconds. Rather than looping forever when the
+        'spectrum ready' flag never rises (a transient USB glitch can leave it
+        stuck), SpectrumRequestTimeoutError is raised in bounded time. Transient
+        USB errors raised by requestSpectrum()/isSpectrumReady() are absorbed
+        and retried instead of propagating on the first hiccup.
+
         Parameters
         ----------
-        integrationTime: int, default None 
+        integrationTime: int, default None
             integration time in milliseconds if not the currently configured
             time.
+        maxRequests: int, default 4
+            maximum number of spectrum requests before giving up.
+        maxWait: float, default 2.0
+            seconds to wait for the 'spectrum ready' flag after each request.
 
         Returns
         -------
@@ -496,15 +507,22 @@ class OISpectrometer(Spectrometer):
         if integrationTime is not None:
             self.setIntegrationTime(integrationTime)
 
-        self.requestSpectrum()
-        timeOut = time.time() + 1
-        while not self.isSpectrumReady():
-            time.sleep(0.001)
-            if time.time() > timeOut:
-                self.requestSpectrum() # makes no sense, let's request another one
-                timeOut = time.time() + 1
+        lastError = None
+        for _ in range(maxRequests):
+            try:
+                self.requestSpectrum()
+                deadline = time.time() + maxWait
+                while time.time() < deadline:
+                    if self.isSpectrumReady():
+                        return self.getSpectrumData()
+                    time.sleep(0.001)
+            except usb.core.USBError as err:   # includes USBTimeoutError
+                lastError = err
+                time.sleep(0.02)
 
-        return self.getSpectrumData()
+        raise SpectrumRequestTimeoutError(
+            "Spectrum never became ready after {0} requests "
+            "(last USB error: {1})".format(maxRequests, lastError))
 
     def sendCommand(self, cmdBytes, payloadBytes=None):
         """ Main entry point to write to the device in order to have

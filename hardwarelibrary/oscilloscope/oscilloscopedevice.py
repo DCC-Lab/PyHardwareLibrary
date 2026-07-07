@@ -26,6 +26,7 @@ class TektronikException(Exception):
 class OscilloscopeDevice(PhysicalDevice):
     classIdVendor = 0x0403
     classIdProduct = 0x6001
+    usesGenericSerialConverter = True
 
     def __init__(self, serialNumber:str = None, idProduct = 0x6001, idVendor = 0x0403):
         super().__init__(serialNumber, idProduct=self.classIdProduct, idVendor=self.classIdVendor)
