@@ -6,6 +6,8 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-07-06
+
 ### Added
 - Power-meter capability mixins (`powermeters/capabilities.py`), mirroring the
   laser-source `Capability` structure: `WavelengthCalibratable`
