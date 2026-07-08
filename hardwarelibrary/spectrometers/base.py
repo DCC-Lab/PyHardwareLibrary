@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import time
-import numpy as np
 from abc import abstractmethod
 from struct import *
 import csv
@@ -17,7 +18,6 @@ import usb.backend.libusb1
 
 from pathlib import *
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
-from hardwarelibrary.spectrometers.viewer import *
 
 class NoSpectrometerConnected(RuntimeError):
     pass
@@ -32,6 +32,8 @@ class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
+        import numpy as np
+
         PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.model = ""
         self.wavelength = np.linspace(400,1000,1024)
@@ -57,6 +59,7 @@ class Spectrometer(PhysicalDevice):
         """
         if self.state != DeviceState.Ready:
             self.initializeDevice()
+        from hardwarelibrary.spectrometers.viewer import SpectraViewer
         viewer = SpectraViewer(spectrometer=self)
         viewer.display()
 

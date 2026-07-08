@@ -4,12 +4,6 @@ from enum import Enum
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 from threading import Thread, RLock
-try:
-    import cv2
-except Exception as err:
-    print("No support for OpenCVcameras")
-    pass
-    
 import re
 
 class CameraDeviceNotification(Enum):
@@ -71,6 +65,8 @@ class CameraDevice(PhysicalDevice):
             raise RuntimeError("No monitoring loop running")
 
     def captureLoopSynchronous(self):
+        import cv2
+
         frame = None
         NotificationCenter().postNotification(notificationName=CameraDeviceNotification.didStartCapture,
                                               notifyingObject=self)
@@ -114,6 +110,8 @@ class OpenCVCamera(CameraDevice):
             self.cvCameraIndex = int(serialNumber)
 
     def openCVProperties(self):
+        import cv2
+
         properties = {}
         for property in dir(cv2):
             if re.search('CAP_', property) is not None:
@@ -139,6 +137,8 @@ class OpenCVCamera(CameraDevice):
         return wasAcquired
 
     def doInitializeDevice(self):
+        import cv2
+
         super().doInitializeDevice()
         with self.lock:
             # FIXME: Open the first camera we find

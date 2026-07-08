@@ -10,8 +10,6 @@ import re
 import time
 from struct import *
 
-from pyftdi.ftdi import Ftdi #FIXME: should not be here.
-
 class SutterDevice(LinearMotionDevice):
     classIdVendor = 4930
     classIdProduct = 1
