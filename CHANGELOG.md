@@ -6,6 +6,27 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-07-08
+
+### Changed
+- Heavy third-party modules are now imported lazily, at their point of use,
+  instead of at module load. `import hardwarelibrary` no longer pulls in
+  `matplotlib` or `numpy` (import time drops from ~336 ms to ~59 ms); they load
+  only when a plot is drawn or a spectrum is acquired. Affected: the
+  spectrometers package (`SpectraViewer` deferred into `display()`/`displayAny()`,
+  `numpy` into the methods that use it; `base.py` uses
+  `from __future__ import annotations` for its `-> np.array` hint),
+  `OscilloscopeDevice.displayWaveforms`, and the cameras module (`cv2`). Public
+  APIs are unchanged. Two behavioral notes: importing `hardwarelibrary.cameras`
+  no longer prints a warning when OpenCV is absent — a missing `cv2` now raises
+  `ModuleNotFoundError` when a camera operation is invoked; and the unused
+  matplotlib import block in `oceaninsight.py` was removed.
+
+### Removed
+- Dead `from pyftdi.ftdi import Ftdi` imports in `SutterDevice` and `EchoDevice`
+  (both were unused and flagged `# FIXME: should not be here`). FTDI access still
+  goes through `SerialPort`, which owns the `pyftdi` dependency.
+
 ## [1.3.2] - 2026-07-07
 
 ### Added
