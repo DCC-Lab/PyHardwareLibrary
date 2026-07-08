@@ -4,7 +4,6 @@ import struct
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.physicaldevice import *
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
-import matplotlib.pyplot as plt
 
 class Channels(Enum):
     CH1     = "CH1"
@@ -35,6 +34,8 @@ class OscilloscopeDevice(PhysicalDevice):
         self.delay = None
 
     def displayWaveforms(self, channels=None):
+        import matplotlib.pyplot as plt
+
         if channels is None:
             channels = [Channels.CH1, Channels.CH2]
 
