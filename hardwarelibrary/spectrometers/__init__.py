@@ -22,12 +22,12 @@ else:
 
 from .base import Spectrometer, getAllSubclasses
 from .oceaninsight import OISpectrometer, USB2000, USB4000, USB2000Plus, USB4000_2000Plus, USB650
-from .viewer import SpectraViewer
 
 def any() -> Spectrometer:
     return Spectrometer.any()
 
 def displayAny():
+    from .viewer import SpectraViewer
     spectrometer = Spectrometer.any()
     if spectrometer is not None:
         spectrometer.initializeDevice()

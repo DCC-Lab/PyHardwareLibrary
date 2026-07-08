@@ -1,6 +1,5 @@
 try:
     import time
-    import numpy as np
     from struct import *
     import csv
     from typing import NamedTuple
@@ -17,18 +16,12 @@ try:
     import usb.util
     import usb.backend.libusb1
 
-    import matplotlib.backends as backends
-    import matplotlib.pyplot as plt
-    import matplotlib.animation as animation
-    from matplotlib.widgets import Button, TextBox
-
 
 except Exception as err:
     print('** Error importing modules. {0}'.format(err))
     print('We will attempt to continue and hope for the best.')
 
 from hardwarelibrary.spectrometers.base import *
-from hardwarelibrary.spectrometers.viewer import *
     
 """
 This is a simple script to use an Ocean Insight USB2000 spectrometer. You can
@@ -627,6 +620,8 @@ class USB2000(OISpectrometer):
             The spectrum, in 16-bit integers corresponding to each wavelength
             available in self.wavelength.
         """
+        import numpy as np
+
         spectrum = []
 
         for packet in range(32):
@@ -726,6 +721,8 @@ class USB4000_2000Plus(OISpectrometer):
             The spectrum, in 16-bit integers corresponding to each wavelength
             available in self.wavelength.
         """
+        import numpy as np
+
         spectrum = []
 
         if not self.lastStatus.isHighSpeed:
@@ -847,6 +844,8 @@ class DebugSpectro:
         intensity:float = None
 
     def __init__(self):
+        import numpy as np
+
         self.model = "Debug - Nothing is connected"
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
@@ -862,6 +861,8 @@ class DebugSpectro:
         return "000-000-000"
 
     def getSpectrum(self):
+        import numpy as np
+
         spectrum = []
         time = self.getIntegrationTime()
         for wavelength in self.wavelength:
@@ -880,6 +881,7 @@ class DebugSpectro:
 
     def display(self):
         """ Display the spectrum with the SpectraViewer class."""
+        from hardwarelibrary.spectrometers.viewer import SpectraViewer
         viewer = SpectraViewer(spectrometer=self)
         viewer.display()
 
