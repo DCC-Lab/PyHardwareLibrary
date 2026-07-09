@@ -67,21 +67,31 @@ class AnalogInputStreamDevice(AnalogInputDevice):
 
     @abstractmethod
     def configureStream(self, channels, sampleRate):
+        """Set up a hardware-timed acquisition of channels at sampleRate (Hz)."""
         ...
 
     @abstractmethod
     def startStream(self):
+        """Start the configured acquisition."""
         ...
 
     @abstractmethod
     def readStream(self):
+        """Return the samples acquired since the last read, as {channel: [volts, ...]}."""
         ...
 
     @abstractmethod
     def stopStream(self):
+        """Stop the acquisition and release any hardware streaming resources."""
         ...
 
     def acquireWaveform(self, channels, sampleRate, sampleCount):
+        """Acquire exactly sampleCount samples per channel, blocking until done.
+
+        Configures, starts, and drains the stream (looping readStream) on the
+        caller's behalf, then stops it; returns {channel: [volts, ...]} truncated
+        to sampleCount per channel.
+        """
         self.configureStream(channels, sampleRate)
         samples = {channel: [] for channel in channels}
         self.startStream()
@@ -146,10 +156,12 @@ class PhaseLockedDetectionDevice(ABC):
 
     @abstractmethod
     def getInputSource(self) -> InputSource:
+        """Returns the signal input the demodulator currently measures."""
         ...
 
     @abstractmethod
     def setInputSource(self, source: InputSource):
+        """Select which signal input (an InputSource member) the demodulator measures."""
         ...
 
     @abstractmethod
@@ -231,10 +243,12 @@ class TriggerableDevice(ABC):
 
     @abstractmethod
     def setTriggerSource(self, source: 'TriggerSource'):
+        """Select whether the acquisition starts immediately or on an external trigger."""
         ...
 
     @abstractmethod
     def getTriggerSource(self) -> 'TriggerSource':
+        """Returns the currently selected TriggerSource."""
         ...
 
     @abstractmethod

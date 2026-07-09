@@ -22,11 +22,24 @@ class PrologixGPIBPort(SerialPort):
 
     def __init__(self, gpibAddress, portPath=None, idVendor=0x0403,
                  idProduct=0x6001, serialNumber=None):
+        """Create a port for the instrument at GPIB address gpibAddress.
+
+        gpibAddress is the addressed instrument's GPIB (IEEE-488) primary
+        address. The remaining arguments locate the FTDI-based Prologix adaptor
+        itself and are forwarded to SerialPort: an explicit portPath, or the
+        adaptor's idVendor/idProduct/serialNumber for discovery.
+        """
         super().__init__(idVendor=idVendor, idProduct=idProduct,
                          serialNumber=serialNumber, portPath=portPath)
         self.gpibAddress = gpibAddress
 
     def open(self, baudRate=115200, timeout=1.0):
+        """Open the serial line, then apply the Prologix controller handshake.
+
+        Configuring the controller in open() (rather than a separate step the
+        caller must remember) mirrors SerialPort.open()/USBPort.open(): once
+        open() returns, the port is ready for readString/writeString.
+        """
         super().open(baudRate=baudRate, timeout=timeout)
         self.configureController()
 
@@ -50,9 +63,13 @@ class PrologixGPIBPort(SerialPort):
             self.writeString(command + "\n")
 
     def readString(self, endPoint=None) -> str:
-        # Manual-read mode: ask the controller to read the addressed instrument's
-        # reply (until EOI), then read the forwarded bytes with the inherited
-        # serial readString. Keeping this here lets the driver use the ordinary
-        # readString/writeStringReadMatch primitives unchanged.
+        """Read one reply from the addressed instrument.
+
+        In manual-read mode (++auto 0) the controller does not forward a reply
+        until told to, so this issues '++read eoi' (read until the instrument
+        asserts EOI) and then reads the forwarded bytes with the inherited serial
+        readString. Encapsulating the handshake here lets the driver use the
+        ordinary readString/writeStringReadMatch primitives unchanged.
+        """
         self.writeString("++read eoi\n")
         return super().readString(endPoint)

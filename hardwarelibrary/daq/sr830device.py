@@ -124,6 +124,10 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
 
     def __init__(self, gpibAddress=8, portPath=None, serialNumber=None,
                  idProduct=0x6001, idVendor=0x0403):
+        """Create an SR830 driver. gpibAddress is the SR830's GPIB address (8 is
+        the factory default). portPath, if given, names the Prologix adaptor's
+        serial port directly; otherwise the adaptor is discovered by its FTDI
+        idVendor/idProduct, narrowed by serialNumber when one is provided."""
         super().__init__(serialNumber, idProduct=idProduct, idVendor=idVendor)
         self.gpibAddress = gpibAddress
         self.portPath = portPath
@@ -132,12 +136,15 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         self._streamReadIndex = 0
 
     def doInitializeDevice(self):
-        # Several instruments share the generic FTDI 0x0403:0x6001 identity (the
-        # Prologix adaptor, plain RS-232 cables, ...), so VID/PID alone cannot
-        # pick out the SR830. Confirming identity is exactly this method's job:
-        # probe each candidate adaptor with *IDN? and keep the one that answers
-        # as an SR830; if none does, raise. serialNumber (once known) narrows the
-        # candidates so a reconnect goes straight to the right adaptor.
+        """Find the SR830 among the FTDI adaptors, open it, and confirm identity.
+
+        Several instruments share the generic FTDI 0x0403:0x6001 identity (the
+        Prologix adaptor, plain RS-232 cables, ...), so VID/PID alone cannot pick
+        out the SR830. Confirming identity is exactly this method's job: it probes
+        each candidate adaptor with *IDN? and keeps the one that answers as an
+        SR830, raising UnableToInitialize if none does. Once found, the adaptor's
+        serial number is pinned so a later reconnect goes straight to it.
+        """
         candidates = self._candidateAdaptors()
         if not candidates:
             raise PhysicalDevice.UnableToInitialize(
@@ -190,29 +197,39 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         return candidates
 
     def doShutdownDevice(self):
+        """Close the Prologix port and drop the reference to it."""
         if self.port is not None:
             self.port.close()
             self.port = None
 
     def writeCommand(self, command):
+        """Send a command that expects no reply, appending the GPIB terminator."""
         self.port.writeString(command + "\n")
 
     def query(self, command) -> str:
+        """Send command and return its reply as a stripped string.
+
+        The write and the read are held under the port's transactionLock so a
+        concurrent caller cannot interleave and read this command's reply.
+        """
         with self.port.transactionLock:
             self.port.writeString(command + "\n")
             return self.port.readString().strip()
 
     def queryFloat(self, command) -> float:
+        """Send command and return the first floating-point number in the reply."""
         _, group = self.port.writeStringReadFirstMatchingGroup(
             command + "\n", replyPattern=FLOAT_PATTERN)
         return float(group)
 
     def queryInteger(self, command) -> int:
+        """Send command and return the first integer in the reply."""
         _, group = self.port.writeStringReadFirstMatchingGroup(
             command + "\n", replyPattern=INTEGER_PATTERN)
         return int(group)
 
     def readIdentity(self) -> str:
+        """Query *IDN?, cache it in self.idn, and return the identity string."""
         self.idn = self.query("*IDN?")
         return self.idn
 
@@ -241,18 +258,23 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         return self.queryFloat("AUXV? {0}".format(channel.value))
 
     def getInPhaseVoltage(self):
+        """Returns the in-phase component X, in volts (SR830 OUTP? 1)."""
         return self.queryFloat("OUTP? 1")
 
     def getQuadratureVoltage(self):
+        """Returns the quadrature component Y, in volts (SR830 OUTP? 2)."""
         return self.queryFloat("OUTP? 2")
 
     def getMagnitude(self):
+        """Returns the magnitude R = sqrt(X^2 + Y^2), in volts (SR830 OUTP? 3)."""
         return self.queryFloat("OUTP? 3")
 
     def getPhase(self):
+        """Returns the phase theta, in degrees (SR830 OUTP? 4)."""
         return self.queryFloat("OUTP? 4")
 
     def getReferenceFrequency(self):
+        """Returns the reference frequency, in Hz (SR830 FREQ?)."""
         return self.queryFloat("FREQ?")
 
     def snap(self, *parameters):
@@ -265,6 +287,11 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         return tuple(float(value) for value in self.query(command).split(","))
 
     def getDemodulatedValues(self):
+        """Read X, Y, R, and theta at one instant, plus the reference frequency.
+
+        Overrides the base implementation to read the four outputs atomically via
+        SNAP? (a single coherent timepoint) rather than four separate queries.
+        """
         x, y, r, theta = self.snap(1, 2, 3, 4)
         return {"X": x, "Y": y, "R": r, "theta": theta,
                 "referenceFrequency": self.getReferenceFrequency()}
@@ -301,11 +328,22 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         self._streamReadIndex = 0
 
     def startStream(self):
+        """Clear the data buffer (REST) and start acquisition (STRT).
+
+        With an External trigger source the SR830 arms here but does not record
+        until a trigger edge arrives (softwareTrigger or the TRIG IN line).
+        """
         self.writeCommand("REST")
         self._streamReadIndex = 0
         self.writeCommand("STRT")
 
     def readStream(self):
+        """Return the samples buffered since the last read, as {channel: [volts, ...]}.
+
+        Reads how many points the buffer holds (SPTS?) and transfers only the new
+        ones (TRCA?) for each configured channel, advancing the read cursor. An
+        empty list per channel means no new samples since the previous call.
+        """
         available = self.queryInteger("SPTS?")
         newCount = available - self._streamReadIndex
         if newCount <= 0:
@@ -320,12 +358,15 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         return block
 
     def stopStream(self):
+        """Pause acquisition into the data buffer (SR830 PAUS)."""
         self.writeCommand("PAUS")
 
     def supportedSampleRates(self):
+        """Returns the SR830's discrete data-buffer sample rates, in Hz."""
         return list(self.sampleRates)
 
     def _sampleRateIndexFor(self, rate):
+        """Returns the SRAT index whose rate (Hz) is closest to rate."""
         return min(range(len(self.sampleRates)),
                    key=lambda index: abs(self.sampleRates[index] - rate))
 
@@ -333,61 +374,83 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
     # the scan to start on a trigger edge (TSTR); trigger() issues a software edge.
 
     def setTriggerSource(self, source: TriggerSource):
+        """Select immediate (Internal) or external-trigger (External) scan start
+        (SR830 TSTR). source must be a supported TriggerSource or ValueError is
+        raised."""
         if source not in _TRIGGER_SOURCE_TO_INDEX:
             raise ValueError("Unsupported trigger source {0}".format(source))
         self.writeCommand("TSTR {0}".format(_TRIGGER_SOURCE_TO_INDEX[source]))
 
     def getTriggerSource(self) -> TriggerSource:
+        """Returns the current scan-start TriggerSource (SR830 TSTR?)."""
         return _INDEX_TO_TRIGGER_SOURCE[self.queryInteger("TSTR?")]
 
     def softwareTrigger(self):
+        """Issue a software trigger edge (SR830 TRIG), as if TRIG IN pulsed."""
         self.writeCommand("TRIG")
 
     def supportedTriggerSources(self):
+        """Returns the trigger sources the SR830 supports (Internal, External)."""
         return list(TriggerSource)
 
     def getInputSource(self) -> InputSource:
+        """Returns the demodulator's signal input source (SR830 ISRC?)."""
         return _INDEX_TO_INPUT_SOURCE[self.queryInteger("ISRC?")]
 
     def setInputSource(self, source: InputSource):
+        """Select the demodulator's signal input source (SR830 ISRC). source must
+        be a supported InputSource or ValueError is raised."""
         if source not in _INPUT_SOURCE_TO_INDEX:
             raise ValueError("Unsupported input source {0}".format(source))
         self.writeCommand("ISRC {0}".format(_INPUT_SOURCE_TO_INDEX[source]))
 
     def supportedInputSources(self):
+        """Returns the four input sources the SR830 supports."""
         return list(InputSource)
 
     def getSensitivity(self):
+        """Returns the current full-scale sensitivity, in volts (SR830 SENS?)."""
         return self.sensitivities[self.queryInteger("SENS?")]
 
     def setSensitivity(self, volts):
+        """Set the full-scale sensitivity to the smallest step >= volts (SR830 SENS)."""
         self.writeCommand("SENS {0}".format(self._sensitivityIndexFor(volts)))
 
     def getTimeConstant(self):
+        """Returns the current time constant, in seconds (SR830 OFLT?)."""
         return self.timeConstants[self.queryInteger("OFLT?")]
 
     def setTimeConstant(self, seconds):
+        """Set the time constant to the nearest step, in seconds (SR830 OFLT)."""
         self.writeCommand("OFLT {0}".format(self._timeConstantIndexFor(seconds)))
 
     def supportedSensitivities(self):
+        """Returns the SR830's discrete full-scale sensitivities, in volts."""
         return list(self.sensitivities)
 
     def supportedTimeConstants(self):
+        """Returns the SR830's discrete time constants, in seconds."""
         return list(self.timeConstants)
 
     def _sensitivityIndexFor(self, volts):
-        # Smallest full-scale that still contains the signal, so a requested
-        # value between two steps does not clip; clamp to the largest step.
+        """Returns the SENS index for the smallest full-scale that contains volts.
+
+        Rounding up rather than to nearest keeps a requested value that falls
+        between two steps from clipping; a value above the largest step clamps to
+        it.
+        """
         for index, value in enumerate(self.sensitivities):
             if value >= volts:
                 return index
         return len(self.sensitivities) - 1
 
     def _timeConstantIndexFor(self, seconds):
+        """Returns the OFLT index whose time constant is closest to seconds."""
         return min(range(len(self.timeConstants)),
                    key=lambda index: abs(self.timeConstants[index] - seconds))
 
     def doGetStatusUserInfo(self):
+        """Returns the demodulated values for the periodic status notification."""
         return self.getDemodulatedValues()
 
 
@@ -403,6 +466,7 @@ class DebugPrologixGPIBPort(CommunicationPort):
     """
 
     def __init__(self):
+        """Create the fake port with a plausible initial SR830 state."""
         super().__init__()
         self._isOpen = False
         self._buffer = bytearray()
@@ -423,22 +487,33 @@ class DebugPrologixGPIBPort(CommunicationPort):
 
     @property
     def isOpen(self):
+        """True while the fake port is open."""
         return self._isOpen
 
     def open(self):
+        """Mark the port open and clear the reply buffer."""
         self._isOpen = True
         self._buffer = bytearray()
 
     def close(self):
+        """Mark the port closed."""
         self._isOpen = False
 
     def bytesAvailable(self) -> int:
+        """Returns the number of bytes waiting to be read."""
         return len(self._buffer)
 
     def flush(self):
+        """Discard any buffered reply bytes."""
         self._buffer = bytearray()
 
     def writeData(self, data, endPoint=None) -> int:
+        """Interpret one written line and queue any reply it produces.
+
+        Returns the number of bytes accepted. Controller ('++') lines are
+        consumed silently; an SR830 query enqueues its reply, and an SR830 set
+        mutates the simulated state.
+        """
         line = bytes(data).decode("utf-8").strip()
         reply = self._process(line)
         if reply is not None:
@@ -446,6 +521,7 @@ class DebugPrologixGPIBPort(CommunicationPort):
         return len(data)
 
     def readData(self, length, endPoint=None) -> bytearray:
+        """Return length bytes from the reply buffer, or time out if too few."""
         if len(self._buffer) < length:
             raise CommunicationReadTimeout("Only obtained {0}".format(self._buffer))
         data = self._buffer[:length]
@@ -453,6 +529,7 @@ class DebugPrologixGPIBPort(CommunicationPort):
         return data
 
     def _process(self, line):
+        """Compute the reply for one command line (or None for no reply / a set)."""
         if line.startswith("++"):
             return None
         if line == "*IDN?":
@@ -533,6 +610,8 @@ class DebugPrologixGPIBPort(CommunicationPort):
         return None
 
     def _storeStreamPoints(self, count):
+        """Append count synthetic samples to each display buffer (a ramp so
+        successive reads return distinguishable values)."""
         for display in (1, 2):
             base = {1: 1.0e-3, 2: 2.0e-3}[display]
             start = len(self._buffers[display])
@@ -540,6 +619,8 @@ class DebugPrologixGPIBPort(CommunicationPort):
         self._storedPoints += count
 
     def _outputValue(self, index):
+        """Returns the simulated demodulated output for an OUTP?/SNAP? code
+        (1=X, 2=Y, 3=R, 4=theta)."""
         if index == 1:
             return self._x
         if index == 2:
@@ -551,6 +632,8 @@ class DebugPrologixGPIBPort(CommunicationPort):
         return 0.0
 
     def _snapValue(self, code):
+        """Returns the simulated value for a SNAP? code (1-4=X/Y/R/theta,
+        5-8=Aux1-4, 9=reference frequency)."""
         if code in (1, 2, 3, 4):
             return self._outputValue(code)
         if code in (5, 6, 7, 8):
@@ -561,6 +644,7 @@ class DebugPrologixGPIBPort(CommunicationPort):
 
     @staticmethod
     def _formatFloat(value):
+        """Format a float the way the SR830 renders numeric replies."""
         return "{0:.6e}".format(value)
 
 
@@ -573,15 +657,22 @@ class DebugSR830Device(SR830Device):
     usesGenericSerialConverter = False
 
     def __init__(self, serialNumber="debug"):
+        """Create a debug SR830 carrying the reserved debug USB identity."""
         super().__init__(gpibAddress=8, serialNumber=serialNumber,
                          idProduct=self.classIdProduct, idVendor=self.classIdVendor)
 
     def doInitializeDevice(self):
+        """Attach the in-memory DebugPrologixGPIBPort and confirm identity.
+
+        Overrides discovery only; every other method runs the real SR830Device
+        code path against the fake port.
+        """
         self.port = DebugPrologixGPIBPort()
         self.port.open()
         self.readIdentity()
 
     def doShutdownDevice(self):
+        """Close the in-memory port and drop the reference to it."""
         if self.port is not None:
             self.port.close()
             self.port = None
