@@ -6,6 +6,8 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-08
+
 ### Added
 - `SR830Device` (and `DebugSR830Device`): Stanford Research SR830 DSP lock-in
   amplifier over a Prologix GPIB-USB controller. It combines several capabilities:
@@ -26,10 +28,12 @@ API changes can land even when the minor version is unchanged.
   enum, and the `SampleClock` enum for stream sample clocking.
 
 ### Changed
-- `AnalogInputStreamDevice`: the sample-rate parameter of
+- **Breaking:** `AnalogInputStreamDevice`: the sample-rate parameter of
   `configureStream`/`acquireWaveform` is renamed `scanRate` -> `sampleRate`.
-  `LabjackDevice.configureStream` keeps `scanRate` as a temporary deprecated
-  synonym for existing callers.
+  Callers passing it positionally are unaffected; callers passing `scanRate=` by
+  keyword must switch to `sampleRate=`. `LabjackDevice.configureStream` keeps
+  `scanRate` as a temporary deprecated synonym, so LabJack callers are unaffected
+  for now.
 - `LabjackDevice` now imports `u3` (LabJackPython) lazily at point of use, so
   `import hardwarelibrary.daq` (and the new SR830 driver) works on hosts that do
   not have LabJackPython installed.
