@@ -6,6 +6,34 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+### Added
+- `SR830Device` (and `DebugSR830Device`): Stanford Research SR830 DSP lock-in
+  amplifier over a Prologix GPIB-USB controller. It combines several capabilities:
+  `AnalogInputStreamDevice` (the four rear-panel Aux A/D inputs via `OAUX?`, plus
+  hardware-timed buffered acquisition of the demodulated outputs from the internal
+  data buffer), `AnalogOutputDevice` (the four rear-panel Aux D/A outputs via
+  `AUXV`), `PhaseLockedDetectionDevice` (X/Y/R/theta, reference frequency, signal
+  input source, sensitivity, and time constant), and `TriggerableDevice` (the
+  rear-panel TRIG IN). Enums: `AuxInput`, `AuxOutput`, `StreamChannel`,
+  `InputSource`. `doInitializeDevice` self-discovers the Prologix among the
+  connected FTDI adaptors by confirming `*IDN?`, and pins the adaptor's serial.
+- `PrologixGPIBPort` (`hardwarelibrary/communication/`): a `SerialPort` subclass
+  that speaks the Prologix GPIB-USB controller `++` protocol. GPIB instruments
+  talk to it with the ordinary `readString`/`writeString` primitives; the `++read
+  eoi` handshake is encapsulated in its `readString`.
+- New DAQ capability contracts in `daq/daqdevice.py`: `PhaseLockedDetectionDevice`
+  (lock-in / phase-locked detection), `TriggerableDevice` with the `TriggerSource`
+  enum, and the `SampleClock` enum for stream sample clocking.
+
+### Changed
+- `AnalogInputStreamDevice`: the sample-rate parameter of
+  `configureStream`/`acquireWaveform` is renamed `scanRate` -> `sampleRate`.
+  `LabjackDevice.configureStream` keeps `scanRate` as a temporary deprecated
+  synonym for existing callers.
+- `LabjackDevice` now imports `u3` (LabJackPython) lazily at point of use, so
+  `import hardwarelibrary.daq` (and the new SR830 driver) works on hosts that do
+  not have LabJackPython installed.
+
 ## [1.3.3] - 2026-07-08
 
 ### Changed
