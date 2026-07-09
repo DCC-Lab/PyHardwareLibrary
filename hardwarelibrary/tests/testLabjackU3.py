@@ -200,14 +200,14 @@ class TestLabjackDevice(unittest.TestCase):
         self.device.configureDigitalIO({})
 
     def testAcquireWaveformSampleCount(self):
-        waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=200)
+        waveform = self.device.acquireWaveform(channels=[0], sampleRate=1000, sampleCount=200)
         self.assertEqual(len(waveform[0]), 200)
 
     def testAcquireWaveformReadsLoopback(self):
         self.skipUnlessAnalogLoopback(0)
         self.device.setAnalogVoltage(value=2.0, channel=0)
         time.sleep(self.analogSettlingTime)
-        waveform = self.device.acquireWaveform(channels=[0], scanRate=2000, sampleCount=500)
+        waveform = self.device.acquireWaveform(channels=[0], sampleRate=2000, sampleCount=500)
         self.assertEqual(len(waveform[0]), 500)
         mean = sum(waveform[0]) / len(waveform[0])
         self.assertAlmostEqual(mean, 2.0, 1)
@@ -307,14 +307,14 @@ class TestDebugLabjackDevice(unittest.TestCase):
 
     def testAcquireWaveform(self):
         self.device.setAnalogVoltage(value=2.5, channel=0)
-        waveform = self.device.acquireWaveform(channels=[0], scanRate=1000, sampleCount=50)
+        waveform = self.device.acquireWaveform(channels=[0], sampleRate=1000, sampleCount=50)
         self.assertEqual(len(waveform[0]), 50)
         self.assertTrue(all(abs(value - 2.5) < 1e-9 for value in waveform[0]))
 
     def testAcquireWaveformMultiChannel(self):
         self.device.setAnalogVoltage(value=1.0, channel=0)
         self.device.setAnalogVoltage(value=2.0, channel=1)
-        waveform = self.device.acquireWaveform(channels=[0, 1], scanRate=1000, sampleCount=30)
+        waveform = self.device.acquireWaveform(channels=[0, 1], sampleRate=1000, sampleCount=30)
         self.assertEqual(len(waveform[0]), 30)
         self.assertEqual(len(waveform[1]), 30)
         self.assertAlmostEqual(waveform[0][0], 1.0)
