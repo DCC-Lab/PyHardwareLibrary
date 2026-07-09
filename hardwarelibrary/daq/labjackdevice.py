@@ -1,7 +1,6 @@
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.daq import AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice
 import inspect
-import u3
 
 
 class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice):
@@ -28,6 +27,7 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInput
         PhysicalDevice normalizes a "*" or None serialNumber to the regex ".*",
         so both spellings mean "first found"; any other value is an exact serial.
         """
+        import u3
         self.dev = u3.U3(autoOpen=False)
         if self.serialNumber in ("*", ".*"):
             self.dev.open()
@@ -64,6 +64,7 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInput
         # configureAnalogIO and configureDigitalIO both forward to the U3's single
         # configIO command; validate keys against its actual signature so an
         # unexpected key fails clearly here instead of deep inside configIO.
+        import u3
         valid = set(inspect.signature(u3.U3.configIO).parameters) - {'self'}
         unexpected = set(parameters) - valid
         if unexpected:
@@ -100,14 +101,18 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInput
     def toggleLED(self):
         self.dev.toggleLED()
 
-    def configureStream(self, channels, scanRate):
+    def configureStream(self, channels, sampleRate=None, scanRate=None):
+        # scanRate is a deprecated synonym for sampleRate, kept temporarily for
+        # callers written against the old AnalogInputStreamDevice contract.
+        if sampleRate is None:
+            sampleRate = scanRate
         self._streamChannels = list(channels)
         self.dev.streamConfig(
             NumChannels=len(self._streamChannels),
             PChannels=self._streamChannels,
             NChannels=[31] * len(self._streamChannels),
             Resolution=3,
-            ScanFrequency=scanRate,
+            ScanFrequency=sampleRate,
         )
 
     def startStream(self):
@@ -186,7 +191,7 @@ class DebugLabjackDevice(LabjackDevice):
     def toggleLED(self):
         pass
 
-    def configureStream(self, channels, scanRate):
+    def configureStream(self, channels, sampleRate=None, scanRate=None):
         self._streamChannels = list(channels)
 
     def startStream(self):
