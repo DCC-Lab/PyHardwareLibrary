@@ -1,5 +1,6 @@
 from .communicationport import *
 from .serialport import SerialPort
+from .prologixgpibport import PrologixGPIBPort
 from .tcpport import TCPPort, UnableToOpenTCPPort
 from .labviewtcpport import LabviewTCPPort
 from .usbport import USBPort
