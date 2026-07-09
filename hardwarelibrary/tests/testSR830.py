@@ -1,13 +1,18 @@
 import env
 import unittest
+from unittest import mock
 
 from hardwarelibrary.physicaldevice import PhysicalDevice
+from hardwarelibrary.communication import PrologixGPIBPort
+from hardwarelibrary.communication.communicationport import CommunicationReadTimeout
 from hardwarelibrary.daq import (
     AnalogInputDevice, AnalogOutputDevice, AnalogInputStreamDevice,
     PhaseLockedDetectionDevice, TriggerableDevice,
     InputSource, AuxInput, AuxOutput, StreamChannel, TriggerSource, SampleClock,
     SR830Device, DebugSR830Device, DebugPrologixGPIBPort,
 )
+
+SR830_IDN = "Stanford_Research_Systems,SR830,s/n86552,ver1.07"
 
 
 class TestDebugSR830Device(unittest.TestCase):
@@ -183,6 +188,35 @@ class TestDebugSR830Device(unittest.TestCase):
         self.assertEqual(self.device._sampleRateIndexFor(512), self.device.sampleRates.index(512))
         self.assertEqual(self.device._sampleRateIndexFor(60), self.device.sampleRates.index(64))
 
+    def testSupportedSampleRates(self):
+        rates = self.device.supportedSampleRates()
+        self.assertEqual(rates, sorted(rates))
+        self.assertEqual(rates[-1], 512)
+
+    def testSensitivityClampsToLargestStep(self):
+        # A request above the 1 V maximum full-scale clamps to that largest step
+        # rather than raising.
+        self.device.setSensitivity(100.0)
+        self.assertAlmostEqual(self.device.getSensitivity(), 1.0)
+
+    def testSetTriggerSourceRejectsUnknown(self):
+        with self.assertRaises(ValueError):
+            self.device.setTriggerSource(SampleClock.Internal)
+
+    def testSetInputSourceRejectsUnknown(self):
+        with self.assertRaises(ValueError):
+            self.device.setInputSource(SampleClock.Internal)
+
+    def testSnapReadsAuxAndFrequencyCodes(self):
+        # Codes 5-8 are Aux1-4, 9 is the reference frequency, and an unknown code
+        # reads back as 0.0.
+        values = self.device.snap(5, 6, 7, 8, 9, 99)
+        self.assertEqual(len(values), 6)
+        self.assertAlmostEqual(values[0], 0.10)
+        self.assertAlmostEqual(values[3], 0.40)
+        self.assertAlmostEqual(values[4], 1.0e3)
+        self.assertAlmostEqual(values[5], 0.0)
+
 
 class TestPhaseLockedDetectionContract(unittest.TestCase):
     def testDeclaresAllCapabilities(self):
@@ -194,25 +228,84 @@ class TestPhaseLockedDetectionContract(unittest.TestCase):
         self.assertIsInstance(device, TriggerableDevice)
 
 
+class _MinimalLockIn(PhaseLockedDetectionDevice, TriggerableDevice):
+    """A bare capability implementation that supplies only the abstract hooks, so
+    the base-class optional hooks and the base getDemodulatedValues are exercised
+    (SR830Device overrides all of these)."""
+
+    def getInPhaseVoltage(self):
+        return 0.1
+
+    def getQuadratureVoltage(self):
+        return 0.2
+
+    def getMagnitude(self):
+        return 0.3
+
+    def getPhase(self):
+        return 45.0
+
+    def getReferenceFrequency(self):
+        return 1000.0
+
+    def getInputSource(self):
+        return InputSource.SingleEnded
+
+    def setInputSource(self, source):
+        pass
+
+    def getSensitivity(self):
+        return 1.0
+
+    def setSensitivity(self, volts):
+        pass
+
+    def getTimeConstant(self):
+        return 0.1
+
+    def setTimeConstant(self, seconds):
+        pass
+
+    def setTriggerSource(self, source):
+        pass
+
+    def getTriggerSource(self):
+        return TriggerSource.Internal
+
+    def softwareTrigger(self):
+        pass
+
+
+class TestCapabilityDefaults(unittest.TestCase):
+    def testOptionalHooksDefaultToNone(self):
+        device = _MinimalLockIn()
+        self.assertIsNone(device.supportedInputSources())
+        self.assertIsNone(device.supportedSensitivities())
+        self.assertIsNone(device.supportedTimeConstants())
+        self.assertIsNone(device.supportedTriggerSources())
+
+    def testBaseGetDemodulatedValues(self):
+        values = _MinimalLockIn().getDemodulatedValues()
+        self.assertEqual(set(values),
+                         {"X", "Y", "R", "theta", "referenceFrequency"})
+        self.assertAlmostEqual(values["R"], 0.3)
+        self.assertAlmostEqual(values["referenceFrequency"], 1000.0)
+
+
 class TestPrologixGPIBPort(unittest.TestCase):
-    def testControllerHandshakeOnOpen(self):
-        port = DebugPrologixGPIBPort()
+    def testControllerHandshakeUsesManualRead(self):
+        # Exercise the real PrologixGPIBPort.configureController (it only calls
+        # writeString, so no serial line is needed) and assert the manual-read
+        # handshake: ++auto 0 with no controller-appended reply terminator.
+        port = PrologixGPIBPort(gpibAddress=8)
         sent = []
-        original = port.writeData
-
-        def recordingWriteData(data, endPoint=None):
-            sent.append(bytes(data).decode("utf-8").strip())
-            return original(data, endPoint)
-
-        port.writeData = recordingWriteData
-        port.open()
-        # Simulate the same handshake PrologixGPIBPort.open() sends.
-        for command in ("++mode 1", "++addr 8", "++auto 1", "++eoi 1", "++eos 2",
-                        "++eot_enable 1", "++eot_char 10", "++read_tmo_ms 1500"):
-            port.writeString(command + "\n")
-        self.assertIn("++mode 1", sent)
+        port.writeString = lambda text: sent.append(text.strip())
+        port.configureController()
+        self.assertEqual(sent[0], "++mode 1")
         self.assertIn("++addr 8", sent)
-        self.assertIn("++auto 1", sent)
+        self.assertIn("++auto 0", sent)
+        self.assertIn("++eot_enable 0", sent)
+        self.assertNotIn("++auto 1", sent)
 
     def testQueryRoundTripsThroughStringPrimitives(self):
         port = DebugPrologixGPIBPort()
@@ -289,6 +382,152 @@ class TestSR830Device(unittest.TestCase):
         self.assertEqual(len(waveform[StreamChannel.X]), 64)
         self.assertEqual(len(waveform[StreamChannel.Y]), 64)
         self.assertTrue(all(isinstance(value, float) for value in waveform[StreamChannel.X]))
+
+
+class TestDebugPrologixGPIBPort(unittest.TestCase):
+    def setUp(self):
+        self.port = DebugPrologixGPIBPort()
+        self.port.open()
+
+    def testIsOpenReflectsState(self):
+        self.assertTrue(self.port.isOpen)
+        self.port.close()
+        self.assertFalse(self.port.isOpen)
+
+    def testBytesAvailableAndFlush(self):
+        self.port.writeString("FREQ?\n")
+        self.assertGreater(self.port.bytesAvailable(), 0)
+        self.port.flush()
+        self.assertEqual(self.port.bytesAvailable(), 0)
+
+    def testSampleRateRegisterRoundTrip(self):
+        self.port.writeString("SRAT 7\n")
+        self.port.writeString("SRAT?\n")
+        self.assertEqual(self.port.readString().strip(), "7")
+
+    def testReadTimesOutWhenBufferShort(self):
+        with self.assertRaises(CommunicationReadTimeout):
+            self.port.readData(1)
+
+    def testControllerLineProducesNoReply(self):
+        self.port.writeString("++mode 1\n")
+        self.assertEqual(self.port.bytesAvailable(), 0)
+
+    def testUnknownCommandProducesNoReply(self):
+        self.port.writeString("BOGUS?\n")
+        self.assertEqual(self.port.bytesAvailable(), 0)
+
+    def testOutputValueUnknownIndexReadsZero(self):
+        self.port.writeString("OUTP? 9\n")
+        self.assertAlmostEqual(float(self.port.readString()), 0.0)
+
+
+class _FakeComPort:
+    """Stand-in for a serial.tools.list_ports entry."""
+
+    def __init__(self, device, serialNumber, vid=0x0403, pid=0x6001):
+        self.device = device
+        self.serial_number = serialNumber
+        self.vid = vid
+        self.pid = pid
+
+
+class _FakeAdaptorPort(DebugPrologixGPIBPort):
+    """A Prologix port whose *IDN? reply depends on which serial port it opened,
+    so a discovery probe can be simulated without hardware. identitiesByPath maps
+    a portPath to its *IDN? reply; a missing/None entry means the adaptor never
+    answers (the read times out)."""
+
+    identitiesByPath = {}
+
+    def __init__(self, gpibAddress, portPath=None, **kwargs):
+        super().__init__()
+        self.gpibAddress = gpibAddress
+        self.portPath = portPath
+
+    def _process(self, line):
+        if line == "*IDN?":
+            return type(self).identitiesByPath.get(self.portPath)
+        return super()._process(line)
+
+
+class TestSR830Discovery(unittest.TestCase):
+    """Hardware-free coverage of SR830Device.doInitializeDevice / _candidateAdaptors,
+    which DebugSR830Device bypasses by overriding doInitializeDevice."""
+
+    def setUp(self):
+        _FakeAdaptorPort.identitiesByPath = {}
+
+    def _patched(self, comportList):
+        return (
+            mock.patch("hardwarelibrary.daq.sr830device.PrologixGPIBPort", _FakeAdaptorPort),
+            mock.patch("hardwarelibrary.daq.sr830device.comports", return_value=comportList),
+        )
+
+    def testDiscoversSR830AndPinsSerial(self):
+        _FakeAdaptorPort.identitiesByPath = {
+            "/dev/A": "Keithley,MODEL 2000,1234,A01",
+            "/dev/B": SR830_IDN,
+        }
+        comportList = [_FakeComPort("/dev/A", "AAAA"), _FakeComPort("/dev/B", "BBBB")]
+        portPatch, comportPatch = self._patched(comportList)
+        with portPatch, comportPatch:
+            device = SR830Device()
+            device.initializeDevice()
+            try:
+                self.assertIn("SR830", device.idn)
+                self.assertEqual(device.serialNumber, "BBBB")
+            finally:
+                device.shutdownDevice()
+
+    def testRaisesWhenNoAdaptorPresent(self):
+        comportList = [_FakeComPort("/dev/Z", "ZZZZ", vid=0x1234, pid=0x5678)]
+        portPatch, comportPatch = self._patched(comportList)
+        with portPatch, comportPatch:
+            device = SR830Device()
+            with self.assertRaises(PhysicalDevice.UnableToInitialize):
+                device.initializeDevice()
+
+    def testRaisesWhenNoSR830AmongAdaptors(self):
+        _FakeAdaptorPort.identitiesByPath = {
+            "/dev/A": None,
+            "/dev/B": "Keithley,MODEL 2000,1234,A01",
+        }
+        comportList = [_FakeComPort("/dev/A", "AAAA"), _FakeComPort("/dev/B", "BBBB")]
+        portPatch, comportPatch = self._patched(comportList)
+        with portPatch, comportPatch:
+            device = SR830Device()
+            with self.assertRaises(PhysicalDevice.UnableToInitialize):
+                device.initializeDevice()
+
+    def testExplicitPortPathIsSoleCandidate(self):
+        _FakeAdaptorPort.identitiesByPath = {"/dev/X": SR830_IDN}
+        with mock.patch("hardwarelibrary.daq.sr830device.PrologixGPIBPort", _FakeAdaptorPort), \
+             mock.patch("hardwarelibrary.daq.sr830device.comports",
+                        side_effect=AssertionError("comports() must not be consulted with an explicit portPath")):
+            device = SR830Device(portPath="/dev/X")
+            device.initializeDevice()
+            try:
+                self.assertIn("SR830", device.idn)
+            finally:
+                device.shutdownDevice()
+
+    def testSerialNumberNarrowsCandidates(self):
+        _FakeAdaptorPort.identitiesByPath = {"/dev/match": SR830_IDN}
+        comportList = [
+            _FakeComPort("/dev/other", "OTHER"),
+            _FakeComPort("/dev/none", None),
+            _FakeComPort("/dev/match", "WANTED"),
+        ]
+        portPatch, comportPatch = self._patched(comportList)
+        with portPatch, comportPatch:
+            device = SR830Device(serialNumber="WANT")
+            device.initializeDevice()
+            try:
+                self.assertIn("SR830", device.idn)
+                self.assertEqual(device.serialNumber, "WANTED")
+            finally:
+                device.shutdownDevice()
 
 
 if __name__ == '__main__':
