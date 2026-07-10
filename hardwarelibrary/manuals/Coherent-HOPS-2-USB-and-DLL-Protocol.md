@@ -69,6 +69,72 @@ Queries: `?HTYPE`, `?LASERMODEL`, `?HID`, `?HBDREV`, `?P` (power), `?SH` (shutte
 (set power), `?SHCMD` (shutter), `?KSWCMD`, `?CMODECMD`, `?TMAINCMD`, etc. This is
 distinct from the V-series `?P`/`?L`/`?S`/`P:`/`L:`/`S:` set.
 
+## Commands implemented by the driver
+
+These are the ASCII commands `HOPSDLLInterface` actually exchanges through
+`CohrHOPS.dll`. The native pyftdi transport (`HOPSNativeInterface`) maps the same
+operations onto I2C register reads/writes instead of ASCII (see
+`Coherent-HOPS-3-I2C-Wire-Protocol.md`).
+
+Queries (read) -- prefixed `?`, return an ASCII value:
+
+| Command | Description | Returns |
+|---|---|---|
+| `?LASERMODEL` | Laser/head model name | string, e.g. `Genesis CX-Vis` |
+| `?HTYPE` | Head type code | string, e.g. `G532` |
+| `?HID` | Head serial / ID | string, e.g. `VH5359` |
+| `?PLIM` | Maximum (limit) output power | float W, e.g. `7.344` |
+| `?P` | Actual output power (post-shutter) | float W, e.g. `0.000` |
+| `?PCMD` | Power setpoint (commanded) | float W, e.g. `0.100` |
+| `?KSWCMD` | Software switch / emission-enable state | `0` off / `1` on |
+| `?SH` | Shutter state | `0` closed / `1` open |
+| `?REM` | Remote-control state | `0` off / `1` on |
+| `?TMAIN` | Main (baseplate) temperature | float °C |
+| `?FF` | Fault bitmask | hex string, e.g. `0220` (see below) |
+
+Diagnostics queries (read) -- returned by `diagnostics()`:
+
+| Command | Description | Returns |
+|---|---|---|
+| `?HH` | Head operating hours | float |
+| `?C` | Diode current | float A |
+| `?CLIM` | Current limit | float A |
+| `?TSHG` | SHG crystal temperature | float °C |
+| `?TBRF` | BRF temperature | float °C |
+| `?TETA` | Etalon temperature | float °C |
+| `?FAN` | Fan speed/state | int |
+| `?CMODE` | Control mode | int (`0`/`1`) |
+
+(`?PLIM` and `?TMAIN` are reused here too.)
+
+Settings (write) -- `NAME=value`; the response is an ack (empty/echoed) the
+driver mostly ignores, except `setPower`, which reads `?PCMD` back to confirm the
+value within tolerance:
+
+| Command | Description | Driver method |
+|---|---|---|
+| `PCMD=<W>` | Set power setpoint, e.g. `PCMD=0.1000` | `setPower()` |
+| `KSWCMD=<0\|1>` | Software switch / emission enable | `turnOn()` / `turnOff()` |
+| `SHCMD=<0\|1>` | Shutter (`1` open, `0` close) | `openShutter()` / `closeShutter()` |
+| `REM=<0\|1>` | Remote control (`1` on) | set on at init, off at shutdown |
+
+`?FF` fault bits decoded by `faults()` / `interlockOk()`:
+
+| Bit | Meaning |
+|---|---|
+| `0x0008` | Main TEC error |
+| `0x0010` | LBO/BRF temperature not OK |
+| `0x0020` | Interlock fault |
+| `0x0100` | Shutter error |
+| `0x0200` | Glue-board error |
+| `0x0800` | LDD at current limit |
+
+`interlockOk()` is true when the interlock bit (`0x0020`) is clear; `faults()`
+returns the names of the set bits (e.g. `0x0220` = interlock + glue-board). `?FF`,
+`interlockOk()`, and the diagnostics are DLL-only; on the native pyftdi transport
+they raise `HOPSInterface.NotSupported` (the `?FF` decode is not yet
+reverse-engineered natively).
+
 ## Getting the DLLs
 
 Not committed here (vendor binaries, Windows-only, bitness-specific). Obtain from:
