@@ -6,6 +6,28 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+### Added
+- `VerdiGDevice` (and `DebugVerdiGDevice`): a laser-source driver for the Coherent
+  "HOPS" (High Output Power Supply) laser -- Genesis heads / Verdi G-C, e.g. the
+  lab Genesis CX-Vis (head `G532`). A HOPS supply is not a serial device: its
+  FTDI FT2232 (`0x0403:0x6010`) is driven as bit-banged I2C, with power DAC, ADC,
+  shutter/enable GPIO, and the head identity/calibration EEPROM all on one I2C
+  bus (see `manuals/Coherent-HOPS-*`). `VerdiGDevice` combines `OnOffControl`,
+  `ShutterControl`, `PowerControl`, and `InterlockControl`, and drives the bus
+  through an interchangeable `HOPSInterface`:
+  - `HOPSNativeInterface` (`sources/hopsnative.py`): **pure-Python** pyftdi I2C,
+    no DLL (macOS/Linux). Hardware-confirmed end to end on the lab unit
+    (identity, on/off, shutter, remote, power setpoint, temperature). Its
+    `interlock()`/`faults()` raise `HOPSInterface.NotSupported` until the `?FF`
+    decode is reverse-engineered.
+  - `HOPSDLLInterface` (`sources/hopsdll.py`): Coherent's `CohrHOPS.dll` (ASCII
+    command set; Windows/Linux). Read + `REM`/`PCMD` write paths hardware-
+    confirmed; `KSWCMD`/`SHCMD` per the DLL spec, not yet exercised.
+  Selection: `VerdiGDevice(interface="auto")` tries native first, then the DLL;
+  pass `"native"`/`"dll"`/an interface instance to force one. Protocol and I2C
+  decode in `manuals/Coherent-HOPS-2-USB-and-DLL-Protocol.md` and
+  `manuals/Coherent-HOPS-3-I2C-Wire-Protocol.md`.
+
 ## [1.4.0] - 2026-07-08
 
 ### Added
