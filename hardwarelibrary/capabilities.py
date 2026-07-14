@@ -288,11 +288,6 @@ class ScaleCapability(Capability):
 # DAQ capabilities
 # ---------------------------------------------------------------------------
 
-class DAQNotification(Enum):
-    willAcquire    = "willAcquire"
-    didAcquire     = "didAcquire"
-
-
 class AnalogInputCapability(Capability):
     """Analog input capability (ADC). Combine with PhysicalDevice in a driver."""
 
@@ -350,6 +345,10 @@ class AnalogInputStreamCapability(AnalogInputCapability):
         finally:
             device.stopStream()
     """
+
+    class Notification(Enum):
+        willAcquire = "willAcquire"
+        didAcquire  = "didAcquire"
 
     @abstractmethod
     def configureStream(self, channels, sampleRate):

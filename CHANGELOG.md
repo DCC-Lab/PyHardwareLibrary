@@ -52,7 +52,8 @@ API changes can land even when the minor version is unchanged.
   `hardwarelibrary/capabilities.py`, and share one `Capability` base class (the
   per-family `sources/capabilities.py`, `powermeters/capabilities.py`, and
   `daq/daqdevice.py` are removed; the DAQ enums `InputSource`, `TriggerSource`,
-  `SampleClock`, `DAQNotification` move there too). Imports must point at
+  `SampleClock` move there too, and the acquisition notification enum is now
+  nested as `AnalogInputStreamCapability.Notification`). Imports must point at
   `hardwarelibrary.capabilities` (the family package `__init__`s still re-export
   their own mixins, so `from hardwarelibrary.daq import AnalogIOCapability` and
   the like keep working). `capabilities()` / `hasCapability()` are hoisted onto
