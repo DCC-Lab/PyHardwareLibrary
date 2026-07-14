@@ -7,7 +7,7 @@ class DAQNotification(Enum):
     didAcquire     = "didAcquire"
 
 
-class AnalogInputDevice(ABC):
+class AnalogInputCapability(ABC):
     """Analog input capability (ADC). Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -15,7 +15,7 @@ class AnalogInputDevice(ABC):
         ...
 
 
-class AnalogOutputDevice(ABC):
+class AnalogOutputCapability(ABC):
     """Analog output capability (DAC). Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -23,7 +23,7 @@ class AnalogOutputDevice(ABC):
         ...
 
 
-class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
+class AnalogIOCapability(AnalogInputCapability, AnalogOutputCapability):
     """Both analog input and output.
 
     The configure and direction hooks are optional and default to no-ops.
@@ -39,7 +39,7 @@ class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
         pass
 
 
-class AnalogInputStreamDevice(AnalogInputDevice):
+class AnalogInputStreamCapability(AnalogInputCapability):
     """Hardware-timed analog input (waveform acquisition).
 
     Combine with PhysicalDevice in a driver. The driver implements the four
@@ -119,7 +119,7 @@ class InputSource(Enum):
     Current100M  = "Current100M"
 
 
-class PhaseLockedDetectionDevice(ABC):
+class PhaseLockedDetectionCapability(ABC):
     """Phase-locked (lock-in) detection capability. Combine with PhysicalDevice.
 
     Reads the demodulated outputs (X, Y, R, theta) and reference frequency, and
@@ -232,7 +232,7 @@ class SampleClock(Enum):
     External = "External"
 
 
-class TriggerableDevice(ABC):
+class TriggerCapability(ABC):
     """Capability for a device whose acquisition can be armed to a trigger.
 
     setTriggerSource selects an internal (immediate) start versus waiting for an
@@ -261,7 +261,7 @@ class TriggerableDevice(ABC):
         return None
 
 
-class DigitalInputDevice(ABC):
+class DigitalInputCapability(ABC):
     """Digital input capability. Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -269,7 +269,7 @@ class DigitalInputDevice(ABC):
         ...
 
 
-class DigitalOutputDevice(ABC):
+class DigitalOutputCapability(ABC):
     """Digital output capability. Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -277,7 +277,7 @@ class DigitalOutputDevice(ABC):
         ...
 
 
-class DigitalIODevice(DigitalInputDevice, DigitalOutputDevice):
+class DigitalIOCapability(DigitalInputCapability, DigitalOutputCapability):
     """Both digital input and output.
 
     The configure and direction hooks are optional and default to no-ops.

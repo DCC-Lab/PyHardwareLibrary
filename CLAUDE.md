@@ -61,14 +61,14 @@ Each family has an **abstract base class**. A driver subclasses it and implement
 
 Both the **DAQ and laser-source families use interface-segregated capability mixins** instead of one fat base class, because a device may implement any subset of the capabilities.
 
-- DAQ (`daq/daqdevice.py`): `AnalogInputDevice` (`getAnalogVoltage`), `AnalogOutputDevice` (`setAnalogVoltage`), `DigitalInputDevice` (`getDigitalValue`), `DigitalOutputDevice` (`setDigitalValue`), plus `AnalogIODevice` / `DigitalIODevice` that combine each pair, and `AnalogInputStreamDevice` for hardware-timed acquisition. The `configure*` and `direction*` methods are optional no-op hooks. Example: `class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice)`.
+- DAQ (`daq/daqdevice.py`): `AnalogInputCapability` (`getAnalogVoltage`), `AnalogOutputCapability` (`setAnalogVoltage`), `DigitalInputCapability` (`getDigitalValue`), `DigitalOutputCapability` (`setDigitalValue`), plus `AnalogIOCapability` / `DigitalIOCapability` that combine each pair, and `AnalogInputStreamCapability` for hardware-timed acquisition. The `configure*` and `direction*` methods are optional no-op hooks. Example: `class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, AnalogInputStreamCapability)`. Mixins carry the `*Capability` suffix; only instantiable hardware drivers are named `*Device`.
 - Laser sources (`sources/capabilities.py`): `OnOffControl` (`turnOn`/`turnOff`/`isLaserOn`), `ShutterControl` (`openShutter`/`closeShutter`/`isShutterOpen`), `PowerControl` (`setPower`/`power`), `InterlockControl` (`interlock`), `AutostartControl`, `WavelengthControl` (`setWavelength`/`wavelength`), `DispersionControl`. Each exposes a public method that calls a `do*` abstract hook the driver implements. `LaserSourceDevice` is a thin marker base; the behavior comes from the mixins. Examples: `class CoboltDevice(LaserSourceDevice, OnOffControl, PowerControl, ...)`, `class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl)`, `class MatisseDevice(PhysicalDevice, WavelengthControl)`.
 
 ## Adding a new device
 
 Reference implementation: `hardwarelibrary/daq/labjackdevice.py`. The pattern:
 
-1. Subclass the family base (it already extends `PhysicalDevice`). For DAQ, combine `PhysicalDevice` with the capability mixins you need, e.g. `class FooDAQ(PhysicalDevice, AnalogIODevice)`.
+1. Subclass the family base (it already extends `PhysicalDevice`). For DAQ, combine `PhysicalDevice` with the capability mixins you need, e.g. `class FooDAQ(PhysicalDevice, AnalogIOCapability)`.
 2. Set class attributes `classIdVendor` and `classIdProduct` (USB VID/PID, or the equivalent for serial-only devices).
 3. Implement `doInitializeDevice` and `doShutdownDevice`. Keep them minimal — open the port, close the port.
 4. Implement the family's abstract hooks (see the table). Omitting one raises `TypeError` at instantiation, so the class will not even construct until the contract is complete.

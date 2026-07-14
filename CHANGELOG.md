@@ -28,6 +28,19 @@ API changes can land even when the minor version is unchanged.
   decode in `manuals/Coherent-HOPS-2-USB-and-DLL-Protocol.md` and
   `manuals/Coherent-HOPS-3-I2C-Wire-Protocol.md`.
 
+### Changed
+- **Breaking:** DAQ capability mixins in `daq/daqdevice.py` are renamed from the
+  `*Device` suffix to `*Capability`, reserving `*Device` for instantiable hardware
+  drivers: `AnalogInputDevice` -> `AnalogInputCapability`, `AnalogOutputDevice` ->
+  `AnalogOutputCapability`, `AnalogIODevice` -> `AnalogIOCapability`,
+  `AnalogInputStreamDevice` -> `AnalogInputStreamCapability`,
+  `DigitalInputDevice` -> `DigitalInputCapability`, `DigitalOutputDevice` ->
+  `DigitalOutputCapability`, `DigitalIODevice` -> `DigitalIOCapability`,
+  `PhaseLockedDetectionDevice` -> `PhaseLockedDetectionCapability`, and
+  `TriggerableDevice` -> `TriggerCapability`. Public methods and behavior are
+  unchanged; only the mixin class names change. Drivers subclassing these
+  (`LabjackDevice`, `SR830Device`) must update their base-class lists and imports.
+
 ## [1.4.0] - 2026-07-08
 
 ### Added

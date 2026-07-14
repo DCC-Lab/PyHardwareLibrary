@@ -1,10 +1,10 @@
 #__all__ = ["sutterdevice"]
 
 from .daqdevice import (
-    AnalogInputDevice, AnalogOutputDevice, AnalogIODevice, AnalogInputStreamDevice,
-    DigitalInputDevice, DigitalOutputDevice, DigitalIODevice,
-    PhaseLockedDetectionDevice, InputSource,
-    TriggerableDevice, TriggerSource, SampleClock,
+    AnalogInputCapability, AnalogOutputCapability, AnalogIOCapability, AnalogInputStreamCapability,
+    DigitalInputCapability, DigitalOutputCapability, DigitalIOCapability,
+    PhaseLockedDetectionCapability, InputSource,
+    TriggerCapability, TriggerSource, SampleClock,
 )
 from .labjackdevice import LabjackDevice, DebugLabjackDevice
 from .sr830device import (

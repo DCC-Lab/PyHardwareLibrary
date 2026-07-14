@@ -181,7 +181,7 @@ v = daq.getAnalogVoltage(channel=0)        # read
 daq.setAnalogVoltage(2.5, channel=1)       # write (U3 DACs are slow PWM)
 bit = daq.getDigitalValue(channel=4)
 daq.setDigitalValue(1, channel=5)
-# Hardware-timed acquisition: daq.acquireWaveform(...) (AnalogInputStreamDevice)
+# Hardware-timed acquisition: daq.acquireWaveform(...) (AnalogInputStreamCapability)
 daq.shutdownDevice()
 ```
 

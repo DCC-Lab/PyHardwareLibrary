@@ -10,8 +10,8 @@ from hardwarelibrary.communication.communicationport import (
     CommunicationPort, CommunicationReadTimeout,
 )
 from hardwarelibrary.daq.daqdevice import (
-    AnalogInputStreamDevice, AnalogOutputDevice, PhaseLockedDetectionDevice,
-    TriggerableDevice, InputSource, TriggerSource, SampleClock,
+    AnalogInputStreamCapability, AnalogOutputCapability, PhaseLockedDetectionCapability,
+    TriggerCapability, InputSource, TriggerSource, SampleClock,
 )
 
 FLOAT_PATTERN = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
@@ -93,21 +93,21 @@ _STREAM_CHANNEL_TO_DISPLAY = {
 }
 
 
-class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
-                  PhaseLockedDetectionDevice, TriggerableDevice):
+class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapability,
+                  PhaseLockedDetectionCapability, TriggerCapability):
     """Stanford Research Systems SR830 DSP lock-in amplifier over a Prologix
     GPIB-USB controller.
 
     The SR830 is a GPIB instrument; the Prologix adaptor bridges it to a host
     serial port (a generic FTDI cable, VID 0x0403 / PID 0x6001), so this driver
     talks to a PrologixGPIBPort with the ordinary readString/writeString
-    primitives. It exposes several capabilities: AnalogInputStreamDevice for the
+    primitives. It exposes several capabilities: AnalogInputStreamCapability for the
     four rear-panel Aux A/D inputs (OAUX?, 1-4) plus hardware-timed buffered
     acquisition of the demodulated outputs (the internal data buffer),
-    AnalogOutputDevice for the four rear-panel Aux D/A outputs (AUXV, 1-4),
-    PhaseLockedDetectionDevice for the demodulated outputs (X, Y, R, theta via
+    AnalogOutputCapability for the four rear-panel Aux D/A outputs (AUXV, 1-4),
+    PhaseLockedDetectionCapability for the demodulated outputs (X, Y, R, theta via
     OUTP?/SNAP?), the signal input source (ISRC), and the sensitivity and
-    time-constant settings, and TriggerableDevice for the rear-panel TRIG IN. The
+    time-constant settings, and TriggerCapability for the rear-panel TRIG IN. The
     Aux inputs and outputs are general-purpose and independent of the lock-in
     signal path.
     """
@@ -296,7 +296,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         return {"X": x, "Y": y, "R": r, "theta": theta,
                 "referenceFrequency": self.getReferenceFrequency()}
 
-    # AnalogInputStreamDevice: hardware-timed acquisition into the SR830 data
+    # AnalogInputStreamCapability: hardware-timed acquisition into the SR830 data
     # buffer. channels are StreamChannel members (at most one CH1 and one CH2
     # quantity). acquireWaveform (from the base) loops readStream for you.
 
@@ -370,7 +370,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamDevice, AnalogOutputDevice,
         return min(range(len(self.sampleRates)),
                    key=lambda index: abs(self.sampleRates[index] - rate))
 
-    # TriggerableDevice: the rear-panel TRIG IN. setTriggerSource(External) arms
+    # TriggerCapability: the rear-panel TRIG IN. setTriggerSource(External) arms
     # the scan to start on a trigger edge (TSTR); trigger() issues a software edge.
 
     def setTriggerSource(self, source: TriggerSource):

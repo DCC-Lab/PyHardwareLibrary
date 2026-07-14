@@ -6,8 +6,8 @@ from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.communication import PrologixGPIBPort
 from hardwarelibrary.communication.communicationport import CommunicationReadTimeout
 from hardwarelibrary.daq import (
-    AnalogInputDevice, AnalogOutputDevice, AnalogInputStreamDevice,
-    PhaseLockedDetectionDevice, TriggerableDevice,
+    AnalogInputCapability, AnalogOutputCapability, AnalogInputStreamCapability,
+    PhaseLockedDetectionCapability, TriggerCapability,
     InputSource, AuxInput, AuxOutput, StreamChannel, TriggerSource, SampleClock,
     SR830Device, DebugSR830Device, DebugPrologixGPIBPort,
 )
@@ -221,14 +221,14 @@ class TestDebugSR830Device(unittest.TestCase):
 class TestPhaseLockedDetectionContract(unittest.TestCase):
     def testDeclaresAllCapabilities(self):
         device = DebugSR830Device()
-        self.assertIsInstance(device, AnalogInputDevice)
-        self.assertIsInstance(device, AnalogOutputDevice)
-        self.assertIsInstance(device, AnalogInputStreamDevice)
-        self.assertIsInstance(device, PhaseLockedDetectionDevice)
-        self.assertIsInstance(device, TriggerableDevice)
+        self.assertIsInstance(device, AnalogInputCapability)
+        self.assertIsInstance(device, AnalogOutputCapability)
+        self.assertIsInstance(device, AnalogInputStreamCapability)
+        self.assertIsInstance(device, PhaseLockedDetectionCapability)
+        self.assertIsInstance(device, TriggerCapability)
 
 
-class _MinimalLockIn(PhaseLockedDetectionDevice, TriggerableDevice):
+class _MinimalLockIn(PhaseLockedDetectionCapability, TriggerCapability):
     """A bare capability implementation that supplies only the abstract hooks, so
     the base-class optional hooks and the base getDemodulatedValues are exercised
     (SR830Device overrides all of these)."""
