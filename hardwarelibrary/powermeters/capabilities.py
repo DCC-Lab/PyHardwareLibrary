@@ -10,7 +10,7 @@ class Capability(ABC):
     pass
 
 
-class WavelengthCalibratable(Capability):
+class WavelengthCalibrationCapability(Capability):
     unit = "nm"
     isReadable = True
     isWritable = True
@@ -36,10 +36,10 @@ class WavelengthCalibratable(Capability):
         ...
 
 
-class AutoScalable(Capability):
+class AutoScaleCapability(Capability):
     # The meter picks its measurement range automatically when auto-scaling is
     # on; turning it off pins the range to whatever scale is active. A meter may
-    # also expose ScaleAdjustable to choose that range by hand.
+    # also expose ScaleCapability to choose that range by hand.
     def autoScaleIsOn(self) -> bool:
         return self.doGetAutoScale()
 
@@ -62,9 +62,9 @@ class AutoScalable(Capability):
         ...
 
 
-class ScaleAdjustable(Capability):
+class ScaleCapability(Capability):
     # The full-scale measurement range (e.g. 200e-3 W). Independent of
-    # AutoScalable: setting a scale by hand generally requires auto-scaling off.
+    # AutoScaleCapability: setting a scale by hand generally requires auto-scaling off.
     unit = "W"
     isReadable = True
     isWritable = True

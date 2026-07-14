@@ -9,7 +9,7 @@ from hardwarelibrary.sources.millennia import (
     MillenniaDevice, DebugMillenniaDevice,
 )
 from hardwarelibrary.sources.capabilities import (
-    OnOffControl, ShutterControl, PowerControl, InterlockControl, WavelengthControl)
+    OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability, WavelengthCapability)
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
 
 # Set to the serial port of an attached Millennia eV to exercise TestMillenniaEv25Device;
@@ -34,16 +34,16 @@ class TestDebugMillenniaEv25Device(unittest.TestCase):
 
     def testIsLaserSourceWithOnOffShutterAndPowerCapabilities(self):
         self.assertIsInstance(self.laser, LaserSourceDevice)
-        self.assertIsInstance(self.laser, OnOffControl)
-        self.assertIsInstance(self.laser, ShutterControl)
-        self.assertIsInstance(self.laser, PowerControl)
+        self.assertIsInstance(self.laser, OnOffCapability)
+        self.assertIsInstance(self.laser, ShutterCapability)
+        self.assertIsInstance(self.laser, PowerCapability)
 
     def testAdvertisesOnOffShutterAndPower(self):
         self.assertEqual(set(self.laser.capabilities()),
-                         {OnOffControl, ShutterControl, PowerControl})
+                         {OnOffCapability, ShutterCapability, PowerCapability})
 
     def testDoesNotAdvertiseUnsupportedCapabilities(self):
-        for unsupported in (InterlockControl, WavelengthControl):
+        for unsupported in (InterlockCapability, WavelengthCapability):
             self.assertFalse(self.laser.hasCapability(unsupported))
 
     def testStartsOffWithShutterClosed(self):

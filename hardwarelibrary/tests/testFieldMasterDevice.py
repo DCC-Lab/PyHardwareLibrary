@@ -3,7 +3,7 @@ import unittest
 
 from hardwarelibrary.powermeters import FieldMasterDevice, DebugFieldMasterDevice
 from hardwarelibrary.powermeters import (
-    WavelengthCalibratable, AutoScalable, ScaleAdjustable,
+    WavelengthCalibrationCapability, AutoScaleCapability, ScaleCapability,
 )
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterNotification
 from hardwarelibrary.notificationcenter import NotificationCenter
@@ -51,15 +51,15 @@ class TestFieldMasterCapabilities(unittest.TestCase):
     def setUp(self):
         self.device = DebugFieldMasterDevice()
 
-    def testDeclaresWavelengthCalibratable(self):
-        self.assertTrue(self.device.hasCapability(WavelengthCalibratable))
+    def testDeclaresWavelengthCalibrationCapability(self):
+        self.assertTrue(self.device.hasCapability(WavelengthCalibrationCapability))
 
     def testDoesNotDeclareScaleCapabilities(self):
-        self.assertFalse(self.device.hasCapability(AutoScalable))
-        self.assertFalse(self.device.hasCapability(ScaleAdjustable))
+        self.assertFalse(self.device.hasCapability(AutoScaleCapability))
+        self.assertFalse(self.device.hasCapability(ScaleCapability))
 
     def testCapabilitiesListsOnlyDeclaredMixins(self):
-        self.assertEqual(self.device.capabilities(), [WavelengthCalibratable])
+        self.assertEqual(self.device.capabilities(), [WavelengthCalibrationCapability])
 
     def testCapabilitiesExcludeDeviceClass(self):
         # The driver is itself a Capability subclass, but capabilities() must

@@ -12,8 +12,8 @@ API changes can land even when the minor version is unchanged.
   lab Genesis CX-Vis (head `G532`). A HOPS supply is not a serial device: its
   FTDI FT2232 (`0x0403:0x6010`) is driven as bit-banged I2C, with power DAC, ADC,
   shutter/enable GPIO, and the head identity/calibration EEPROM all on one I2C
-  bus (see `manuals/Coherent-HOPS-*`). `VerdiGDevice` combines `OnOffControl`,
-  `ShutterControl`, `PowerControl`, and `InterlockControl`, and drives the bus
+  bus (see `manuals/Coherent-HOPS-*`). `VerdiGDevice` combines `OnOffCapability`,
+  `ShutterCapability`, `PowerCapability`, and `InterlockCapability`, and drives the bus
   through an interchangeable `HOPSInterface`:
   - `HOPSNativeInterface` (`sources/hopsnative.py`): **pure-Python** pyftdi I2C,
     no DLL (macOS/Linux). Hardware-confirmed end to end on the lab unit
@@ -29,17 +29,25 @@ API changes can land even when the minor version is unchanged.
   `manuals/Coherent-HOPS-3-I2C-Wire-Protocol.md`.
 
 ### Changed
-- **Breaking:** DAQ capability mixins in `daq/daqdevice.py` are renamed from the
-  `*Device` suffix to `*Capability`, reserving `*Device` for instantiable hardware
-  drivers: `AnalogInputDevice` -> `AnalogInputCapability`, `AnalogOutputDevice` ->
-  `AnalogOutputCapability`, `AnalogIODevice` -> `AnalogIOCapability`,
-  `AnalogInputStreamDevice` -> `AnalogInputStreamCapability`,
-  `DigitalInputDevice` -> `DigitalInputCapability`, `DigitalOutputDevice` ->
-  `DigitalOutputCapability`, `DigitalIODevice` -> `DigitalIOCapability`,
-  `PhaseLockedDetectionDevice` -> `PhaseLockedDetectionCapability`, and
-  `TriggerableDevice` -> `TriggerCapability`. Public methods and behavior are
-  unchanged; only the mixin class names change. Drivers subclassing these
-  (`LabjackDevice`, `SR830Device`) must update their base-class lists and imports.
+- **Breaking:** capability mixins across all families now use a uniform
+  `*Capability` suffix, reserving `*Device` for instantiable hardware drivers.
+  Public methods and behavior are unchanged; only the mixin class names change.
+  Drivers subclassing these must update their base-class lists and imports.
+  - DAQ (`daq/daqdevice.py`): `AnalogInputDevice` -> `AnalogInputCapability`,
+    `AnalogOutputDevice` -> `AnalogOutputCapability`, `AnalogIODevice` ->
+    `AnalogIOCapability`, `AnalogInputStreamDevice` ->
+    `AnalogInputStreamCapability`, `DigitalInputDevice` ->
+    `DigitalInputCapability`, `DigitalOutputDevice` -> `DigitalOutputCapability`,
+    `DigitalIODevice` -> `DigitalIOCapability`, `PhaseLockedDetectionDevice` ->
+    `PhaseLockedDetectionCapability`, `TriggerableDevice` -> `TriggerCapability`.
+  - Laser sources (`sources/capabilities.py`): `OnOffControl` ->
+    `OnOffCapability`, `ShutterControl` -> `ShutterCapability`, `PowerControl` ->
+    `PowerCapability`, `InterlockControl` -> `InterlockCapability`,
+    `AutostartControl` -> `AutostartCapability`, `WavelengthControl` ->
+    `WavelengthCapability`, `DispersionControl` -> `DispersionCapability`.
+  - Power meters (`powermeters/capabilities.py`): `WavelengthCalibratable` ->
+    `WavelengthCalibrationCapability`, `AutoScalable` -> `AutoScaleCapability`,
+    `ScaleAdjustable` -> `ScaleCapability`.
 
 ## [1.4.0] - 2026-07-08
 

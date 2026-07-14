@@ -3,7 +3,7 @@ from hardwarelibrary.communication import *
 from hardwarelibrary.communication.commands import TextCommand
 from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffControl, PowerControl, InterlockControl, AutostartControl
+from .capabilities import OnOffCapability, PowerCapability, InterlockCapability, AutostartCapability
 
 import re
 import time
@@ -14,8 +14,8 @@ globalLock = RLock()
 class CoboltCantTurnOnWithAutostartOn(Exception):
     pass
 
-class CoboltDevice(LaserSourceDevice, OnOffControl, PowerControl,
-                   InterlockControl, AutostartControl):
+class CoboltDevice(LaserSourceDevice, OnOffCapability, PowerCapability,
+                   InterlockCapability, AutostartCapability):
     commands = {
         "GET_POWER": TextCommand(name="GET_POWER",
             requestEncoder="pa?\r",

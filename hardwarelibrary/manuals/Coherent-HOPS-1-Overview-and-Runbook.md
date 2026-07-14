@@ -245,8 +245,8 @@ cleared interlock + `REM=1` + `KSWCMD=1` + `PCMD>0`; the mechanical shutter
 ## The driver
 
 `hardwarelibrary/sources/verdig.py` — `VerdiGDevice` (+ `DebugVerdiGDevice`), one
-laser-source driver combining `OnOffControl` / `ShutterControl` / `PowerControl`
-/ `InterlockControl`. It drives the bus through an interchangeable
+laser-source driver combining `OnOffCapability` / `ShutterCapability` / `PowerCapability`
+/ `InterlockCapability`. It drives the bus through an interchangeable
 `HOPSInterface`, chosen with `VerdiGDevice(interface="auto")` (native first, then
 DLL), or forced with `"native"` / `"dll"` / an instance:
 

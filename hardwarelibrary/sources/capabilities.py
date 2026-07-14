@@ -5,7 +5,7 @@ class Capability(ABC):
     pass
 
 
-class OnOffControl(Capability):
+class OnOffCapability(Capability):
     def isLaserOn(self) -> bool:
         return self.doGetOnOffState()
 
@@ -34,8 +34,8 @@ class OnOffControl(Capability):
         ...
 
 
-class ShutterControl(Capability):
-    # Distinct from OnOffControl: the shutter is a mechanical block in front of
+class ShutterCapability(Capability):
+    # Distinct from OnOffCapability: the shutter is a mechanical block in front of
     # the output, so it can be opened or closed while the laser stays on.
     def isShutterOpen(self) -> bool:
         return self.doGetShutterState()
@@ -59,7 +59,7 @@ class ShutterControl(Capability):
         ...
 
 
-class PowerControl(Capability):
+class PowerCapability(Capability):
     unit = "W"
     isReadable = True
     isWritable = True
@@ -79,7 +79,7 @@ class PowerControl(Capability):
         ...
 
 
-class InterlockControl(Capability):
+class InterlockCapability(Capability):
     isReadable = True
     isWritable = False
 
@@ -91,7 +91,7 @@ class InterlockControl(Capability):
         ...
 
 
-class AutostartControl(Capability):
+class AutostartCapability(Capability):
     def autostartIsOn(self) -> bool:
         return self.doGetAutostart()
 
@@ -114,7 +114,7 @@ class AutostartControl(Capability):
         ...
 
 
-class WavelengthControl(Capability):
+class WavelengthCapability(Capability):
     unit = "nm"
     isReadable = True
     isWritable = True
@@ -141,7 +141,7 @@ class WavelengthControl(Capability):
         ...
 
 
-class DispersionControl(Capability):
+class DispersionCapability(Capability):
     unit = "fs^2"  # group delay dispersion (GDD)
     isReadable = True
     isWritable = True

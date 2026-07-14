@@ -7,7 +7,7 @@ from hardwarelibrary.sources.verdig import (
 from hardwarelibrary.sources.hopsnative import (
     HOPSNativeInterface, HOPSNativeI2C, MockHOPSBus)
 from hardwarelibrary.sources.capabilities import (
-    OnOffControl, ShutterControl, PowerControl, InterlockControl, WavelengthControl)
+    OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability, WavelengthCapability)
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
 
 # Point at a real Verdi-G / HOPS laser on this host to exercise the hardware class.
@@ -26,8 +26,8 @@ class TestVerdiGWithDebugInterface(unittest.TestCase):
     def testAdvertisesFullCapabilitySet(self):
         self.assertIsInstance(self.laser, LaserSourceDevice)
         self.assertEqual(set(self.laser.capabilities()),
-                         {OnOffControl, ShutterControl, PowerControl, InterlockControl})
-        self.assertFalse(self.laser.hasCapability(WavelengthControl))
+                         {OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability})
+        self.assertFalse(self.laser.hasCapability(WavelengthCapability))
 
     def testReadsIdentity(self):
         self.assertEqual(self.laser.laserModel, "Genesis CX-Vis")

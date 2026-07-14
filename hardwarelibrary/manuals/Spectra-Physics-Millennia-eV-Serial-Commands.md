@@ -76,14 +76,14 @@ All commands and responses are ASCII.
 
 | Capability | Action / query | Command | Reply |
 |---|---|---|---|
-| OnOffControl | turn diodes on | `ON` | none |
-| OnOffControl | turn diodes off | `OFF` | none |
-| OnOffControl | diode emission state | `?D` | `1` (on) / `0` (off) |
-| ShutterControl | open shutter | `SHT:1` | none |
-| ShutterControl | close shutter | `SHT:0` | none |
-| ShutterControl | shutter state | `?SHT` | `1` (open) / `0` (closed) |
-| PowerControl | set output power (W) | `P:<f>` | none |
-| PowerControl | read output power (W) | `?P` | e.g. `4.90` (or `4.90 W` on some firmware) |
+| OnOffCapability | turn diodes on | `ON` | none |
+| OnOffCapability | turn diodes off | `OFF` | none |
+| OnOffCapability | diode emission state | `?D` | `1` (on) / `0` (off) |
+| ShutterCapability | open shutter | `SHT:1` | none |
+| ShutterCapability | close shutter | `SHT:0` | none |
+| ShutterCapability | shutter state | `?SHT` | `1` (open) / `0` (closed) |
+| PowerCapability | set output power (W) | `P:<f>` | none |
+| PowerCapability | read output power (W) | `?P` | e.g. `4.90` (or `4.90 W` on some firmware) |
 | (init only) | identification | `*IDN?` | comma-separated: manufacturer, model, serial, firmware |
 
 `ON`/`OFF` gate the pump diodes; the shutter is a separate electromechanical

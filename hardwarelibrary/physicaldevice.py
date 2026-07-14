@@ -72,7 +72,7 @@ class PhysicalDevice(ABC):
         self.refreshInterval = 1.0
 
         # Cooperative base: forward to the rest of the MRO so capability mixins
-        # mixed in alongside a device (e.g. WavelengthCalibratable) get their
+        # mixed in alongside a device (e.g. WavelengthCalibrationCapability) get their
         # own __init__ run. The device-identity arguments are consumed here, so
         # nothing is forwarded; a mixin __init__ must therefore take no required
         # arguments and call super().__init__() itself.
