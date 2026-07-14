@@ -9,6 +9,15 @@ PhysicalDevice
 
 .. automodule:: hardwarelibrary.physicaldevice
 
+Capabilities
+------------
+
+Interface-segregated capability mixins shared by every device family. Each
+subclasses the single ``Capability`` base; ``PhysicalDevice`` introspects them
+through ``capabilities()`` / ``hasCapability()``.
+
+.. automodule:: hardwarelibrary.capabilities
+
 DeviceManager
 -------------
 

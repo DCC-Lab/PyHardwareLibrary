@@ -3,10 +3,10 @@ import time
 from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffControl, ShutterControl, PowerControl
+from hardwarelibrary.capabilities import OnOffCapability, ShutterCapability, PowerCapability
 
 
-class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl):
+class MillenniaEv25Device(LaserSourceDevice, OnOffCapability, ShutterCapability, PowerCapability):
     """Spectra-Physics Millennia eV CW DPSS pump laser (532 nm).
 
     Transport is the eV's back-panel USB port, which exposes a virtual COM
@@ -160,7 +160,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
             "Millennia did not confirm {0} (last {1}={2!r})".format(
                 description, query, reply))
 
-    # OnOffControl hooks (the pump diodes)
+    # OnOffCapability hooks (the pump diodes)
 
     def doTurnOn(self):
         self.writeActionAndConfirm("ON", "?D", "1", "diodes on")
@@ -171,7 +171,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     def doGetOnOffState(self) -> bool:
         return self.queryString("?D") == "1"
 
-    # ShutterControl hooks (the output-blocking shutter)
+    # ShutterCapability hooks (the output-blocking shutter)
 
     def doOpenShutter(self):
         self.writeCommand("SHT:1")
@@ -182,7 +182,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     def doGetShutterState(self) -> bool:
         return self.queryString("?SHT") == "1"
 
-    # PowerControl hooks (output power in watts)
+    # PowerCapability hooks (output power in watts)
 
     def doSetPower(self, power: float):
         # The eV silently ignores out-of-range P: values, which would mask the

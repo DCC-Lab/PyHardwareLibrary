@@ -1,9 +1,9 @@
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
-from hardwarelibrary.daq import AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice
+from hardwarelibrary.capabilities import AnalogIOCapability, DigitalIOCapability, AnalogInputStreamCapability
 import inspect
 
 
-class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInputStreamDevice):
+class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, AnalogInputStreamCapability):
     """LabJack U3 (LV and HV). Use self.dev for features beyond the wrapped methods.
 
     The DAC outputs are slow: they are PWM-based (a ~732 Hz PWM signal smoothed by a
@@ -103,7 +103,7 @@ class LabjackDevice(PhysicalDevice, AnalogIODevice, DigitalIODevice, AnalogInput
 
     def configureStream(self, channels, sampleRate=None, scanRate=None):
         # scanRate is a deprecated synonym for sampleRate, kept temporarily for
-        # callers written against the old AnalogInputStreamDevice contract.
+        # callers written against the pre-1.4.0 configureStream signature.
         if sampleRate is None:
             sampleRate = scanRate
         self._streamChannels = list(channels)

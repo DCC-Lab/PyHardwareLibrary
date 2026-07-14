@@ -3,6 +3,7 @@ from enum import Enum, IntEnum
 from threading import Thread, RLock
 
 from hardwarelibrary import utils
+from hardwarelibrary.capabilities import Capability
 from hardwarelibrary.notificationcenter import NotificationCenter
 import typing
 import time
@@ -72,11 +73,23 @@ class PhysicalDevice(ABC):
         self.refreshInterval = 1.0
 
         # Cooperative base: forward to the rest of the MRO so capability mixins
-        # mixed in alongside a device (e.g. WavelengthCalibratable) get their
+        # mixed in alongside a device (e.g. WavelengthCalibrationCapability) get their
         # own __init__ run. The device-identity arguments are consumed here, so
         # nothing is forwarded; a mixin __init__ must therefore take no required
         # arguments and call super().__init__() itself.
         super().__init__()
+
+    def capabilities(self) -> list:
+        # The capability mixins, not the Capability marker nor the device class
+        # itself (a driver is a Capability subclass too, but it is a
+        # PhysicalDevice).
+        return [klass for klass in type(self).__mro__
+                if issubclass(klass, Capability)
+                and klass is not Capability
+                and not issubclass(klass, PhysicalDevice)]
+
+    def hasCapability(self, capabilityClass) -> bool:
+        return isinstance(self, capabilityClass)
 
     @classmethod
     def vidpids(cls):

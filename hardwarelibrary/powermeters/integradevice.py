@@ -2,10 +2,10 @@ import time
 from enum import Enum
 from hardwarelibrary.communication import USBPort, TextCommand, MultilineTextCommand
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterDevice
-from hardwarelibrary.powermeters.capabilities import WavelengthCalibratable
+from hardwarelibrary.capabilities import WavelengthCalibrationCapability
 from hardwarelibrary.notificationcenter import NotificationCenter, Notification
 
-class IntegraDevice(PowerMeterDevice, WavelengthCalibratable):
+class IntegraDevice(PowerMeterDevice, WavelengthCalibrationCapability):
     classIdProduct = 0x0300
     classIdVendor = 0x1ad5
     commands = {

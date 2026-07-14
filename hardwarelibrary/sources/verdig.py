@@ -16,7 +16,7 @@ Selection: VerdiGDevice(interface="auto") tries native first, then the DLL; pass
 "native"/"dll" to force one, or an interface instance directly. The debug device
 uses an in-memory DebugHOPSInterface and needs neither hardware nor pyftdi/DLL.
 
-The lab unit reports as a Genesis CX-Vis (head G532). InterlockControl is part of
+The lab unit reports as a Genesis CX-Vis (head G532). InterlockCapability is part of
 the contract, but the native interface cannot decode faults yet, so on the native
 transport interlock()/faults() raise HOPSInterface.NotSupported (to be fixed once
 the ?FF decode is reverse-engineered).
@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 
 from ..physicaldevice import PhysicalDevice
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffControl, ShutterControl, PowerControl, InterlockControl
+from hardwarelibrary.capabilities import OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability
 
 
 class HOPSInterface(ABC):
@@ -95,8 +95,8 @@ class HOPSInterface(ABC):
         return {}
 
 
-class VerdiGDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl,
-                   InterlockControl):
+class VerdiGDevice(LaserSourceDevice, OnOffCapability, ShutterCapability, PowerCapability,
+                   InterlockCapability):
     """Coherent Verdi-G laser on a HOPS supply (the lab head reports as a Genesis
     CX-Vis, G532), driven through an interchangeable HOPSInterface -- native
     pyftdi I2C or CohrHOPS.dll. See the module docstring."""
@@ -169,7 +169,7 @@ class VerdiGDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl
                 self.interface.close()
             self.interface = None
 
-    # OnOffControl (emission enable)
+    # OnOffCapability (emission enable)
     def doTurnOn(self):
         self.interface.setEmission(True)
 
@@ -179,7 +179,7 @@ class VerdiGDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl
     def doGetOnOffState(self) -> bool:
         return self.interface.emissionOn()
 
-    # ShutterControl
+    # ShutterCapability
     def doOpenShutter(self):
         self.interface.setShutter(True)
 
@@ -189,7 +189,7 @@ class VerdiGDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl
     def doGetShutterState(self) -> bool:
         return self.interface.shutterOpen()
 
-    # PowerControl
+    # PowerCapability
     def doSetPower(self, power: float):
         upper = self.maxPower if self.maxPower is not None else float("inf")
         if not (0.0 <= power <= upper):
@@ -199,7 +199,7 @@ class VerdiGDevice(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl
     def doGetPower(self) -> float:
         return self.interface.getPower()
 
-    # InterlockControl (native raises HOPSInterface.NotSupported, by design)
+    # InterlockCapability (native raises HOPSInterface.NotSupported, by design)
     def doGetInterlockState(self) -> bool:
         return self.interface.interlockOk()
 

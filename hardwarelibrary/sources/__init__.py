@@ -1,7 +1,7 @@
-from .capabilities import (
+from hardwarelibrary.capabilities import (
     Capability,
-    OnOffControl, ShutterControl, PowerControl, InterlockControl,
-    AutostartControl, WavelengthControl, DispersionControl,
+    OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability,
+    AutostartCapability, WavelengthCapability, DispersionCapability,
 )
 from .lasersourcedevice import LaserSourceDevice
 from .cobolt import CoboltDevice, CoboltCantTurnOnWithAutostartOn

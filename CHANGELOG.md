@@ -12,8 +12,8 @@ API changes can land even when the minor version is unchanged.
   lab Genesis CX-Vis (head `G532`). A HOPS supply is not a serial device: its
   FTDI FT2232 (`0x0403:0x6010`) is driven as bit-banged I2C, with power DAC, ADC,
   shutter/enable GPIO, and the head identity/calibration EEPROM all on one I2C
-  bus (see `manuals/Coherent-HOPS-*`). `VerdiGDevice` combines `OnOffControl`,
-  `ShutterControl`, `PowerControl`, and `InterlockControl`, and drives the bus
+  bus (see `manuals/Coherent-HOPS-*`). `VerdiGDevice` combines `OnOffCapability`,
+  `ShutterCapability`, `PowerCapability`, and `InterlockCapability`, and drives the bus
   through an interchangeable `HOPSInterface`:
   - `HOPSNativeInterface` (`sources/hopsnative.py`): **pure-Python** pyftdi I2C,
     no DLL (macOS/Linux). Hardware-confirmed end to end on the lab unit
@@ -27,6 +27,39 @@ API changes can land even when the minor version is unchanged.
   pass `"native"`/`"dll"`/an interface instance to force one. Protocol and I2C
   decode in `manuals/Coherent-HOPS-2-USB-and-DLL-Protocol.md` and
   `manuals/Coherent-HOPS-3-I2C-Wire-Protocol.md`.
+
+### Changed
+- **Breaking:** capability mixins across all families now use a uniform
+  `*Capability` suffix, reserving `*Device` for instantiable hardware drivers.
+  Public methods and behavior are unchanged; only the mixin class names change.
+  Drivers subclassing these must update their base-class lists and imports.
+  - DAQ: `AnalogInputDevice` -> `AnalogInputCapability`, `AnalogOutputDevice` ->
+    `AnalogOutputCapability`, `AnalogIODevice` -> `AnalogIOCapability`,
+    `AnalogInputStreamDevice` -> `AnalogInputStreamCapability`,
+    `DigitalInputDevice` -> `DigitalInputCapability`, `DigitalOutputDevice` ->
+    `DigitalOutputCapability`, `DigitalIODevice` -> `DigitalIOCapability`,
+    `PhaseLockedDetectionDevice` -> `PhaseLockedDetectionCapability`,
+    `TriggerableDevice` -> `TriggerCapability`.
+  - Laser sources: `OnOffControl` -> `OnOffCapability`, `ShutterControl` ->
+    `ShutterCapability`, `PowerControl` -> `PowerCapability`, `InterlockControl`
+    -> `InterlockCapability`, `AutostartControl` -> `AutostartCapability`,
+    `WavelengthControl` -> `WavelengthCapability`, `DispersionControl` ->
+    `DispersionCapability`.
+  - Power meters: `WavelengthCalibratable` -> `WavelengthCalibrationCapability`,
+    `AutoScalable` -> `AutoScaleCapability`, `ScaleAdjustable` ->
+    `ScaleCapability`.
+- **Breaking:** all capability mixins are consolidated into a single module,
+  `hardwarelibrary/capabilities.py`, and share one `Capability` base class (the
+  per-family `sources/capabilities.py`, `powermeters/capabilities.py`, and
+  `daq/daqdevice.py` are removed; the DAQ enums `InputSource`, `TriggerSource`,
+  `SampleClock` move there too, and the acquisition notification enum is now
+  nested as `AnalogInputStreamCapability.Notification`). Imports must point at
+  `hardwarelibrary.capabilities` (the family package `__init__`s still re-export
+  their own mixins, so `from hardwarelibrary.daq import AnalogIOCapability` and
+  the like keep working). `capabilities()` / `hasCapability()` are hoisted onto
+  `PhysicalDevice`, so every device -- including DAQ drivers -- now supports
+  capability introspection; the duplicated methods on `LaserSourceDevice` and
+  `PowerMeterDevice` are gone (`LaserSourceDevice` is now a pure marker).
 
 ## [1.4.0] - 2026-07-08
 

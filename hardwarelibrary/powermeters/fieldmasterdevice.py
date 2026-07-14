@@ -7,12 +7,12 @@ from hardwarelibrary.communication.communicationport import (
 )
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterDevice
-from hardwarelibrary.powermeters.capabilities import WavelengthCalibratable
+from hardwarelibrary.capabilities import WavelengthCalibrationCapability
 
 FLOAT_PATTERN = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 
 
-class FieldMasterDevice(PowerMeterDevice, WavelengthCalibratable):
+class FieldMasterDevice(PowerMeterDevice, WavelengthCalibrationCapability):
     """Coherent FieldMaster GS laser power/energy meter over RS-232.
 
     The meter has no USB identity of its own: it connects through a generic

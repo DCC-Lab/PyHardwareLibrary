@@ -1,13 +1,294 @@
+"""Capability mixins shared by every device family.
+
+A capability is a feature an instrument may have (turn on/off, open a shutter,
+read a voltage, ...). A driver declares the capabilities it supports by mixing
+them alongside a PhysicalDevice subclass; the mixin's public methods delegate to
+the do* hooks (or, for some families, are themselves the abstract hook) the
+driver implements. Mixins carry the *Capability suffix; only instantiable
+hardware drivers are named *Device.
+
+PhysicalDevice.capabilities() / hasCapability() introspect these by walking the
+MRO for Capability subclasses, so every capability across every family must
+subclass the single Capability base defined here.
+"""
+
 from abc import ABC, abstractmethod
 from enum import Enum
 
 
-class DAQNotification(Enum):
-    willAcquire    = "willAcquire"
-    didAcquire     = "didAcquire"
+class Capability(ABC):
+    # Capability mixins are combined with a PhysicalDevice subclass, which sits
+    # ahead of them in the MRO. PhysicalDevice is a cooperative base (it calls
+    # super().__init__() after consuming the device-identity arguments), so a
+    # mixin that holds per-instance state may define __init__ as long as it
+    # takes no required arguments and forwards with super().__init__().
+    pass
 
 
-class AnalogInputDevice(ABC):
+# ---------------------------------------------------------------------------
+# Laser source capabilities
+# ---------------------------------------------------------------------------
+
+class OnOffCapability(Capability):
+    def isLaserOn(self) -> bool:
+        return self.doGetOnOffState()
+
+    def turnOn(self):
+        self.doTurnOn()
+
+    def turnOff(self):
+        self.doTurnOff()
+
+    # Advisory availability flag for callers/UIs; a driver overrides it when an
+    # external condition (e.g. Cobolt autostart) forbids manual turn-on. The
+    # driver's doTurnOn still enforces and raises if called while not allowed.
+    def canTurnOn(self) -> bool:
+        return True
+
+    @abstractmethod
+    def doTurnOn(self):
+        ...
+
+    @abstractmethod
+    def doTurnOff(self):
+        ...
+
+    @abstractmethod
+    def doGetOnOffState(self) -> bool:
+        ...
+
+
+class ShutterCapability(Capability):
+    # Distinct from OnOffCapability: the shutter is a mechanical block in front of
+    # the output, so it can be opened or closed while the laser stays on.
+    def isShutterOpen(self) -> bool:
+        return self.doGetShutterState()
+
+    def openShutter(self):
+        self.doOpenShutter()
+
+    def closeShutter(self):
+        self.doCloseShutter()
+
+    @abstractmethod
+    def doOpenShutter(self):
+        ...
+
+    @abstractmethod
+    def doCloseShutter(self):
+        ...
+
+    @abstractmethod
+    def doGetShutterState(self) -> bool:
+        ...
+
+
+class PowerCapability(Capability):
+    unit = "W"
+    isReadable = True
+    isWritable = True
+
+    def setPower(self, power: float):
+        return self.doSetPower(power)
+
+    def power(self) -> float:
+        return self.doGetPower()
+
+    @abstractmethod
+    def doSetPower(self, power: float):
+        ...
+
+    @abstractmethod
+    def doGetPower(self) -> float:
+        ...
+
+
+class InterlockCapability(Capability):
+    isReadable = True
+    isWritable = False
+
+    def interlock(self) -> bool:
+        return self.doGetInterlockState()
+
+    @abstractmethod
+    def doGetInterlockState(self) -> bool:
+        ...
+
+
+class AutostartCapability(Capability):
+    def autostartIsOn(self) -> bool:
+        return self.doGetAutostart()
+
+    def turnAutostartOn(self):
+        self.doTurnAutostartOn()
+
+    def turnAutostartOff(self):
+        self.doTurnAutostartOff()
+
+    @abstractmethod
+    def doGetAutostart(self) -> bool:
+        ...
+
+    @abstractmethod
+    def doTurnAutostartOn(self):
+        ...
+
+    @abstractmethod
+    def doTurnAutostartOff(self):
+        ...
+
+
+class WavelengthCapability(Capability):
+    unit = "nm"
+    isReadable = True
+    isWritable = True
+
+    def setWavelength(self, wavelength: float):
+        return self.doSetWavelength(wavelength)
+
+    def wavelength(self) -> float:
+        return self.doGetWavelength()
+
+    def wavelengthRange(self) -> tuple:
+        return self.doGetWavelengthRange()
+
+    @abstractmethod
+    def doSetWavelength(self, wavelength: float):
+        ...
+
+    @abstractmethod
+    def doGetWavelength(self) -> float:
+        ...
+
+    @abstractmethod
+    def doGetWavelengthRange(self) -> tuple:
+        ...
+
+
+class DispersionCapability(Capability):
+    unit = "fs^2"  # group delay dispersion (GDD)
+    isReadable = True
+    isWritable = True
+
+    def setDispersion(self, dispersion: float):
+        return self.doSetDispersion(dispersion)
+
+    def dispersion(self) -> float:
+        return self.doGetDispersion()
+
+    def dispersionRange(self) -> tuple:
+        return self.doGetDispersionRange()
+
+    @abstractmethod
+    def doSetDispersion(self, dispersion: float):
+        ...
+
+    @abstractmethod
+    def doGetDispersion(self) -> float:
+        ...
+
+    @abstractmethod
+    def doGetDispersionRange(self) -> tuple:
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Power meter capabilities
+# ---------------------------------------------------------------------------
+
+class WavelengthCalibrationCapability(Capability):
+    unit = "nm"
+    isReadable = True
+    isWritable = True
+
+    def __init__(self):
+        super().__init__()
+        self.calibrationWavelength = None
+
+    def getCalibrationWavelength(self):
+        self.doGetCalibrationWavelength()
+        return self.calibrationWavelength
+
+    def setCalibrationWavelength(self, wavelength):
+        self.doSetCalibrationWavelength(wavelength)
+        self.doGetCalibrationWavelength()
+
+    @abstractmethod
+    def doGetCalibrationWavelength(self):
+        ...
+
+    @abstractmethod
+    def doSetCalibrationWavelength(self, wavelength):
+        ...
+
+
+class AutoScaleCapability(Capability):
+    # The meter picks its measurement range automatically when auto-scaling is
+    # on; turning it off pins the range to whatever scale is active. A meter may
+    # also expose ScaleCapability to choose that range by hand.
+    def autoScaleIsOn(self) -> bool:
+        return self.doGetAutoScale()
+
+    def turnAutoScaleOn(self):
+        self.doTurnAutoScaleOn()
+
+    def turnAutoScaleOff(self):
+        self.doTurnAutoScaleOff()
+
+    @abstractmethod
+    def doGetAutoScale(self) -> bool:
+        ...
+
+    @abstractmethod
+    def doTurnAutoScaleOn(self):
+        ...
+
+    @abstractmethod
+    def doTurnAutoScaleOff(self):
+        ...
+
+
+class ScaleCapability(Capability):
+    # The full-scale measurement range (e.g. 200e-3 W). Independent of
+    # AutoScaleCapability: setting a scale by hand generally requires auto-scaling
+    # off.
+    unit = "W"
+    isReadable = True
+    isWritable = True
+
+    def __init__(self):
+        super().__init__()
+        self.scale = None
+
+    def getScale(self):
+        self.doGetScale()
+        return self.scale
+
+    def setScale(self, scale):
+        self.doSetScale(scale)
+        self.doGetScale()
+
+    def availableScales(self) -> list:
+        return self.doGetAvailableScales()
+
+    @abstractmethod
+    def doGetScale(self):
+        ...
+
+    @abstractmethod
+    def doSetScale(self, scale):
+        ...
+
+    @abstractmethod
+    def doGetAvailableScales(self) -> list:
+        ...
+
+
+# ---------------------------------------------------------------------------
+# DAQ capabilities
+# ---------------------------------------------------------------------------
+
+class AnalogInputCapability(Capability):
     """Analog input capability (ADC). Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -15,7 +296,7 @@ class AnalogInputDevice(ABC):
         ...
 
 
-class AnalogOutputDevice(ABC):
+class AnalogOutputCapability(Capability):
     """Analog output capability (DAC). Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -23,7 +304,7 @@ class AnalogOutputDevice(ABC):
         ...
 
 
-class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
+class AnalogIOCapability(AnalogInputCapability, AnalogOutputCapability):
     """Both analog input and output.
 
     The configure and direction hooks are optional and default to no-ops.
@@ -39,7 +320,7 @@ class AnalogIODevice(AnalogInputDevice, AnalogOutputDevice):
         pass
 
 
-class AnalogInputStreamDevice(AnalogInputDevice):
+class AnalogInputStreamCapability(AnalogInputCapability):
     """Hardware-timed analog input (waveform acquisition).
 
     Combine with PhysicalDevice in a driver. The driver implements the four
@@ -64,6 +345,10 @@ class AnalogInputStreamDevice(AnalogInputDevice):
         finally:
             device.stopStream()
     """
+
+    class Notification(Enum):
+        willAcquire = "willAcquire"
+        didAcquire  = "didAcquire"
 
     @abstractmethod
     def configureStream(self, channels, sampleRate):
@@ -119,7 +404,7 @@ class InputSource(Enum):
     Current100M  = "Current100M"
 
 
-class PhaseLockedDetectionDevice(ABC):
+class PhaseLockedDetectionCapability(Capability):
     """Phase-locked (lock-in) detection capability. Combine with PhysicalDevice.
 
     Reads the demodulated outputs (X, Y, R, theta) and reference frequency, and
@@ -232,7 +517,7 @@ class SampleClock(Enum):
     External = "External"
 
 
-class TriggerableDevice(ABC):
+class TriggerCapability(Capability):
     """Capability for a device whose acquisition can be armed to a trigger.
 
     setTriggerSource selects an internal (immediate) start versus waiting for an
@@ -261,7 +546,7 @@ class TriggerableDevice(ABC):
         return None
 
 
-class DigitalInputDevice(ABC):
+class DigitalInputCapability(Capability):
     """Digital input capability. Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -269,7 +554,7 @@ class DigitalInputDevice(ABC):
         ...
 
 
-class DigitalOutputDevice(ABC):
+class DigitalOutputCapability(Capability):
     """Digital output capability. Combine with PhysicalDevice in a driver."""
 
     @abstractmethod
@@ -277,7 +562,7 @@ class DigitalOutputDevice(ABC):
         ...
 
 
-class DigitalIODevice(DigitalInputDevice, DigitalOutputDevice):
+class DigitalIOCapability(DigitalInputCapability, DigitalOutputCapability):
     """Both digital input and output.
 
     The configure and direction hooks are optional and default to no-ops.
