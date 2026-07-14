@@ -6,7 +6,7 @@ from hardwarelibrary.sources.verdig import (
     VerdiGDevice, DebugVerdiGDevice, HOPSInterface, DebugHOPSInterface)
 from hardwarelibrary.sources.hopsnative import (
     HOPSNativeInterface, HOPSNativeI2C, MockHOPSBus)
-from hardwarelibrary.sources.capabilities import (
+from hardwarelibrary.capabilities import (
     OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability, WavelengthCapability)
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
 

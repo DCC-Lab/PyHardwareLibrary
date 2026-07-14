@@ -7,7 +7,7 @@ from hardwarelibrary.communication.communicationport import (
 )
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterDevice
-from hardwarelibrary.powermeters.capabilities import WavelengthCalibrationCapability
+from hardwarelibrary.capabilities import WavelengthCalibrationCapability
 
 FLOAT_PATTERN = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
 

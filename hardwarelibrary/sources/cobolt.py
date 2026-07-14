@@ -3,7 +3,7 @@ from hardwarelibrary.communication import *
 from hardwarelibrary.communication.commands import TextCommand
 from hardwarelibrary.communication.debugport import TableDrivenDebugPort
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffCapability, PowerCapability, InterlockCapability, AutostartCapability
+from hardwarelibrary.capabilities import OnOffCapability, PowerCapability, InterlockCapability, AutostartCapability
 
 import re
 import time

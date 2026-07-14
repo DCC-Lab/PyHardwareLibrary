@@ -6,7 +6,7 @@ import threading
 import time
 
 from hardwarelibrary.sources.matisse import MatisseDevice, DebugMatisseDevice, MatisseCommanderError
-from hardwarelibrary.sources.capabilities import WavelengthCapability
+from hardwarelibrary.capabilities import WavelengthCapability
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 
 MATISSE_HOST = "172.16.8.57"

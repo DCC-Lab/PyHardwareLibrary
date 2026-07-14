@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 
 from ..physicaldevice import PhysicalDevice
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability
+from hardwarelibrary.capabilities import OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability
 
 
 class HOPSInterface(ABC):

@@ -1,5 +1,5 @@
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
-from hardwarelibrary.daq import AnalogIOCapability, DigitalIOCapability, AnalogInputStreamCapability
+from hardwarelibrary.capabilities import AnalogIOCapability, DigitalIOCapability, AnalogInputStreamCapability
 import inspect
 
 

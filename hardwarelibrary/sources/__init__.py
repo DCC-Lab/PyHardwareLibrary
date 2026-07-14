@@ -1,4 +1,4 @@
-from .capabilities import (
+from hardwarelibrary.capabilities import (
     Capability,
     OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability,
     AutostartCapability, WavelengthCapability, DispersionCapability,

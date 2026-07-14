@@ -3,7 +3,7 @@ import unittest
 
 from hardwarelibrary.physicaldevice import DeviceState
 from hardwarelibrary.sources.cobolt import CoboltDevice
-from hardwarelibrary.sources.capabilities import (
+from hardwarelibrary.capabilities import (
     Capability, OnOffCapability, PowerCapability, InterlockCapability,
     AutostartCapability, WavelengthCapability, DispersionCapability)
 

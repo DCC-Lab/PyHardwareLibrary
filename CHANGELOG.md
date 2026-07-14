@@ -33,21 +33,32 @@ API changes can land even when the minor version is unchanged.
   `*Capability` suffix, reserving `*Device` for instantiable hardware drivers.
   Public methods and behavior are unchanged; only the mixin class names change.
   Drivers subclassing these must update their base-class lists and imports.
-  - DAQ (`daq/daqdevice.py`): `AnalogInputDevice` -> `AnalogInputCapability`,
-    `AnalogOutputDevice` -> `AnalogOutputCapability`, `AnalogIODevice` ->
-    `AnalogIOCapability`, `AnalogInputStreamDevice` ->
-    `AnalogInputStreamCapability`, `DigitalInputDevice` ->
-    `DigitalInputCapability`, `DigitalOutputDevice` -> `DigitalOutputCapability`,
-    `DigitalIODevice` -> `DigitalIOCapability`, `PhaseLockedDetectionDevice` ->
-    `PhaseLockedDetectionCapability`, `TriggerableDevice` -> `TriggerCapability`.
-  - Laser sources (`sources/capabilities.py`): `OnOffControl` ->
-    `OnOffCapability`, `ShutterControl` -> `ShutterCapability`, `PowerControl` ->
-    `PowerCapability`, `InterlockControl` -> `InterlockCapability`,
-    `AutostartControl` -> `AutostartCapability`, `WavelengthControl` ->
-    `WavelengthCapability`, `DispersionControl` -> `DispersionCapability`.
-  - Power meters (`powermeters/capabilities.py`): `WavelengthCalibratable` ->
-    `WavelengthCalibrationCapability`, `AutoScalable` -> `AutoScaleCapability`,
-    `ScaleAdjustable` -> `ScaleCapability`.
+  - DAQ: `AnalogInputDevice` -> `AnalogInputCapability`, `AnalogOutputDevice` ->
+    `AnalogOutputCapability`, `AnalogIODevice` -> `AnalogIOCapability`,
+    `AnalogInputStreamDevice` -> `AnalogInputStreamCapability`,
+    `DigitalInputDevice` -> `DigitalInputCapability`, `DigitalOutputDevice` ->
+    `DigitalOutputCapability`, `DigitalIODevice` -> `DigitalIOCapability`,
+    `PhaseLockedDetectionDevice` -> `PhaseLockedDetectionCapability`,
+    `TriggerableDevice` -> `TriggerCapability`.
+  - Laser sources: `OnOffControl` -> `OnOffCapability`, `ShutterControl` ->
+    `ShutterCapability`, `PowerControl` -> `PowerCapability`, `InterlockControl`
+    -> `InterlockCapability`, `AutostartControl` -> `AutostartCapability`,
+    `WavelengthControl` -> `WavelengthCapability`, `DispersionControl` ->
+    `DispersionCapability`.
+  - Power meters: `WavelengthCalibratable` -> `WavelengthCalibrationCapability`,
+    `AutoScalable` -> `AutoScaleCapability`, `ScaleAdjustable` ->
+    `ScaleCapability`.
+- **Breaking:** all capability mixins are consolidated into a single module,
+  `hardwarelibrary/capabilities.py`, and share one `Capability` base class (the
+  per-family `sources/capabilities.py`, `powermeters/capabilities.py`, and
+  `daq/daqdevice.py` are removed; the DAQ enums `InputSource`, `TriggerSource`,
+  `SampleClock`, `DAQNotification` move there too). Imports must point at
+  `hardwarelibrary.capabilities` (the family package `__init__`s still re-export
+  their own mixins, so `from hardwarelibrary.daq import AnalogIOCapability` and
+  the like keep working). `capabilities()` / `hasCapability()` are hoisted onto
+  `PhysicalDevice`, so every device -- including DAQ drivers -- now supports
+  capability introspection; the duplicated methods on `LaserSourceDevice` and
+  `PowerMeterDevice` are gone (`LaserSourceDevice` is now a pure marker).
 
 ## [1.4.0] - 2026-07-08
 

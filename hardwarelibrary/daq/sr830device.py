@@ -9,7 +9,7 @@ from hardwarelibrary.communication.prologixgpibport import PrologixGPIBPort
 from hardwarelibrary.communication.communicationport import (
     CommunicationPort, CommunicationReadTimeout,
 )
-from hardwarelibrary.daq.daqdevice import (
+from hardwarelibrary.capabilities import (
     AnalogInputStreamCapability, AnalogOutputCapability, PhaseLockedDetectionCapability,
     TriggerCapability, InputSource, TriggerSource, SampleClock,
 )

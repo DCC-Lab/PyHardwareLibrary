@@ -4,7 +4,7 @@ from ..physicaldevice import PhysicalDevice
 from ..communication.labviewtcpport import LabviewTCPPort
 from ..communication.communicationport import CommunicationReadError
 from ..communication.debugport import DebugPort
-from .capabilities import WavelengthCapability
+from hardwarelibrary.capabilities import WavelengthCapability
 
 
 class MatisseCommanderError(Exception):

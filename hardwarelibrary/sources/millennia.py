@@ -3,7 +3,7 @@ import time
 from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffCapability, ShutterCapability, PowerCapability
+from hardwarelibrary.capabilities import OnOffCapability, ShutterCapability, PowerCapability
 
 
 class MillenniaEv25Device(LaserSourceDevice, OnOffCapability, ShutterCapability, PowerCapability):

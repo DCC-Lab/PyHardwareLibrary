@@ -8,7 +8,7 @@ from hardwarelibrary.sources.millennia import (
     MillenniaEv25Device, DebugMillenniaEv25Device,
     MillenniaDevice, DebugMillenniaDevice,
 )
-from hardwarelibrary.sources.capabilities import (
+from hardwarelibrary.capabilities import (
     OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability, WavelengthCapability)
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
 

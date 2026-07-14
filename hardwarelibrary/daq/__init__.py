@@ -1,6 +1,6 @@
 #__all__ = ["sutterdevice"]
 
-from .daqdevice import (
+from hardwarelibrary.capabilities import (
     AnalogInputCapability, AnalogOutputCapability, AnalogIOCapability, AnalogInputStreamCapability,
     DigitalInputCapability, DigitalOutputCapability, DigitalIOCapability,
     PhaseLockedDetectionCapability, InputSource,
