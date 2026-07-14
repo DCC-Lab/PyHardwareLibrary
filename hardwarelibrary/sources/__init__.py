@@ -1,7 +1,7 @@
-from .capabilities import (
+from hardwarelibrary.capabilities import (
     Capability,
-    OnOffControl, ShutterControl, PowerControl, InterlockControl,
-    AutostartControl, WavelengthControl, DispersionControl,
+    OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability,
+    AutostartCapability, WavelengthCapability, DispersionCapability,
 )
 from .lasersourcedevice import LaserSourceDevice
 from .cobolt import CoboltDevice, CoboltCantTurnOnWithAutostartOn
@@ -10,3 +10,8 @@ from .millennia import (
     MillenniaEv25Device, DebugMillenniaEv25Device,
     MillenniaDevice, DebugMillenniaDevice,
 )
+from .verdig import (
+    VerdiGDevice, DebugVerdiGDevice, HOPSInterface, DebugHOPSInterface,
+)
+from .hopsnative import HOPSNativeInterface, HOPSNativeI2C, MockHOPSBus
+from .hopsdll import HOPSDLLInterface

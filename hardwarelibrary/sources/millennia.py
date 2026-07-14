@@ -3,10 +3,10 @@ import time
 from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
 from .lasersourcedevice import LaserSourceDevice
-from .capabilities import OnOffControl, ShutterControl, PowerControl
+from hardwarelibrary.capabilities import OnOffCapability, ShutterCapability, PowerCapability
 
 
-class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, PowerControl):
+class MillenniaEv25Device(LaserSourceDevice, OnOffCapability, ShutterCapability, PowerCapability):
     """Spectra-Physics Millennia eV CW DPSS pump laser (532 nm).
 
     Transport is the eV's back-panel USB port, which exposes a virtual COM
@@ -31,19 +31,23 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
 
     # The lab eV25s enumerates its back-panel USB port as a native STM32
     # USB-CDC device: VID 0x0483, PID 0x5740 (confirmed on the bench, firmware
-    # SW214-00.004.096). MillenniaEv25Device is still instantiated by portPath
-    # (like CoboltDevice) rather than discovered by VID/PID, because 0x0483:0x5740
-    # is STMicroelectronics' *generic* STM32 Virtual COM Port identity, shared by
-    # many unrelated STM32-based USB-CDC boards; matching on it via
-    # SerialPort.matchAnyPort would risk binding to the wrong device. If a host
-    # only ever has this one STM32 CDC port, set classIdVendor = 0x0483 and
-    # classIdProduct = 0x5740 to enable discovery; otherwise pin the portPath.
-    # To re-derive on another unit:
+    # SW214-00.004.096). doInitializeDevice discovers the port by this identity
+    # when no portPath is given.
+    #
+    # Caveat: 0x0483:0x5740 is STMicroelectronics' *generic* STM32 Virtual COM
+    # Port identity, shared by many unrelated STM32-based USB-CDC boards. On a
+    # host that also has another STM32 CDC device, discovery could bind to the
+    # wrong port; pin it with an explicit portPath (or narrow with a
+    # serialNumber) in that case. A given portPath always wins over discovery.
+    # To re-derive the identity on another unit:
     #
     #   system_profiler SPUSBDataType | grep -A 12 -i millennia
     #   .venv/bin/python -c "from serial.tools.list_ports import comports; \
     #     [print(p.device, hex(p.vid or 0), hex(p.pid or 0), p.serial_number) \
     #      for p in comports()]"
+
+    classIdVendor = 0x0483   # STMicroelectronics
+    classIdProduct = 0x5740  # STM32 Virtual COM Port (generic STM32 CDC identity)
 
     defaultBaudRate = 115200
     commandTerminator = "\r"  # the eV accepts <CR>, <LF>, or both
@@ -76,8 +80,23 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
         self.laserSerialNumber = None
 
     def doInitializeDevice(self):
-        try:
+        if self.portPath is not None:
             self.port = SerialPort(portPath=self.portPath)
+        else:
+            # Discover by the STM32 USB-CDC identity. serialNumber is a regex
+            # (PhysicalDevice turns the default into ".*"); pass it only when it
+            # actually narrows, so SerialPort.matchPorts stays on its vid/pid
+            # path and never regex-matches against a possibly-None descriptor
+            # serial.
+            serialNumber = None if self.serialNumber in (None, ".*") else self.serialNumber
+            self.port = SerialPort(idVendor=self.idVendor, idProduct=self.idProduct,
+                                   serialNumber=serialNumber)
+            if self.port.portPath is None:
+                raise PhysicalDevice.UnableToInitialize(
+                    "No Millennia eV found by USB identity {0:#06x}:{1:#06x}. "
+                    "Pass an explicit portPath if several STM32 USB-CDC ports "
+                    "are present.".format(self.idVendor, self.idProduct))
+        try:
             self.port.open(baudRate=self.defaultBaudRate)
             self.readIdentity()
         except Exception as error:
@@ -141,7 +160,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
             "Millennia did not confirm {0} (last {1}={2!r})".format(
                 description, query, reply))
 
-    # OnOffControl hooks (the pump diodes)
+    # OnOffCapability hooks (the pump diodes)
 
     def doTurnOn(self):
         self.writeActionAndConfirm("ON", "?D", "1", "diodes on")
@@ -152,7 +171,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     def doGetOnOffState(self) -> bool:
         return self.queryString("?D") == "1"
 
-    # ShutterControl hooks (the output-blocking shutter)
+    # ShutterCapability hooks (the output-blocking shutter)
 
     def doOpenShutter(self):
         self.writeCommand("SHT:1")
@@ -163,7 +182,7 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffControl, ShutterControl, Power
     def doGetShutterState(self) -> bool:
         return self.queryString("?SHT") == "1"
 
-    # PowerControl hooks (output power in watts)
+    # PowerCapability hooks (output power in watts)
 
     def doSetPower(self, power: float):
         # The eV silently ignores out-of-range P: values, which would mask the

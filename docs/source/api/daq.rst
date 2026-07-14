@@ -1,12 +1,9 @@
 Data acquisition (DAQ)
 ======================
 
-Capability mixins and DAQ drivers.
-
-DAQDevice
----------
-
-.. automodule:: hardwarelibrary.daq.daqdevice
+DAQ drivers. The DAQ capability mixins (``AnalogIOCapability``,
+``DigitalIOCapability``, ``AnalogInputStreamCapability``, ...) live in
+:mod:`hardwarelibrary.capabilities`; see the Core page.
 
 LabJack
 -------

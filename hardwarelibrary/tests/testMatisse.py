@@ -6,7 +6,7 @@ import threading
 import time
 
 from hardwarelibrary.sources.matisse import MatisseDevice, DebugMatisseDevice, MatisseCommanderError
-from hardwarelibrary.sources.capabilities import WavelengthControl
+from hardwarelibrary.capabilities import WavelengthCapability
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
 
 MATISSE_HOST = "172.16.8.57"
@@ -73,7 +73,7 @@ class TestDebugMatisseDevice(unittest.TestCase):
 
     def testIsPhysicalDeviceWithWavelengthCapability(self):
         self.assertIsInstance(self.matisse, PhysicalDevice)
-        self.assertIsInstance(self.matisse, WavelengthControl)
+        self.assertIsInstance(self.matisse, WavelengthCapability)
 
     def testInitializeReadsIdn(self):
         self.assertEqual(self.matisse.state, DeviceState.Ready)

@@ -7,6 +7,129 @@ API changes can land even when the minor version is unchanged.
 ## [Unreleased]
 
 ### Added
+- `VerdiGDevice` (and `DebugVerdiGDevice`): a laser-source driver for the Coherent
+  "HOPS" (High Output Power Supply) laser -- Genesis heads / Verdi G-C, e.g. the
+  lab Genesis CX-Vis (head `G532`). A HOPS supply is not a serial device: its
+  FTDI FT2232 (`0x0403:0x6010`) is driven as bit-banged I2C, with power DAC, ADC,
+  shutter/enable GPIO, and the head identity/calibration EEPROM all on one I2C
+  bus (see `manuals/Coherent-HOPS-*`). `VerdiGDevice` combines `OnOffCapability`,
+  `ShutterCapability`, `PowerCapability`, and `InterlockCapability`, and drives the bus
+  through an interchangeable `HOPSInterface`:
+  - `HOPSNativeInterface` (`sources/hopsnative.py`): **pure-Python** pyftdi I2C,
+    no DLL (macOS/Linux). Hardware-confirmed end to end on the lab unit
+    (identity, on/off, shutter, remote, power setpoint, temperature). Its
+    `interlock()`/`faults()` raise `HOPSInterface.NotSupported` until the `?FF`
+    decode is reverse-engineered.
+  - `HOPSDLLInterface` (`sources/hopsdll.py`): Coherent's `CohrHOPS.dll` (ASCII
+    command set; Windows/Linux). Read + `REM`/`PCMD` write paths hardware-
+    confirmed; `KSWCMD`/`SHCMD` per the DLL spec, not yet exercised.
+  Selection: `VerdiGDevice(interface="auto")` tries native first, then the DLL;
+  pass `"native"`/`"dll"`/an interface instance to force one. Protocol and I2C
+  decode in `manuals/Coherent-HOPS-2-USB-and-DLL-Protocol.md` and
+  `manuals/Coherent-HOPS-3-I2C-Wire-Protocol.md`.
+
+### Changed
+- **Breaking:** capability mixins across all families now use a uniform
+  `*Capability` suffix, reserving `*Device` for instantiable hardware drivers.
+  Public methods and behavior are unchanged; only the mixin class names change.
+  Drivers subclassing these must update their base-class lists and imports.
+  - DAQ: `AnalogInputDevice` -> `AnalogInputCapability`, `AnalogOutputDevice` ->
+    `AnalogOutputCapability`, `AnalogIODevice` -> `AnalogIOCapability`,
+    `AnalogInputStreamDevice` -> `AnalogInputStreamCapability`,
+    `DigitalInputDevice` -> `DigitalInputCapability`, `DigitalOutputDevice` ->
+    `DigitalOutputCapability`, `DigitalIODevice` -> `DigitalIOCapability`,
+    `PhaseLockedDetectionDevice` -> `PhaseLockedDetectionCapability`,
+    `TriggerableDevice` -> `TriggerCapability`.
+  - Laser sources: `OnOffControl` -> `OnOffCapability`, `ShutterControl` ->
+    `ShutterCapability`, `PowerControl` -> `PowerCapability`, `InterlockControl`
+    -> `InterlockCapability`, `AutostartControl` -> `AutostartCapability`,
+    `WavelengthControl` -> `WavelengthCapability`, `DispersionControl` ->
+    `DispersionCapability`.
+  - Power meters: `WavelengthCalibratable` -> `WavelengthCalibrationCapability`,
+    `AutoScalable` -> `AutoScaleCapability`, `ScaleAdjustable` ->
+    `ScaleCapability`.
+- **Breaking:** all capability mixins are consolidated into a single module,
+  `hardwarelibrary/capabilities.py`, and share one `Capability` base class (the
+  per-family `sources/capabilities.py`, `powermeters/capabilities.py`, and
+  `daq/daqdevice.py` are removed; the DAQ enums `InputSource`, `TriggerSource`,
+  `SampleClock` move there too, and the acquisition notification enum is now
+  nested as `AnalogInputStreamCapability.Notification`). Imports must point at
+  `hardwarelibrary.capabilities` (the family package `__init__`s still re-export
+  their own mixins, so `from hardwarelibrary.daq import AnalogIOCapability` and
+  the like keep working). `capabilities()` / `hasCapability()` are hoisted onto
+  `PhysicalDevice`, so every device -- including DAQ drivers -- now supports
+  capability introspection; the duplicated methods on `LaserSourceDevice` and
+  `PowerMeterDevice` are gone (`LaserSourceDevice` is now a pure marker).
+
+## [1.4.0] - 2026-07-08
+
+### Added
+- `SR830Device` (and `DebugSR830Device`): Stanford Research SR830 DSP lock-in
+  amplifier over a Prologix GPIB-USB controller. It combines several capabilities:
+  `AnalogInputStreamDevice` (the four rear-panel Aux A/D inputs via `OAUX?`, plus
+  hardware-timed buffered acquisition of the demodulated outputs from the internal
+  data buffer), `AnalogOutputDevice` (the four rear-panel Aux D/A outputs via
+  `AUXV`), `PhaseLockedDetectionDevice` (X/Y/R/theta, reference frequency, signal
+  input source, sensitivity, and time constant), and `TriggerableDevice` (the
+  rear-panel TRIG IN). Enums: `AuxInput`, `AuxOutput`, `StreamChannel`,
+  `InputSource`. `doInitializeDevice` self-discovers the Prologix among the
+  connected FTDI adaptors by confirming `*IDN?`, and pins the adaptor's serial.
+- `PrologixGPIBPort` (`hardwarelibrary/communication/`): a `SerialPort` subclass
+  that speaks the Prologix GPIB-USB controller `++` protocol. GPIB instruments
+  talk to it with the ordinary `readString`/`writeString` primitives; the `++read
+  eoi` handshake is encapsulated in its `readString`.
+- New DAQ capability contracts in `daq/daqdevice.py`: `PhaseLockedDetectionDevice`
+  (lock-in / phase-locked detection), `TriggerableDevice` with the `TriggerSource`
+  enum, and the `SampleClock` enum for stream sample clocking.
+
+### Changed
+- **Breaking:** `AnalogInputStreamDevice`: the sample-rate parameter of
+  `configureStream`/`acquireWaveform` is renamed `scanRate` -> `sampleRate`.
+  Callers passing it positionally are unaffected; callers passing `scanRate=` by
+  keyword must switch to `sampleRate=`. `LabjackDevice.configureStream` keeps
+  `scanRate` as a temporary deprecated synonym, so LabJack callers are unaffected
+  for now.
+- `LabjackDevice` now imports `u3` (LabJackPython) lazily at point of use, so
+  `import hardwarelibrary.daq` (and the new SR830 driver) works on hosts that do
+  not have LabJackPython installed.
+
+## [1.3.3] - 2026-07-08
+
+### Changed
+- Heavy third-party modules are now imported lazily, at their point of use,
+  instead of at module load. `import hardwarelibrary` no longer pulls in
+  `matplotlib` or `numpy` (import time drops from ~336 ms to ~59 ms); they load
+  only when a plot is drawn or a spectrum is acquired. Affected: the
+  spectrometers package (`SpectraViewer` deferred into `display()`/`displayAny()`,
+  `numpy` into the methods that use it; `base.py` uses
+  `from __future__ import annotations` for its `-> np.array` hint),
+  `OscilloscopeDevice.displayWaveforms`, and the cameras module (`cv2`). Public
+  APIs are unchanged. Two behavioral notes: importing `hardwarelibrary.cameras`
+  no longer prints a warning when OpenCV is absent — a missing `cv2` now raises
+  `ModuleNotFoundError` when a camera operation is invoked; and the unused
+  matplotlib import block in `oceaninsight.py` was removed.
+
+### Removed
+- Dead `from pyftdi.ftdi import Ftdi` imports in `SutterDevice` and `EchoDevice`
+  (both were unused and flagged `# FIXME: should not be here`). FTDI access still
+  goes through `SerialPort`, which owns the `pyftdi` dependency.
+
+## [1.3.2] - 2026-07-07
+
+### Added
+- `MillenniaEv25Device` (and its `MillenniaDevice` alias) now discovers its port
+  by USB identity when constructed without a `portPath`. The class carries the
+  STM32 Virtual COM Port identity `classIdVendor = 0x0483` /
+  `classIdProduct = 0x5740`, and `doInitializeDevice` matches it over pyserial's
+  ports, raising `UnableToInitialize` naming the identity when none is found. An
+  explicit `portPath` still takes precedence, and a `serialNumber` narrows
+  discovery when several STM32 USB-CDC ports are present. Note: `0x0483:0x5740`
+  is STMicro's generic STM32 VCP identity shared by unrelated STM32 boards, so
+  pin `portPath` on a host that has more than one.
+
+## [1.3.1] - 2026-07-06
+
+### Added
 - Power-meter capability mixins (`powermeters/capabilities.py`), mirroring the
   laser-source `Capability` structure: `WavelengthCalibratable`
   (`getCalibrationWavelength` / `setCalibrationWavelength`), `AutoScalable`

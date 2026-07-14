@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="740" viewBox="0 0 1260 740" font-family="Helvetica, Arial, sans-serif">
+  <style>
+    .region { stroke-width:1.5; rx:10; }
+    .chip { fill:#ffffff; stroke:#333; stroke-width:1.5; rx:6; }
+    .ft   { fill:#fff8e8; stroke:#333; stroke-width:2; rx:6; }
+    .host { fill:#f0f0f0; stroke:#555; stroke-width:1.5; rx:6; }
+    .t    { font-size:13px; fill:#111; }
+    .ttl  { font-size:15px; font-weight:bold; fill:#111; }
+    .mono { font-family:Menlo, Consolas, monospace; font-size:13px; fill:#0b3d91; }
+    .small{ font-size:11px; fill:#444; }
+    .bus  { stroke:#111; stroke-width:2.5; }
+    .wire { stroke:#111; stroke-width:1.5; fill:none; }
+    .reglbl { font-size:13px; font-weight:bold; fill:#111; }
+  </style>
+
+  <text x="30" y="34" class="ttl" font-size="19">Coherent HOPS / Verdi-G (Genesis CX-Vis, G532) — I2C control bus</text>
+  <text x="30" y="54" class="small">Reconstructed from the I2C traffic captured via the CohrFTCI2C.dll logging proxy. Logical bus, not a verified board schematic.</text>
+
+  <!-- regions -->
+  <rect x="15" y="72" width="1045" height="558" class="region" fill="#eef4fb" stroke="#9db8d6"/>
+  <text x="30" y="92" class="ttl" fill="#3a5f8a">POWER SUPPLY (HOPS)</text>
+  <rect x="1078" y="72" width="167" height="558" class="region" fill="#eef7ee" stroke="#a9cba9"/>
+  <text x="1090" y="92" class="ttl" fill="#4a7a4a">LASER HEAD</text>
+  <text x="1090" y="110" class="small" fill="#4a7a4a">Genesis CX-Vis / G532</text>
+
+  <!-- umbilical boundary -->
+  <line x1="1069" y1="118" x2="1069" y2="628" stroke="#4a7a4a" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="1069" y="640" class="small" fill="#4a7a4a" text-anchor="middle">umbilical / head connector</text>
+
+  <!-- USB host -->
+  <rect x="25" y="150" width="120" height="66" class="host"/>
+  <text x="85" y="178" class="t" text-anchor="middle">USB Host</text>
+  <text x="85" y="196" class="t" text-anchor="middle">(Mac)</text>
+  <line x1="145" y1="183" x2="180" y2="183" class="wire"/>
+  <text x="162" y="176" class="small" text-anchor="middle">USB</text>
+
+  <!-- FT2232 -->
+  <rect x="180" y="120" width="250" height="180" class="ft"/>
+  <text x="195" y="145" class="ttl">FTDI FT2232C/D</text>
+  <text x="195" y="167" class="mono">USB 0x0403:0x6010</text>
+  <text x="195" y="186" class="t">"HOPS Power Supply"</text>
+  <text x="195" y="205" class="mono">S/N FTV5L9CA</text>
+  <text x="195" y="230" class="t">Ch A &#8594; MPSSE I2C</text>
+  <text x="195" y="249" class="small">Ch B &#8594; 2nd port (unused)</text>
+  <text x="195" y="274" class="small">force non-3-phase clock (C/D)</text>
+  <!-- pins -->
+  <text x="425" y="200" class="mono" text-anchor="end">AD0 &#8594; SCL</text>
+  <text x="425" y="235" class="mono" text-anchor="end">AD1+AD2 &#8594; SDA</text>
+
+  <!-- pin wires to rails -->
+  <path d="M430 196 H448 V385" class="wire"/>            <!-- SCL down -->
+  <path d="M430 231 H465 V410" class="wire"/>            <!-- SDA down -->
+
+  <!-- I2C bus rails -->
+  <line x1="448" y1="385" x2="1180" y2="385" class="bus"/>
+  <line x1="465" y1="410" x2="1180" y2="410" class="bus"/>
+  <text x="1185" y="389" class="reglbl">SCL</text>
+  <text x="1185" y="414" class="reglbl">SDA</text>
+
+  <!-- pull-ups to +V -->
+  <line x1="500" y1="330" x2="560" y2="330" class="wire"/>
+  <text x="565" y="334" class="mono">+V</text>
+  <line x1="510" y1="330" x2="510" y2="345" class="wire"/>
+  <rect x="505" y="345" width="10" height="26" fill="#fff" stroke="#111"/>
+  <line x1="510" y1="371" x2="510" y2="385" class="wire"/>
+  <circle cx="510" cy="385" r="3.5" fill="#111"/>
+  <line x1="545" y1="330" x2="545" y2="345" class="wire"/>
+  <rect x="540" y="345" width="10" height="26" fill="#fff" stroke="#111"/>
+  <line x1="545" y1="371" x2="545" y2="410" class="wire"/>
+  <circle cx="545" cy="410" r="3.5" fill="#111"/>
+  <text x="600" y="334" class="small">R&#8321; pull-ups</text>
+
+  <!-- helper: each device taps SCL (left stub) and SDA (right stub) -->
+  <!-- DAC 0x29 -->
+  <g>
+    <line x1="560" y1="385" x2="560" y2="470" class="wire"/><circle cx="560" cy="385" r="3.5" fill="#111"/>
+    <line x1="590" y1="410" x2="590" y2="470" class="wire"/><circle cx="590" cy="410" r="3.5" fill="#111"/>
+    <rect x="490" y="470" width="170" height="140" class="chip"/>
+    <text x="500" y="495" class="ttl">DAC</text>
+    <text x="655" y="495" class="mono" text-anchor="end">0x29</text>
+    <text x="500" y="522" class="t">power setpoint</text>
+    <text x="500" y="544" class="mono">reg 0xA0, 16-bit</text>
+    <text x="500" y="566" class="t">written by PCMD</text>
+    <text x="500" y="592" class="small">0.5 W &#8594; 0x0033</text>
+  </g>
+
+  <!-- ADC 0x48 -->
+  <g>
+    <line x1="740" y1="385" x2="740" y2="470" class="wire"/><circle cx="740" cy="385" r="3.5" fill="#111"/>
+    <line x1="770" y1="410" x2="770" y2="470" class="wire"/><circle cx="770" cy="410" r="3.5" fill="#111"/>
+    <rect x="685" y="470" width="170" height="140" class="chip"/>
+    <text x="695" y="495" class="ttl">ADC</text>
+    <text x="850" y="495" class="mono" text-anchor="end">0x48</text>
+    <text x="695" y="522" class="t">power &#38; temperatures</text>
+    <text x="695" y="544" class="mono">power: reg 0xE4</text>
+    <text x="695" y="566" class="mono">TMAIN: reg 0x94</text>
+    <text x="695" y="592" class="small">read by ?P, ?TMAIN</text>
+  </g>
+
+  <!-- I/O expanders x4 -->
+  <g>
+    <line x1="930" y1="385" x2="930" y2="470" class="wire"/><circle cx="930" cy="385" r="3.5" fill="#111"/>
+    <line x1="960" y1="410" x2="960" y2="470" class="wire"/><circle cx="960" cy="410" r="3.5" fill="#111"/>
+    <rect x="880" y="470" width="175" height="140" class="chip"/>
+    <text x="890" y="495" class="ttl">I/O expanders</text>
+    <text x="890" y="517" class="mono">0x20 0x22 0x24 0x25</text>
+    <text x="890" y="536" class="small">(PCA9555-style, x4)</text>
+    <text x="890" y="560" class="t">shutter (SHCMD)</text>
+    <text x="890" y="578" class="t">keyswitch, remote (REM)</text>
+    <text x="890" y="596" class="t">enable (KSWCMD), faults</text>
+  </g>
+
+  <!-- EEPROM 0x52 in head -->
+  <g>
+    <line x1="1120" y1="385" x2="1120" y2="470" class="wire"/><circle cx="1120" cy="385" r="3.5" fill="#111"/>
+    <line x1="1150" y1="410" x2="1150" y2="470" class="wire"/><circle cx="1150" cy="410" r="3.5" fill="#111"/>
+    <rect x="1088" y="470" width="150" height="140" class="chip" stroke="#4a7a4a"/>
+    <text x="1098" y="495" class="ttl">EEPROM</text>
+    <text x="1230" y="495" class="mono" text-anchor="end">0x52</text>
+    <text x="1098" y="520" class="mono">reg 0x01XX (2-byte)</text>
+    <text x="1098" y="542" class="t">head type: G532</text>
+    <text x="1098" y="562" class="t">head ID: VH5359</text>
+    <text x="1098" y="584" class="t">calibration floats</text>
+    <text x="1098" y="603" class="small">identity + cal, in head</text>
+  </g>
+
+  <!-- legend -->
+  <text x="30" y="668" class="reglbl">Confirmed from capture:</text>
+  <text x="215" y="668" class="t">7-bit addresses, registers, and that FT2232 channel A carries the I2C traffic.</text>
+  <text x="30" y="688" class="reglbl">Inferred (standard wiring):</text>
+  <text x="215" y="688" class="t">SCL=AD0 and SDA=AD1+AD2 (tied), the pull-ups, and the head EEPROM sitting across the umbilical.</text>
+  <text x="30" y="708" class="reglbl">Part types:</text>
+  <text x="215" y="708" class="t">EEPROM / ADC / DAC / GPIO inferred from register behavior; exact part numbers unknown.</text>
+  <text x="30" y="728" class="small">Clock: I2C runs ~10 kHz (CohrHOPS divisor 599). TMAIN sensor is NTC-like (raw falls as temperature rises).</text>
+</svg>

@@ -131,11 +131,11 @@ the capabilities it declares — check the table.
 
 | Capability | Methods |
 |---|---|
-| `OnOffControl` | `turnOn()`, `turnOff()`, `isLaserOn()`, `canTurnOn()` |
-| `ShutterControl` | `openShutter()`, `closeShutter()`, `isShutterOpen()` |
-| `PowerControl` | `setPower(watts)`, `power()` |
-| `InterlockControl` | `interlock()` |
-| `WavelengthControl` | `setWavelength(nm)`, `wavelength()`, `wavelengthRange()` |
+| `OnOffCapability` | `turnOn()`, `turnOff()`, `isLaserOn()`, `canTurnOn()` |
+| `ShutterCapability` | `openShutter()`, `closeShutter()`, `isShutterOpen()` |
+| `PowerCapability` | `setPower(watts)`, `power()` |
+| `InterlockCapability` | `interlock()` |
+| `WavelengthCapability` | `setWavelength(nm)`, `wavelength()`, `wavelengthRange()` |
 
 ```python
 from hardwarelibrary.sources.millennia import MillenniaEv25Device
@@ -153,7 +153,7 @@ laser.shutdownDevice()
 
 - Cobolt: `CoboltDevice(portPath="COM3")` — OnOff + Power (+ autostart constraints; it
   may refuse `turnOn()` when autostart is on, raising `CoboltCantTurnOnWithAutostartOn`).
-- Matisse: `MatisseDevice(...)` over TCP — `WavelengthControl` (`setWavelength`/`wavelength`)
+- Matisse: `MatisseDevice(...)` over TCP — `WavelengthCapability` (`setWavelength`/`wavelength`)
   plus BiFi/etalon/piezo/scan methods.
 
 ### Power meters — Gentec-EO Integra
@@ -181,7 +181,7 @@ v = daq.getAnalogVoltage(channel=0)        # read
 daq.setAnalogVoltage(2.5, channel=1)       # write (U3 DACs are slow PWM)
 bit = daq.getDigitalValue(channel=4)
 daq.setDigitalValue(1, channel=5)
-# Hardware-timed acquisition: daq.acquireWaveform(...) (AnalogInputStreamDevice)
+# Hardware-timed acquisition: daq.acquireWaveform(...) (AnalogInputStreamCapability)
 daq.shutdownDevice()
 ```
 

@@ -8,10 +8,8 @@ LaserSourceDevice
 
 .. automodule:: hardwarelibrary.sources.lasersourcedevice
 
-Capabilities
-------------
-
-.. automodule:: hardwarelibrary.sources.capabilities
+The laser-source capability mixins (``OnOffCapability``, ``ShutterCapability``,
+...) live in :mod:`hardwarelibrary.capabilities`; see the Core page.
 
 Cobolt
 ------

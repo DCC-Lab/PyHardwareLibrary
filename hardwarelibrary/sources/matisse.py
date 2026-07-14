@@ -4,14 +4,14 @@ from ..physicaldevice import PhysicalDevice
 from ..communication.labviewtcpport import LabviewTCPPort
 from ..communication.communicationport import CommunicationReadError
 from ..communication.debugport import DebugPort
-from .capabilities import WavelengthControl
+from hardwarelibrary.capabilities import WavelengthCapability
 
 
 class MatisseCommanderError(Exception):
     pass
 
 
-class MatisseDevice(PhysicalDevice, WavelengthControl):
+class MatisseDevice(PhysicalDevice, WavelengthCapability):
     """Sirah Matisse tunable laser, controlled over the Matisse Commander server.
 
     Wavelength tuning is a hierarchy of intracavity elements, coarse to fine:
@@ -19,7 +19,7 @@ class MatisseDevice(PhysicalDevice, WavelengthControl):
     narrows it, and the piezo etalon, slow piezo and fast piezo provide
     successively finer, faster control; a scan engine sweeps the fine elements.
     Each element is exposed below with its own get/set/motion/lock methods. The
-    high-level WavelengthControl interface (setWavelength/wavelength) drives the
+    high-level WavelengthCapability interface (setWavelength/wavelength) drives the
     BiFi, which is the coarse wavelength selector; use the etalon and piezo
     methods for fine tuning.
 
@@ -403,7 +403,7 @@ class MatisseDevice(PhysicalDevice, WavelengthControl):
     def setScanFallingSpeed(self, speed):
         self.sendSetting("SCAN:FSPD {0:.6f}".format(speed))
 
-    # WavelengthControl hooks (the BiFi is the coarse wavelength selector)
+    # WavelengthCapability hooks (the BiFi is the coarse wavelength selector)
 
     def doGetWavelength(self) -> float:
         return self.bifiWavelength()
