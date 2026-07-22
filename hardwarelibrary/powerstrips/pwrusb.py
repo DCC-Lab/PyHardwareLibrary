@@ -34,13 +34,13 @@ and pwrusb.com. The implementation here is our own.
 from hardwarelibrary.communication.hidport import HIDPort
 from hardwarelibrary.communication.debugport import DebugPort
 from hardwarelibrary.powerstrips.powerstripdevice import PowerStripDevice
-from hardwarelibrary.powerstrips.capabilities import (
-    OutletSwitchingControl, DefaultOutletControl, CurrentMeteringControl,
+from hardwarelibrary.capabilities import (
+    OutletSwitchingCapability, DefaultOutletCapability, CurrentMeteringCapability,
 )
 
 
-class PwrUSBDevice(PowerStripDevice, OutletSwitchingControl,
-                   DefaultOutletControl, CurrentMeteringControl):
+class PwrUSBDevice(PowerStripDevice, OutletSwitchingCapability,
+                   DefaultOutletCapability, CurrentMeteringCapability):
     classIdVendor = 0x04d8
     classIdProduct = 0x003f
 

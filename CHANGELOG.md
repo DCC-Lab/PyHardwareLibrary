@@ -12,11 +12,12 @@ API changes can land even when the minor version is unchanged.
   power strip (USB HID `04d8:003f`, enumerates as "Simple HID Device Demo"). The
   family follows the interface-segregated capability-mixin pattern used by
   `sources/` and `daq/`: `PowerStripDevice` is a thin marker base over
-  `PhysicalDevice`, and behaviour comes from `OutletSwitchingControl`
+  `PhysicalDevice`, and behaviour comes from `OutletSwitchingCapability`
   (`turnOutletOn`/`turnOutletOff`/`setOutletState`/`isOutletOn`/`outletCount`,
-  outlets 1-based), `DefaultOutletControl` (per-outlet power-on default state),
-  and `CurrentMeteringControl` (`current()` in A, `accumulatedCharge()` in Ah,
-  `resetAccumulatedCharge()`). The strip speaks a single-byte HID report protocol
+  outlets 1-based), `DefaultOutletCapability` (per-outlet power-on default
+  state), and `CurrentMeteringCapability` (`current()` in A, `accumulatedCharge()`
+  in Ah, `resetAccumulatedCharge()`), all in the shared
+  `hardwarelibrary/capabilities.py`. The strip speaks a single-byte HID report protocol
   driven through a `HIDPort`; the protocol was reverse-engineered publicly and
   cross-checked against aarossig/pwrusbctl (Apache-2.0) and pwrusb.com, but the
   implementation is our own. Outlet state is cached on write because live
