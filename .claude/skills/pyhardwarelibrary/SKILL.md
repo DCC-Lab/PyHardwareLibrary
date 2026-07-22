@@ -10,6 +10,12 @@ subclass with a uniform lifecycle and a small, predictable public API per family
 skill is for *using* devices to get work done (move, measure, set). To *write a new
 driver*, read `CLAUDE.md` and `README-4-New-device-coding-example.md` instead.
 
+**Developers: always pull `master` from origin before starting.** This repository evolves
+rapidly and its architecture shifts under you — capability mixins were recently renamed
+(`*Control` -> `*Capability`) and consolidated into a single `hardwarelibrary/capabilities.py`.
+Branch off an up-to-date `master` (`git pull` first) so you build against the current
+conventions, not a stale snapshot.
+
 **Use the primitives from `CommunicationPort` for all communications.** A driver's `do*`
 methods talk to hardware only through `self.port` — `writeData` / `readData` (and the
 `readString` / `writeString` / `writeStringReadMatch` helpers built on them). Do **not**
@@ -202,9 +208,9 @@ it declares.
 
 | Capability | Methods |
 |---|---|
-| `OutletSwitchingControl` | `turnOutletOn(n)`, `turnOutletOff(n)`, `setOutletState(n, isOn)`, `isOutletOn(n)`, `outletCount` |
-| `DefaultOutletControl` | `setOutletDefaultOn(n)`, `setOutletDefaultOff(n)`, `setOutletDefaultState(n, isOn)` |
-| `CurrentMeteringControl` | `current()` (A), `accumulatedCharge()` (Ah), `resetAccumulatedCharge()` |
+| `OutletSwitchingCapability` | `turnOutletOn(n)`, `turnOutletOff(n)`, `setOutletState(n, isOn)`, `isOutletOn(n)`, `outletCount` |
+| `DefaultOutletCapability` | `setOutletDefaultOn(n)`, `setOutletDefaultOff(n)`, `setOutletDefaultState(n, isOn)` |
+| `CurrentMeteringCapability` | `current()` (A), `accumulatedCharge()` (Ah), `resetAccumulatedCharge()` |
 
 ```python
 from hardwarelibrary.powerstrips import PwrUSBDevice

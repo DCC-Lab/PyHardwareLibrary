@@ -4,7 +4,7 @@ import unittest
 from hardwarelibrary.physicaldevice import PhysicalDevice
 from hardwarelibrary.powerstrips import (
     PwrUSBDevice, DebugPwrUSBDevice,
-    OutletSwitchingControl, DefaultOutletControl, CurrentMeteringControl,
+    OutletSwitchingCapability, DefaultOutletCapability, CurrentMeteringCapability,
 )
 
 
@@ -29,13 +29,13 @@ class TestDebugPwrUSBDevice(unittest.TestCase):
 
     def testCapabilities(self):
         capabilities = self.device.capabilities()
-        self.assertIn(OutletSwitchingControl, capabilities)
-        self.assertIn(DefaultOutletControl, capabilities)
-        self.assertIn(CurrentMeteringControl, capabilities)
+        self.assertIn(OutletSwitchingCapability, capabilities)
+        self.assertIn(DefaultOutletCapability, capabilities)
+        self.assertIn(CurrentMeteringCapability, capabilities)
 
     def testHasCapability(self):
-        self.assertTrue(self.device.hasCapability(OutletSwitchingControl))
-        self.assertTrue(self.device.hasCapability(CurrentMeteringControl))
+        self.assertTrue(self.device.hasCapability(OutletSwitchingCapability))
+        self.assertTrue(self.device.hasCapability(CurrentMeteringCapability))
 
     def testAllOutletsStartOff(self):
         for outlet in (1, 2, 3):
