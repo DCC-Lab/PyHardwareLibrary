@@ -56,6 +56,12 @@ thorlabs = [
   # Backend for ThorlabsKinesisDevice (the Thorlabs Kinesis runtime wrapper).
   "pylablib",
 ]
+pwrusb = [
+  # HID transport (HIDPort) for PwrUSBDevice. Imports as `hid`. Required to
+  # reach the strip on macOS, where the OS claims the HID interface and neither
+  # SerialPort nor USBPort/libusb can open it.
+  "hidapi",
+]
 
 [project.urls]
 Homepage = "https://github.com/DCC-Lab/PyHardwareLibrary"

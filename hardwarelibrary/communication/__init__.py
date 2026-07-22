@@ -4,6 +4,7 @@ from .prologixgpibport import PrologixGPIBPort
 from .tcpport import TCPPort, UnableToOpenTCPPort
 from .labviewtcpport import LabviewTCPPort
 from .usbport import USBPort
+from .hidport import HIDPort
 from .diagnostics import USBParameters, DeviceCommand, USBDeviceDescription
 from .debugport import DebugPort, TableDrivenDebugPort
 import usb.backend.libusb1

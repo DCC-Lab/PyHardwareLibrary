@@ -7,6 +7,27 @@ API changes can land even when the minor version is unchanged.
 ## [Unreleased]
 
 ### Added
+- PowerStrip device family (`hardwarelibrary/powerstrips/`) plus its first driver
+  `PwrUSBDevice` (and `DebugPwrUSBDevice`) for the PwrUSB / PowerUSB controllable
+  power strip (USB HID `04d8:003f`, enumerates as "Simple HID Device Demo"). The
+  family follows the interface-segregated capability-mixin pattern used by
+  `sources/` and `daq/`: `PowerStripDevice` is a thin marker base over
+  `PhysicalDevice`, and behaviour comes from `OutletSwitchingControl`
+  (`turnOutletOn`/`turnOutletOff`/`setOutletState`/`isOutletOn`/`outletCount`,
+  outlets 1-based), `DefaultOutletControl` (per-outlet power-on default state),
+  and `CurrentMeteringControl` (`current()` in A, `accumulatedCharge()` in Ah,
+  `resetAccumulatedCharge()`). The strip speaks a single-byte HID report protocol
+  driven through a `HIDPort`; the protocol was reverse-engineered publicly and
+  cross-checked against aarossig/pwrusbctl (Apache-2.0) and pwrusb.com, but the
+  implementation is our own. Outlet state is cached on write because live
+  readback is unreliable on this firmware.
+- `HIDPort` (`hardwarelibrary/communication/hidport.py`): a `CommunicationPort`
+  over a USB HID device, backed by hidapi (IOKit on macOS), alongside
+  `SerialPort` and `USBPort`. Needed because an HID device the OS claims has no
+  `/dev` node (so `SerialPort` cannot reach it) and cannot be claimed by libusb
+  (so `USBPort` cannot either) -- notably on macOS, where `IOHIDFamily` owns the
+  interface. hidapi is an optional dependency; install it with the new `pwrusb`
+  extra (`pip install -e .[pwrusb]`), required to drive the strip.
 - `VerdiGDevice` (and `DebugVerdiGDevice`): a laser-source driver for the Coherent
   "HOPS" (High Output Power Supply) laser -- Genesis heads / Verdi G-C, e.g. the
   lab Genesis CX-Vis (head `G532`). A HOPS supply is not a serial device: its
