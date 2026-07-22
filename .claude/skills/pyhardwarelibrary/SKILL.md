@@ -1,6 +1,6 @@
 ---
 name: pyhardwarelibrary
-description: Control lab hardware with the PyHardwareLibrary Python package — motion stages, spectrometers, lasers, power meters, DAQs, and oscilloscopes. Use when a user wants to move a stage, acquire a spectrum, turn a laser on/off or set its power/wavelength, read a power meter, read/write DAQ voltages, discover connected devices, run code without hardware (debug devices), or build a headless/GUI controller around a device. Covers the device lifecycle, per-family public API, event notifications, and the DeviceController worker-thread wrapper.
+description: Control lab hardware with the PyHardwareLibrary Python package — motion stages, spectrometers, lasers, power meters, DAQs, oscilloscopes, and USB power strips. Use when a user wants to move a stage, acquire a spectrum, turn a laser on/off or set its power/wavelength, read a power meter, read/write DAQ voltages, switch power-strip outlets on/off, discover connected devices, run code without hardware (debug devices), or build a headless/GUI controller around a device. Covers the device lifecycle, per-family public API, event notifications, and the DeviceController worker-thread wrapper.
 ---
 
 # Using PyHardwareLibrary
@@ -9,6 +9,15 @@ PyHardwareLibrary is a device-oriented library: every instrument is a `PhysicalD
 subclass with a uniform lifecycle and a small, predictable public API per family. This
 skill is for *using* devices to get work done (move, measure, set). To *write a new
 driver*, read `CLAUDE.md` and `README-4-New-device-coding-example.md` instead.
+
+**Use the primitives from `CommunicationPort` for all communications.** A driver's `do*`
+methods talk to hardware only through `self.port` — `writeData` / `readData` (and the
+`readString` / `writeString` / `writeStringReadMatch` helpers built on them). Do **not**
+invent new send/receive helpers on the device (no `_sendCommandByte`, no `_query`); call
+the port methods directly. To support a new transport (serial, USB, HID, TCP, ...),
+subclass `CommunicationPort` and go through the expected mechanism of **overriding
+`readData` and `writeData`** (plus `open` / `close` / `isOpen` / `flush`) — the string and
+transaction helpers then compose on top for free. `HIDPort` is the reference example.
 
 ## The one rule: lifecycle
 
@@ -184,6 +193,40 @@ daq.setDigitalValue(1, channel=5)
 # Hardware-timed acquisition: daq.acquireWaveform(...) (AnalogInputStreamDevice)
 daq.shutdownDevice()
 ```
+
+### Power strips — PwrUSB / PowerUSB
+
+Base: `PowerStripDevice` plus capability mixins (like lasers/DAQ). Outlets are addressed
+**1-based** to match the physical labels. A device only has the methods of the capabilities
+it declares.
+
+| Capability | Methods |
+|---|---|
+| `OutletSwitchingControl` | `turnOutletOn(n)`, `turnOutletOff(n)`, `setOutletState(n, isOn)`, `isOutletOn(n)`, `outletCount` |
+| `DefaultOutletControl` | `setOutletDefaultOn(n)`, `setOutletDefaultOff(n)`, `setOutletDefaultState(n, isOn)` |
+| `CurrentMeteringControl` | `current()` (A), `accumulatedCharge()` (Ah), `resetAccumulatedCharge()` |
+
+```python
+from hardwarelibrary.powerstrips import PwrUSBDevice
+
+strip = PwrUSBDevice()             # first strip found (over hidapi)
+strip.initializeDevice()
+strip.turnOutletOn(1)             # outlets are 1, 2, 3
+print(strip.isOutletOn(1), "of", strip.outletCount)
+strip.setOutletDefaultOff(1)      # boot state after mains power returns
+strip.turnOutletOff(1)
+strip.shutdownDevice()
+```
+
+- **USB HID only** (`04d8:003f`), driven over hidapi (`HIDPort`). The OS claims the HID
+  interface (on macOS `SerialPort` has no `/dev` node and `USBPort`/libusb can't open it),
+  so control needs the hidapi extra: `pip install -e .[pwrusb]` (PyPI package `hidapi`,
+  imports as `hid` — *not* the different `hid` package).
+- **Outlet state is cached on write** (live readback is unreliable on this firmware), so
+  `isOutletOn(n)` returns the last commanded state.
+- **Metering is only meaningful on the "Smart" model**; a "Basic" unit returns
+  non-measurement values from `current()` / `accumulatedCharge()`.
+- No hardware? `DebugPwrUSBDevice()` emulates the protocol in memory.
 
 ### Oscilloscopes — Tektronix TDS
 
