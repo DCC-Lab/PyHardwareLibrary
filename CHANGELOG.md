@@ -6,6 +6,8 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-22
+
 ### Added
 - PowerStrip device family (`hardwarelibrary/powerstrips/`) plus its first driver
   `PwrUSBDevice` (and `DebugPwrUSBDevice`) for the PwrUSB / PowerUSB controllable
