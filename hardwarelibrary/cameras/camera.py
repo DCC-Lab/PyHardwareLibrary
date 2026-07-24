@@ -2,7 +2,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from hardwarelibrary.physicaldevice import PhysicalDevice
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 from threading import Thread, RLock
 import re
 
@@ -35,8 +35,8 @@ class CameraDevice(PhysicalDevice):
         ...
 
     def livePreview(self):
-        NotificationCenter().postNotification(notificationName=CameraDeviceNotification.willStartCapture,
-                                              notifyingObject=self)
+        NotificationCenter().post_notification(notification_name=CameraDeviceNotification.willStartCapture,
+                                              notifying_object=self)
         self.captureLoopSynchronous()
 
     def start(self):
@@ -44,7 +44,7 @@ class CameraDevice(PhysicalDevice):
             if not self.isCapturing:
                 self.quitLoop = False
                 self.mainLoop = Thread(target=self.captureLoop, name="Camera-CaptureLoop")
-                NotificationCenter().postNotification(notificationName=CameraDeviceNotification.willStartCapture, notifyingObject=self)
+                NotificationCenter().post_notification(notification_name=CameraDeviceNotification.willStartCapture, notifying_object=self)
                 self.mainLoop.start()
             else:
                 raise RuntimeError("Capture loop already running")
@@ -55,12 +55,12 @@ class CameraDevice(PhysicalDevice):
 
     def stop(self):
         if self.isCapturing:
-            NotificationCenter().postNotification(CameraDeviceNotification.willStopCapture, notifyingObject=self)
+            NotificationCenter().post_notification(CameraDeviceNotification.willStopCapture, notifying_object=self)
             with self.lock:
                 self.quitLoop = True
             self.mainLoop.join()
             self.mainLoop = None
-            NotificationCenter().postNotification(CameraDeviceNotification.didStopCapture, notifyingObject=self)
+            NotificationCenter().post_notification(CameraDeviceNotification.didStopCapture, notifying_object=self)
         else:
             raise RuntimeError("No monitoring loop running")
 
@@ -68,19 +68,19 @@ class CameraDevice(PhysicalDevice):
         import cv2
 
         frame = None
-        NotificationCenter().postNotification(notificationName=CameraDeviceNotification.didStartCapture,
-                                              notifyingObject=self)
+        NotificationCenter().post_notification(notification_name=CameraDeviceNotification.didStartCapture,
+                                              notifying_object=self)
         while (True):
             frame = self.doCaptureFrame()
-            NotificationCenter().postNotification(CameraDeviceNotification.imageCaptured, self, frame)
+            NotificationCenter().post_notification(CameraDeviceNotification.imageCaptured, self, frame)
 
             cv2.imshow('Preview (Q to quit)', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                NotificationCenter().postNotification(CameraDeviceNotification.willStopCapture, notifyingObject=self)
+                NotificationCenter().post_notification(CameraDeviceNotification.willStopCapture, notifying_object=self)
                 break
 
         cv2.destroyAllWindows()
-        NotificationCenter().postNotification(CameraDeviceNotification.didStopCapture, notifyingObject=self)
+        NotificationCenter().post_notification(CameraDeviceNotification.didStopCapture, notifying_object=self)
 
     def captureFrames(self, n=1):
         frames = []
@@ -90,11 +90,11 @@ class CameraDevice(PhysicalDevice):
 
     def captureLoopThread(self):
         frame = None
-        NotificationCenter().postNotification(notificationName=CameraDeviceNotification.didStartCapture,
-                                              notifyingObject=self)
+        NotificationCenter().post_notification(notification_name=CameraDeviceNotification.didStartCapture,
+                                              notifying_object=self)
         while (True):
             frame = self.doCaptureFrame()
-            NotificationCenter().postNotification(CameraDeviceNotification.imageCaptured, self, frame)
+            NotificationCenter().post_notification(CameraDeviceNotification.imageCaptured, self, frame)
 
             if self.quitLoop:
                 return

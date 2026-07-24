@@ -3,7 +3,7 @@ from enum import Enum
 import struct
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 
 class Channels(Enum):
     CH1     = "CH1"

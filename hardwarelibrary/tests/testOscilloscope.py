@@ -6,7 +6,7 @@ import struct
 
 from hardwarelibrary.communication.serialport import SerialPort
 from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.oscilloscope import *
 
 class TestTektronik(unittest.TestCase):

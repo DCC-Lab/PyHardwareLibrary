@@ -4,7 +4,7 @@ import time
 import u3
 
 from hardwarelibrary.devicemanager import *
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, PhysicalDeviceNotification
 from hardwarelibrary.daq import LabjackDevice, DebugLabjackDevice
 from enum import Enum
