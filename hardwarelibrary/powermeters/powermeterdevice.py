@@ -4,7 +4,7 @@ from enum import Enum
 
 from hardwarelibrary.communication import USBPort, TextCommand
 from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 
 class PowerMeterNotification(Enum):
     didMeasure     = "didMeasure"
@@ -26,7 +26,7 @@ class PowerMeterDevice(PhysicalDevice):
     def measureAbsolutePower(self):
         self.doGetAbsolutePower()
         power = self.absolutePower
-        NotificationCenter().postNotification(PowerMeterNotification.didMeasure, notifyingObject=self, userInfo=power)
+        NotificationCenter().post_notification(PowerMeterNotification.didMeasure, notifying_object=self, user_info=power)
         return power
 
     def doGetStatusUserInfo(self):

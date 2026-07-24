@@ -6,7 +6,7 @@ from hardwarelibrary.powermeters import (
     WavelengthCalibrationCapability, AutoScaleCapability, ScaleCapability,
 )
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterNotification
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 
 
 class TestDebugFieldMasterDevice(unittest.TestCase):
@@ -30,9 +30,9 @@ class TestDebugFieldMasterDevice(unittest.TestCase):
         self.received = None
 
         def handler(notification):
-            self.received = notification.userInfo
+            self.received = notification.user_info
 
-        NotificationCenter().addObserver(self, handler, PowerMeterNotification.didMeasure)
+        NotificationCenter().add_observer(self, handler, PowerMeterNotification.didMeasure)
         power = self.device.measureAbsolutePower()
         self.assertEqual(self.received, power)
 

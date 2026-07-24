@@ -5,7 +5,7 @@ from threading import Lock
 
 from hardwarelibrary.devicecontroller import (
     DeviceController, DeviceControllerNotification, connectionErrorReason)
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 from hardwarelibrary.sources.millennia import DebugMillenniaDevice
 
 
@@ -42,18 +42,18 @@ class Recorder:
         self._lock = Lock()
         self._nc = NotificationCenter()
         for name in DeviceControllerNotification:
-            self._nc.addObserver(self, self._handle, name, observedObject=controller)
+            self._nc.add_observer(self, self._handle, name, observed_object=controller)
 
     def _handle(self, notification):
         with self._lock:
-            self.events.append((notification.name, notification.userInfo))
+            self.events.append((notification.name, notification.user_info))
 
     def names(self):
         with self._lock:
             return [name for name, _ in self.events]
 
     def wait_for(self, name, timeout=3.0):
-        """Wait for a notification and return its userInfo (which may be None)."""
+        """Wait for a notification and return its user_info (which may be None)."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._lock:
@@ -80,7 +80,7 @@ class Recorder:
         return None
 
     def remove(self):
-        self._nc.removeObserver(self)
+        self._nc.remove_observer(self)
 
 
 class TestDeviceController(unittest.TestCase):

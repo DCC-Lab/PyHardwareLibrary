@@ -2,7 +2,7 @@ from abc import abstractmethod
 from enum import Enum
 
 from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 
 class RotationMotionNotification(Enum):
     willMove       = "willMove"
@@ -38,24 +38,24 @@ class RotationDevice(PhysicalDevice):
         ...
 
     def moveTo(self, angle):
-        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=angle)
+        NotificationCenter().post_notification(RotationMotionNotification.willMove, notifying_object=self, user_info=angle)
         self.doMoveTo(angle)
-        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self, userInfo=angle)
+        NotificationCenter().post_notification(RotationMotionNotification.didMove, notifying_object=self, user_info=angle)
 
     def moveBy(self, deltaTheta):
-        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self, userInfo=deltaTheta)
+        NotificationCenter().post_notification(RotationMotionNotification.willMove, notifying_object=self, user_info=deltaTheta)
         self.doMoveBy(deltaTheta)
-        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self, userInfo=deltaTheta)
+        NotificationCenter().post_notification(RotationMotionNotification.didMove, notifying_object=self, user_info=deltaTheta)
 
     def orientation(self) -> ():
         orientation = self.doGetOrientation()
-        NotificationCenter().postNotification(RotationMotionNotification.didGetOrientation, notifyingObject=self, userInfo=orientation)
+        NotificationCenter().post_notification(RotationMotionNotification.didGetOrientation, notifying_object=self, user_info=orientation)
         return orientation
 
     def home(self) -> ():
-        NotificationCenter().postNotification(RotationMotionNotification.willMove, notifyingObject=self)
+        NotificationCenter().post_notification(RotationMotionNotification.willMove, notifying_object=self)
         self.doHome()
-        NotificationCenter().postNotification(RotationMotionNotification.didMove, notifyingObject=self)
+        NotificationCenter().post_notification(RotationMotionNotification.didMove, notifying_object=self)
 
 
 class DebugRotationDevice(RotationDevice):

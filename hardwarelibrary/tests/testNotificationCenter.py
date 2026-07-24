@@ -2,7 +2,7 @@ import env
 import unittest
 from enum import Enum
 
-from hardwarelibrary.notificationcenter import NotificationCenter, ObserverInfo
+from notificationcenter import NotificationCenter, ObserverInfo
 
 
 class NotificationNameTest(Enum):
@@ -26,129 +26,129 @@ class TestNotificationCenter(unittest.TestCase):
 
     def testSingletonCanPost(self):
         nc = NotificationCenter()
-        nc.postNotification(NotificationNameTest.test, self)
+        nc.post_notification(NotificationNameTest.test, self)
 
     def testAddObserver(self):
         nc = NotificationCenter()
-        nc.addObserver(observer=self, method=self.handle, notificationName=NotificationNameTest.test)
+        nc.add_observer(observer=self, method=self.handle, notification_name=NotificationNameTest.test)
 
     def testAddObserverCount(self):
         nc = NotificationCenter()
-        self.assertEqual(nc.observersCount(), 0)
-        nc.addObserver(observer=self, method=self.handle, notificationName=NotificationNameTest.test)
-        self.assertEqual(nc.observersCount(), 1)
+        self.assertEqual(nc.observers_count(), 0)
+        nc.add_observer(observer=self, method=self.handle, notification_name=NotificationNameTest.test)
+        self.assertEqual(nc.observers_count(), 1)
 
     def testObserverInfo(self):
         nc = NotificationCenter()
-        observer = ObserverInfo(observer=self, method=self.handle, notificationName=NotificationNameTest.test, observedObject=nc)
+        observer = ObserverInfo(observer=self, method=self.handle, notification_name=NotificationNameTest.test, observed_object=nc)
         
         self.assertTrue(observer.matches(ObserverInfo(observer=self)))
-        self.assertTrue(observer.matches(ObserverInfo(observer=self, notificationName=NotificationNameTest.test)))
-        self.assertTrue(observer.matches(ObserverInfo(observer=self, notificationName=None)))
-        self.assertTrue(observer.matches(ObserverInfo(observer=self, notificationName=NotificationNameTest.test, observedObject=nc)))
-        self.assertTrue(observer.matches(ObserverInfo(observer=self, notificationName=None, observedObject=nc)))
+        self.assertTrue(observer.matches(ObserverInfo(observer=self, notification_name=NotificationNameTest.test)))
+        self.assertTrue(observer.matches(ObserverInfo(observer=self, notification_name=None)))
+        self.assertTrue(observer.matches(ObserverInfo(observer=self, notification_name=NotificationNameTest.test, observed_object=nc)))
+        self.assertTrue(observer.matches(ObserverInfo(observer=self, notification_name=None, observed_object=nc)))
 
         self.assertFalse(observer.matches(ObserverInfo(observer=nc)))
-        self.assertFalse(observer.matches(ObserverInfo(observer=nc, notificationName=NotificationNameTest.test, observedObject=nc)))
-        self.assertFalse(observer.matches(ObserverInfo(observer=nc, notificationName=NotificationNameTest.other, observedObject=nc)))
-        self.assertFalse(observer.matches(ObserverInfo(observer=nc, notificationName=NotificationNameTest.other, observedObject=None)))
-        self.assertFalse(observer.matches(ObserverInfo(observer=self, notificationName=NotificationNameTest.other, observedObject=None)))
+        self.assertFalse(observer.matches(ObserverInfo(observer=nc, notification_name=NotificationNameTest.test, observed_object=nc)))
+        self.assertFalse(observer.matches(ObserverInfo(observer=nc, notification_name=NotificationNameTest.other, observed_object=nc)))
+        self.assertFalse(observer.matches(ObserverInfo(observer=nc, notification_name=NotificationNameTest.other, observed_object=None)))
+        self.assertFalse(observer.matches(ObserverInfo(observer=self, notification_name=NotificationNameTest.other, observed_object=None)))
 
     def testAddObserverRemoveObserver(self):
         nc = NotificationCenter()
-        nc.addObserver(observer=self, method=self.handle, notificationName=NotificationNameTest.test)
-        self.assertEqual(nc.observersCount(), 1)
-        nc.removeObserver(observer=self)
-        self.assertEqual(nc.observersCount(), 0)
+        nc.add_observer(observer=self, method=self.handle, notification_name=NotificationNameTest.test)
+        self.assertEqual(nc.observers_count(), 1)
+        nc.remove_observer(observer=self)
+        self.assertEqual(nc.observers_count(), 0)
 
     def testRemoveMissingObserver(self):
         nc = NotificationCenter()
-        self.assertEqual(nc.observersCount(), 0)
-        nc.removeObserver(self)
-        self.assertEqual(nc.observersCount(), 0)
+        self.assertEqual(nc.observers_count(), 0)
+        nc.remove_observer(self)
+        self.assertEqual(nc.observers_count(), 0)
 
     def testAddObserverAnySenderAndPostithObject(self):
         nc = NotificationCenter()
-        nc.addObserver(observer=self, method=self.handle, notificationName=NotificationNameTest.test)
-        nc.postNotification(notificationName=NotificationNameTest.test, notifyingObject=self)
+        nc.add_observer(observer=self, method=self.handle, notification_name=NotificationNameTest.test)
+        nc.post_notification(notification_name=NotificationNameTest.test, notifying_object=self)
         self.assertTrue(self.notificationReceived)
 
-        nc.removeObserver(self)
+        nc.remove_observer(self)
 
     def testAddObserverAnySenderAndPostWithUserInfo(self):
         nc = NotificationCenter()
-        nc.addObserver(observer=self, method=self.handle, notificationName=NotificationNameTest.test)
-        nc.postNotification(notificationName=NotificationNameTest.test, notifyingObject=self, userInfo="1234")
+        nc.add_observer(observer=self, method=self.handle, notification_name=NotificationNameTest.test)
+        nc.post_notification(notification_name=NotificationNameTest.test, notifying_object=self, user_info="1234")
         self.assertTrue(self.notificationReceived)
         self.assertEqual(self.postedUserInfo, "1234")
-        nc.removeObserver(self)
+        nc.remove_observer(self)
 
     def testAddObserverWrongNotification(self):
         nc = NotificationCenter()
-        nc.addObserver(observer=self, method=self.handle, notificationName=NotificationNameTest.wrong)
-        nc.postNotification(notificationName=NotificationNameTest.test, notifyingObject=self, userInfo="1234")
+        nc.add_observer(observer=self, method=self.handle, notification_name=NotificationNameTest.wrong)
+        nc.post_notification(notification_name=NotificationNameTest.test, notifying_object=self, user_info="1234")
         self.assertFalse(self.notificationReceived)
         self.assertNotEqual(self.postedUserInfo, "1234")
-        nc.removeObserver(self)
+        nc.remove_observer(self)
 
     def testAddObserverWrongSender(self):
         someObject = NotificationCenter()
         nc = NotificationCenter()
-        nc.addObserver(self, method=self.handle, notificationName=NotificationNameTest.test, observedObject=someObject)
-        nc.postNotification(notificationName=NotificationNameTest.test, notifyingObject=self, userInfo="1234")
+        nc.add_observer(self, method=self.handle, notification_name=NotificationNameTest.test, observed_object=someObject)
+        nc.post_notification(notification_name=NotificationNameTest.test, notifying_object=self, user_info="1234")
         self.assertFalse(self.notificationReceived)
         self.assertNotEqual(self.postedUserInfo, "1234")
-        nc.removeObserver(self)
-        self.assertEqual(nc.observersCount(), 0)
+        nc.remove_observer(self)
+        self.assertEqual(nc.observers_count(), 0)
 
     def testAddObserverNoDuplicates(self):
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, NotificationNameTest.test, None)
-        nc.addObserver(self, self.handle, NotificationNameTest.test, None)
-        self.assertEqual(nc.observersCount(), 1)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, None)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, None)
+        self.assertEqual(nc.observers_count(), 1)
 
     def testAddObserverNoDuplicates2(self):
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, NotificationNameTest.test, None)
-        nc.addObserver(self, self.handle, NotificationNameTest.test2, None)
-        self.assertEqual(nc.observersCount(), 2)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, None)
+        nc.add_observer(self, self.handle, NotificationNameTest.test2, None)
+        self.assertEqual(nc.observers_count(), 2)
 
     def testAddObserverNoDuplicates3(self):
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, NotificationNameTest.test, None)
-        nc.addObserver(self, self.handle, NotificationNameTest.test, nc)
-        self.assertEqual(nc.observersCount(), 1)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, None)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, nc)
+        self.assertEqual(nc.observers_count(), 1)
 
     def testRemoveIncorrectObject(self):
         nc = NotificationCenter()
         someObject = NotificationCenter()
-        nc.addObserver(self, self.handle, NotificationNameTest.test, someObject)
-        nc.removeObserver(someObject)
-        self.assertEqual(nc.observersCount(), 1)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, someObject)
+        nc.remove_observer(someObject)
+        self.assertEqual(nc.observers_count(), 1)
 
     def testRemoveManyObservers(self):
         nc = NotificationCenter()
         someObject = NotificationCenter()
-        nc.addObserver(self, self.handle, NotificationNameTest.test, someObject)
-        nc.addObserver(self, self.handle, NotificationNameTest.test2, someObject)
-        nc.addObserver(self, self.handle, NotificationNameTest.test3, someObject)
-        nc.addObserver(self, self.handle, NotificationNameTest.test4, None)
-        nc.removeObserver(self)
-        self.assertEqual(nc.observersCount(), 0)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, someObject)
+        nc.add_observer(self, self.handle, NotificationNameTest.test2, someObject)
+        nc.add_observer(self, self.handle, NotificationNameTest.test3, someObject)
+        nc.add_observer(self, self.handle, NotificationNameTest.test4, None)
+        nc.remove_observer(self)
+        self.assertEqual(nc.observers_count(), 0)
 
     def testRemoveManyObservers2(self):
         nc = NotificationCenter()
         someObject = NotificationCenter()
-        nc.addObserver(self, self.handle, NotificationNameTest.test, someObject)
-        nc.addObserver(self, self.handle, NotificationNameTest.test2, someObject)
-        nc.addObserver(self, self.handle, NotificationNameTest.test3, someObject)
-        nc.addObserver(self, self.handle, NotificationNameTest.test4, None)
-        nc.removeObserver(self, observedObject=someObject)
-        self.assertEqual(nc.observersCount(), 0)
+        nc.add_observer(self, self.handle, NotificationNameTest.test, someObject)
+        nc.add_observer(self, self.handle, NotificationNameTest.test2, someObject)
+        nc.add_observer(self, self.handle, NotificationNameTest.test3, someObject)
+        nc.add_observer(self, self.handle, NotificationNameTest.test4, None)
+        nc.remove_observer(self, observed_object=someObject)
+        self.assertEqual(nc.observers_count(), 0)
 
     def handle(self, notification):
         self.notificationReceived = True
-        self.postedUserInfo = notification.userInfo
+        self.postedUserInfo = notification.user_info
 
 if __name__ == '__main__':
     unittest.main()

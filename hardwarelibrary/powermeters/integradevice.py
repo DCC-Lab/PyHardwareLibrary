@@ -3,7 +3,7 @@ from enum import Enum
 from hardwarelibrary.communication import USBPort, TextCommand, MultilineTextCommand
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterDevice
 from hardwarelibrary.capabilities import WavelengthCalibrationCapability
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 
 class IntegraDevice(PowerMeterDevice, WavelengthCalibrationCapability):
     classIdProduct = 0x0300

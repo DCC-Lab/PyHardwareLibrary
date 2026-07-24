@@ -2,7 +2,7 @@ from abc import abstractmethod
 from enum import Enum
 
 from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 
 
 class LinearMotionNotification(Enum):
@@ -49,47 +49,47 @@ class LinearMotionDevice(PhysicalDevice):
         ...
 
     def moveTo(self, position):
-        NotificationCenter().postNotification(
+        NotificationCenter().post_notification(
             LinearMotionNotification.willMove,
-            notifyingObject=self,
-            userInfo=position,
+            notifying_object=self,
+            user_info=position,
         )
         self.doMoveTo(position)
-        NotificationCenter().postNotification(
+        NotificationCenter().post_notification(
             LinearMotionNotification.didMove,
-            notifyingObject=self,
-            userInfo=position,
+            notifying_object=self,
+            user_info=position,
         )
 
     def moveBy(self, displacement):
-        NotificationCenter().postNotification(
+        NotificationCenter().post_notification(
             LinearMotionNotification.willMove,
-            notifyingObject=self,
-            userInfo=displacement,
+            notifying_object=self,
+            user_info=displacement,
         )
         self.doMoveBy(displacement)
-        NotificationCenter().postNotification(
+        NotificationCenter().post_notification(
             LinearMotionNotification.didMove,
-            notifyingObject=self,
-            userInfo=displacement,
+            notifying_object=self,
+            user_info=displacement,
         )
 
     def position(self) -> ():
         position = self.doGetPosition()
-        NotificationCenter().postNotification(
+        NotificationCenter().post_notification(
             LinearMotionNotification.didGetPosition,
-            notifyingObject=self,
-            userInfo=position,
+            notifying_object=self,
+            user_info=position,
         )
         return position
 
     def home(self) -> ():
-        NotificationCenter().postNotification(
-            LinearMotionNotification.willMove, notifyingObject=self
+        NotificationCenter().post_notification(
+            LinearMotionNotification.willMove, notifying_object=self
         )
         self.doHome()
-        NotificationCenter().postNotification(
-            LinearMotionNotification.didMove, notifyingObject=self
+        NotificationCenter().post_notification(
+            LinearMotionNotification.didMove, notifying_object=self
         )
 
     def moveInMicronsTo(self, position):

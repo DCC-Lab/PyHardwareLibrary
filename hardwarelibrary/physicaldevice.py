@@ -4,7 +4,7 @@ from threading import Thread, RLock
 
 from hardwarelibrary import utils
 from hardwarelibrary.capabilities import Capability
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 import typing
 import time
 import re
@@ -141,13 +141,13 @@ class PhysicalDevice(ABC):
     def initializeDevice(self):
         if self.state != DeviceState.Ready:
             try:
-                NotificationCenter().postNotification(PhysicalDeviceNotification.willInitializeDevice, notifyingObject=self)
+                NotificationCenter().post_notification(PhysicalDeviceNotification.willInitializeDevice, notifying_object=self)
                 self.doInitializeDevice()
                 self.state = DeviceState.Ready
-                NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self)
+                NotificationCenter().post_notification(PhysicalDeviceNotification.didInitializeDevice, notifying_object=self)
             except Exception as error:
                 self.state = DeviceState.Unrecognized
-                NotificationCenter().postNotification(PhysicalDeviceNotification.didInitializeDevice, notifyingObject=self, userInfo=error)
+                NotificationCenter().post_notification(PhysicalDeviceNotification.didInitializeDevice, notifying_object=self, user_info=error)
                 raise PhysicalDevice.UnableToInitialize(error)
 
     @abstractmethod
@@ -161,14 +161,14 @@ class PhysicalDevice(ABC):
     def shutdownDevice(self):
         if self.state == DeviceState.Ready:
             try:
-                NotificationCenter().postNotification(PhysicalDeviceNotification.willShutdownDevice, notifyingObject=self)
+                NotificationCenter().post_notification(PhysicalDeviceNotification.willShutdownDevice, notifying_object=self)
                 if self.isMonitoring:
                     self.stopBackgroundStatusUpdates()
 
                 self.doShutdownDevice()
-                NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self)
+                NotificationCenter().post_notification(PhysicalDeviceNotification.didShutdownDevice, notifying_object=self)
             except Exception as error:
-                NotificationCenter().postNotification(PhysicalDeviceNotification.didShutdownDevice, notifyingObject=self, userInfo=error)
+                NotificationCenter().post_notification(PhysicalDeviceNotification.didShutdownDevice, notifying_object=self, user_info=error)
                 raise PhysicalDevice.UnableToShutdown(error)
             finally:
                 self.state = DeviceState.Recognized
@@ -191,10 +191,10 @@ class PhysicalDevice(ABC):
 
     def backgroundStatusUpdates(self):
         while True:
-            userInfo = self.doGetStatusUserInfo()
+            user_info = self.doGetStatusUserInfo()
 
-            NotificationCenter().postNotification(PhysicalDeviceNotification.status, notifyingObject=self,
-                                                  userInfo=userInfo)
+            NotificationCenter().post_notification(PhysicalDeviceNotification.status, notifying_object=self,
+                                                  user_info=user_info)
 
             with self.lock:
                 if self.quitMonitoring:

@@ -3,7 +3,7 @@ import re
 from enum import Enum
 from typing import NamedTuple
 from threading import Thread, RLock
-from hardwarelibrary.notificationcenter import NotificationCenter, Notification
+from notificationcenter import NotificationCenter, Notification
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState, debugClassIdVendor
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice, SutterDevice
 from hardwarelibrary.spectrometers import Spectrometer
@@ -134,7 +134,7 @@ class DeviceManager:
             if not self.isMonitoring:
                 self.quitMonitoring = False
                 self.monitoring = Thread(target=self.monitoringLoop, name="DeviceManager-RunLoop")
-                NotificationCenter().postNotification(notificationName=DeviceManagerNotification.willStartMonitoring, notifyingObject=self)
+                NotificationCenter().post_notification(notification_name=DeviceManagerNotification.willStartMonitoring, notifying_object=self)
                 self.monitoring.start()
             else:
                 raise RuntimeError("Monitoring loop already running")
@@ -155,33 +155,33 @@ class DeviceManager:
     def monitoringLoop(self, duration=1e7):        
         startTime = time.time()
         endTime = startTime + duration
-        NotificationCenter().postNotification(DeviceManagerNotification.didStartMonitoring, notifyingObject=self)
+        NotificationCenter().post_notification(DeviceManagerNotification.didStartMonitoring, notifying_object=self)
         while time.time() < endTime :    
             currentDevices = self.updateConnectedDevices()
-            NotificationCenter().postNotification(DeviceManagerNotification.status, notifyingObject=self, userInfo=currentDevices)
+            NotificationCenter().post_notification(DeviceManagerNotification.status, notifying_object=self, user_info=currentDevices)
 
             with self.lock:
                 if self.quitMonitoring:
                      break
             time.sleep(0.3)
-        NotificationCenter().postNotification(DeviceManagerNotification.didStopMonitoring, notifyingObject=self)
+        NotificationCenter().post_notification(DeviceManagerNotification.didStopMonitoring, notifying_object=self)
 
     def showNotifications(self):
         nc = NotificationCenter()
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.status)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willStartMonitoring)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didStartMonitoring)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willStopMonitoring)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didStopMonitoring)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willAddDevice)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didAddDevice)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.willRemoveDevice)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.didRemoveDevice)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.usbDeviceDidConnect)
-        nc.addObserver(self, self.handleNotifications, DeviceManagerNotification.usbDeviceDidDisconnect)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.status)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.willStartMonitoring)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.didStartMonitoring)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.willStopMonitoring)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.didStopMonitoring)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.willAddDevice)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.didAddDevice)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.willRemoveDevice)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.didRemoveDevice)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.usbDeviceDidConnect)
+        nc.add_observer(self, self.handleNotifications, DeviceManagerNotification.usbDeviceDidDisconnect)
 
     def handleNotifications(self, notification):
-        print(notification.name, notification.userInfo)
+        print(notification.name, notification.user_info)
 
     def newlyConnectedAndDisconnectedUSBDevices(self):
         currentlyConnectedDevices = connectedUSBDevices()
@@ -198,7 +198,7 @@ class DeviceManager:
     
     def stopMonitoring(self):
         if self.isMonitoring:
-            NotificationCenter().postNotification(DeviceManagerNotification.willStopMonitoring, notifyingObject=self)
+            NotificationCenter().post_notification(DeviceManagerNotification.willStopMonitoring, notifying_object=self)
             with self.lock:
                 self.quitMonitoring = True
             self.monitoring.join()
@@ -219,7 +219,7 @@ class DeviceManager:
 
     def usbDeviceConnected(self, usbDevice):
         descriptor = USBDeviceDescriptor.fromUSBDevice(usbDevice)
-        NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidConnect, notifyingObject=self, userInfo=descriptor)
+        NotificationCenter().post_notification(DeviceManagerNotification.usbDeviceDidConnect, notifying_object=self, user_info=descriptor)
         if descriptor not in self.usbDeviceDescriptors:
             self.usbDeviceDescriptors.append(descriptor)
 
@@ -246,7 +246,7 @@ class DeviceManager:
         if descriptor is None:
             print("Unable to find descriptor matching {0}".format(usbDevice))
 
-        NotificationCenter().postNotification(DeviceManagerNotification.usbDeviceDidDisconnect, notifyingObject=self, userInfo=descriptor)
+        NotificationCenter().post_notification(DeviceManagerNotification.usbDeviceDidDisconnect, notifying_object=self, user_info=descriptor)
 
         currentDevices = list(self.devices)
         for device in currentDevices:
@@ -255,9 +255,9 @@ class DeviceManager:
 
     def addDevice(self, device):
         with self.lock:
-            NotificationCenter().postNotification(DeviceManagerNotification.willAddDevice, notifyingObject=self, userInfo=device)
+            NotificationCenter().post_notification(DeviceManagerNotification.willAddDevice, notifying_object=self, user_info=device)
             self.devices.add(device)
-            NotificationCenter().postNotification(DeviceManagerNotification.didAddDevice, notifyingObject=self, userInfo=device)
+            NotificationCenter().post_notification(DeviceManagerNotification.didAddDevice, notifying_object=self, user_info=device)
 
     def removeAllDevices(self):
         with self.lock:
@@ -271,10 +271,10 @@ class DeviceManager:
 
     def removeDevice(self, device):
         with self.lock:
-            NotificationCenter().postNotification(DeviceManagerNotification.willRemoveDevice, notifyingObject=self,
-                                                  userInfo=device)
+            NotificationCenter().post_notification(DeviceManagerNotification.willRemoveDevice, notifying_object=self,
+                                                  user_info=device)
             self.devices.remove(device)
-            NotificationCenter().postNotification(DeviceManagerNotification.didRemoveDevice, notifyingObject=self, userInfo=device)
+            NotificationCenter().post_notification(DeviceManagerNotification.didRemoveDevice, notifying_object=self, user_info=device)
 
     def matchPhysicalDevicesOfType(self, deviceClass, serialNumber=None):
         with self.lock:

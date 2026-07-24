@@ -5,7 +5,7 @@ from hardwarelibrary.communication.diagnostics import *
 from hardwarelibrary.devicemanager import DeviceManager, DeviceManagerNotification
 from hardwarelibrary.motion import DebugLinearMotionDevice, LinearMotionDevice
 from hardwarelibrary.motion import SutterDevice
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 from hardwarelibrary.physicaldevice import PhysicalDevice
 
 
@@ -44,11 +44,11 @@ class TestDeviceManager(unittest.TestCase):
         NotificationCenter._instance = None
         self.lock = RLock()
         self.notificationsToReceive = []
-        self.assertEqual(NotificationCenter().observersCount(), 0)
+        self.assertEqual(NotificationCenter().observers_count(), 0)
 
     def tearDown(self):
         NotificationCenter().clear()
-        self.assertEqual(NotificationCenter().observersCount(), 0)
+        self.assertEqual(NotificationCenter().observers_count(), 0)
 
     def testMatching1(self):
         dm = DeviceManager()
@@ -147,11 +147,11 @@ class TestDeviceManager(unittest.TestCase):
     def testNotificationReceived(self):
         dm = DeviceManager()
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, DeviceManagerNotification.willStartMonitoring)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.didStartMonitoring)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.willStopMonitoring)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.didStopMonitoring)
-        nc.addObserver(self, self.handleStatus, DeviceManagerNotification.status)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.willStartMonitoring)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.didStartMonitoring)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.willStopMonitoring)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.didStopMonitoring)
+        nc.add_observer(self, self.handleStatus, DeviceManagerNotification.status)
         self.notificationsToReceive = [DeviceManagerNotification.willStartMonitoring,
                                        DeviceManagerNotification.didStartMonitoring,
                                        DeviceManagerNotification.willStopMonitoring,
@@ -162,17 +162,17 @@ class TestDeviceManager(unittest.TestCase):
         dm.stopMonitoring()
 
         self.assertTrue(len(self.notificationsToReceive) == 0)
-        nc.removeObserver(self)
-        self.assertEqual(nc.observersCount(), 0)
+        nc.remove_observer(self)
+        self.assertEqual(nc.observers_count(), 0)
 
     def testNotificationReceivedWhileAddingDevices(self):
         dm = DeviceManager()
         nc = NotificationCenter()
-        nc.addObserver(self, self.handle, DeviceManagerNotification.willStartMonitoring)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.didStartMonitoring)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.willStopMonitoring)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.didStopMonitoring)
-        nc.addObserver(self, self.handleStatus, DeviceManagerNotification.status)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.willStartMonitoring)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.didStartMonitoring)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.willStopMonitoring)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.didStopMonitoring)
+        nc.add_observer(self, self.handleStatus, DeviceManagerNotification.status)
         self.notificationsToReceive = [DeviceManagerNotification.willStartMonitoring,
                                        DeviceManagerNotification.didStartMonitoring,
                                        DeviceManagerNotification.willStopMonitoring,
@@ -185,7 +185,7 @@ class TestDeviceManager(unittest.TestCase):
         dm.stopMonitoring()
 
         self.assertTrue(len(self.notificationsToReceive) == 0)
-        nc.removeObserver(self)
+        nc.remove_observer(self)
 
     def testNotificationReceivedFromAddingDevices(self):
         dm = DeviceManager()
@@ -194,10 +194,10 @@ class TestDeviceManager(unittest.TestCase):
         dm.startMonitoring()
         time.sleep(1.0)  # let newlyConnected devices be added.
 
-        nc.addObserver(self, self.handle, DeviceManagerNotification.willAddDevice)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.didAddDevice)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.willRemoveDevice)
-        nc.addObserver(self, self.handle, DeviceManagerNotification.didRemoveDevice)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.willAddDevice)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.didAddDevice)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.willRemoveDevice)
+        nc.add_observer(self, self.handle, DeviceManagerNotification.didRemoveDevice)
 
         N = 1000
         self.notificationsToReceive = [DeviceManagerNotification.willAddDevice,
@@ -212,7 +212,7 @@ class TestDeviceManager(unittest.TestCase):
         with self.lock:
             self.assertEqual(len(self.notificationsToReceive), 0)
 
-        nc.removeObserver(self)
+        nc.remove_observer(self)
 
         dm.stopMonitoring()
 
@@ -238,7 +238,7 @@ class TestDeviceManager(unittest.TestCase):
 
     def handleStatus(self, notification):
         with self.lock:
-            _ = notification.userInfo
+            _ = notification.user_info
         # if len(devices) != 0:
         #     self.assertTrue(isinstance(devices[0], DebugLinearMotionDevice))
 

@@ -26,15 +26,15 @@ Example::
 
     from hardwarelibrary.devicecontroller import (
         DeviceController, DeviceControllerNotification as N)
-    from hardwarelibrary.notificationcenter import NotificationCenter
+    from notificationcenter import NotificationCenter
     from hardwarelibrary.sources.millennia import MillenniaDevice
 
     controller = DeviceController(MillenniaDevice(portPath="/dev/cu.usbmodem1"))
 
     def onStatus(notification):
-        print(notification.userInfo)   # {'power': .., 'isLaserOn': .., ...}
+        print(notification.user_info)   # {'power': .., 'isLaserOn': .., ...}
 
-    NotificationCenter().addObserver(self, onStatus, N.status)
+    NotificationCenter().add_observer(self, onStatus, N.status)
     controller.start()
     controller.connect()
     controller.submit(lambda device: device.turnOn())       # fire-and-forget
@@ -49,7 +49,7 @@ from concurrent.futures import Future
 from enum import Enum
 from threading import Event, RLock, Thread
 
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 
 __all__ = [
     "DeviceController",
@@ -61,7 +61,7 @@ __all__ = [
 class DeviceControllerNotification(Enum):
     """Notifications posted by a DeviceController (the controller is the object).
 
-    userInfo payloads:
+    user_info payloads:
       didConnect       -> the device
       didDisconnect    -> None
       connectionLost   -> the exception that revealed the drop
@@ -185,9 +185,9 @@ class DeviceController:
 
     # -- worker thread --
 
-    def post(self, name, userInfo=None):
-        NotificationCenter().postNotification(name, notifyingObject=self,
-                                              userInfo=userInfo)
+    def post(self, name, user_info=None):
+        NotificationCenter().post_notification(name, notifying_object=self,
+                                              user_info=user_info)
 
     def runLoop(self):
         while not self.stopEvent.is_set():
@@ -251,7 +251,7 @@ class DeviceController:
         self.supportsStatus = True
         self.nextPoll = time.monotonic()  # poll immediately
         self.lastFailureSignature = None
-        self.post(DeviceControllerNotification.didConnect, userInfo=self.device)
+        self.post(DeviceControllerNotification.didConnect, user_info=self.device)
 
     def poll(self):
         try:
@@ -263,7 +263,7 @@ class DeviceController:
             # Device exposes no status snapshot; stop polling for it.
             self.supportsStatus = False
             return
-        self.post(DeviceControllerNotification.status, userInfo=info)
+        self.post(DeviceControllerNotification.status, user_info=info)
 
     def doCommand(self, action, name, future):
         if not future.set_running_or_notify_cancel():
@@ -271,14 +271,14 @@ class DeviceController:
         if not self.isConnected:
             error = RuntimeError(
                 "Cannot run command {0!r}: not connected".format(name))
-            self.post(DeviceControllerNotification.commandFailed, userInfo=error)
+            self.post(DeviceControllerNotification.commandFailed, user_info=error)
             future.set_exception(error)
             return
         try:
             result = action(self.device)
         except Exception as error:
             # A failed command may mean the link dropped; verify with a poll.
-            self.post(DeviceControllerNotification.commandFailed, userInfo=error)
+            self.post(DeviceControllerNotification.commandFailed, user_info=error)
             future.set_exception(error)
             self.poll()
             return
@@ -297,7 +297,7 @@ class DeviceController:
         if not self.autoReconnect:
             self.wantConnected = False
         if wasConnected:
-            self.post(DeviceControllerNotification.connectionLost, userInfo=error)
+            self.post(DeviceControllerNotification.connectionLost, user_info=error)
 
     def doDisconnect(self):
         with self.lock:
@@ -317,7 +317,7 @@ class DeviceController:
         signature = (type(error).__name__, connectionErrorReason(error) or str(error))
         if signature != self.lastFailureSignature:
             self.lastFailureSignature = signature
-            self.post(name, userInfo=error)
+            self.post(name, user_info=error)
 
     def teardown(self):
         if self.connected:
