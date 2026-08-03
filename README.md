@@ -4,7 +4,7 @@ A simple device-oriented library for controlling hardware devices in the laborat
 
 You may be here for one of two things:
 
-1. You want to use a lab device (e.g., Ocean Insight spectrometer), get data, and save it.
+1. You want to use a lab device (e.g., A translation stage from Thorlabs, an Ocean Optics spectrometer, a pwoermeter from Gentech-EO), get data, and save it.
 2. You want to program a driver to get a new device to work on your computer.
 
 If this applies to you, then keep reading. It is not particularly difficult to communicate with USB devices and creating cross-platform drivers is trivial, but you need to understand USB itself.
