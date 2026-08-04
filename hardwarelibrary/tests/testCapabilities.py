@@ -94,6 +94,47 @@ class TestAllCapabilities(unittest.TestCase):
 
 
 class TestDeviceHookPattern(unittest.TestCase):
+    # A family base that posts notifications names its enum the same way a
+    # capability does, so the scheme is one rule across the whole library.
+    readsThatKeepAWill = {"willGetSpectrum"}   # an acquisition, not a state read
+
+    def familyBasesThatNotify(self):
+        return [klass for klass in everySubclassOf(PhysicalDevice)
+                if not isDeclaredInATestModule(klass)
+                and "notification" in vars(klass)]
+
+    def testFamilyBaseNotificationsAreNamedAfterTheirHooks(self):
+        # Looser than the capability rule on purpose: a family base may group
+        # several hooks under one name when they are one operation to an observer
+        # (moveTo, moveBy and home all post willMove/didMove), so a member's stem
+        # only has to begin a hook it stands for.
+        for klass in self.familyBasesThatNotify():
+            hookStems = [name[len("do"):] for name in vars(klass)
+                         if name.startswith("do")]
+            for memberName in klass.notification.__members__:
+                self.assertRegex(memberName, r"^(will|did)")
+                stem = memberName[len("will"):] if memberName.startswith("will") \
+                    else memberName[len("did"):]
+                self.assertTrue(any(hook.startswith(stem) for hook in hookStems),
+                                "{0}.{1}".format(klass.notification.__name__, memberName))
+
+    def testFamilyBaseReadsPostDidOnly(self):
+        for klass in self.familyBasesThatNotify():
+            for memberName in klass.notification.__members__:
+                if not memberName.startswith("will"):
+                    continue
+                stem = memberName[len("will"):]
+                isRead = stem.startswith("Get") or stem.startswith("Read")
+                self.assertTrue(not isRead or memberName in self.readsThatKeepAWill,
+                                "{0}.{1}".format(klass.notification.__name__, memberName))
+
+    def testEveryFamilyBaseThatNotifiesIsCovered(self):
+        # Guards the guard: if a family base stops declaring `notification`,
+        # the two tests above would quietly check nothing.
+        covered = {klass.__name__ for klass in self.familyBasesThatNotify()}
+        self.assertTrue({"LinearMotionDevice", "RotationDevice", "PowerMeterDevice",
+                         "Spectrometer"}.issubset(covered), covered)
+
     def testNoDeviceDeclaresAnAbstractMethodOutsideItsDoHooks(self):
         # The same rule beyond the mixins: a family base (Spectrometer,
         # PowerMeterDevice, CameraDevice, ...) declares only do* hooks as

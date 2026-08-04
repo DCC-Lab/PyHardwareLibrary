@@ -35,6 +35,23 @@ API changes can land even when the minor version is unchanged.
   - Removes the unused nested `AnalogInputStreamCapability.Notification`
     (`willAcquire` / `didAcquire`), which was never posted; the equivalent members
     are now `AnalogInputStreamNotification.willAcquireWaveform` / `didAcquireWaveform`.
+- The family bases that already posted notifications now follow the same scheme,
+  through the same `@notifies` decorator, and name their enum in a `notification`
+  attribute like the capabilities do. **Breaking for observers**:
+  - `PowerMeterNotification.didMeasure` is now `didGetAbsolutePower`, named after
+    its hook like everywhere else.
+  - `LinearMotionNotification` and `RotationMotionNotification` keep their grouped
+    `willMove` / `didMove` (`moveTo`, `moveBy` and `home` are one operation to an
+    observer), but the payload changed: `user_info` is now a dict carrying the
+    method's arguments by name plus `"result"` and `"error"`, where it used to be
+    the bare position, displacement or angle. A handler reading
+    `notification.user_info` as a tuple must now read `user_info["position"]`,
+    `user_info["displacement"]` or `user_info["angle"]`.
+  - Every one of them now also reports failures: the `did*` is posted even when the
+    driver raised, with the exception under `user_info["error"]`.
+  - `Spectrometer` gained the `notification` attribute it was missing.
+  - `CameraDeviceNotification` is left alone: a capture session is a different
+    shape (`imageCaptured` fires per frame), not a will/did pair around one hook.
 - `allCapabilities()` in `hardwarelibrary/capabilities.py`: returns every capability
   mixin the library defines, in declaration order. It answers the library-wide
   question ("what can be expressed?"), where `PhysicalDevice.capabilities()` answers

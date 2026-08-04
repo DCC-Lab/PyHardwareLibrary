@@ -1,13 +1,17 @@
 from abc import abstractmethod
 from enum import Enum
 
+from hardwarelibrary.capabilities import notifies
 from hardwarelibrary.physicaldevice import *
 from notificationcenter import NotificationCenter, Notification
 
 
 class LinearMotionNotification(Enum):
-    willMove = "willMove"
-    didMove = "didMove"
+    # moveTo, moveBy and home are all "the stage is moving" as far as an observer
+    # is concerned, so they share one pair; the user_info tells them apart, with a
+    # position for moveTo, a displacement for moveBy, and neither for home.
+    willMove       = "willMove"
+    didMove        = "didMove"
     didGetPosition = "didGetPosition"
 
 
@@ -17,6 +21,8 @@ class Direction(Enum):
 
 
 class LinearMotionDevice(PhysicalDevice):
+    notification = LinearMotionNotification
+
     def __init__(self, serialNumber: str, idProduct: int, idVendor: int):
         super().__init__(serialNumber, idProduct, idVendor)
         self.x = None
@@ -48,49 +54,24 @@ class LinearMotionDevice(PhysicalDevice):
     def doHome(self):
         ...
 
+    @notifies(will=LinearMotionNotification.willMove,
+              did=LinearMotionNotification.didMove)
     def moveTo(self, position):
-        NotificationCenter().post_notification(
-            LinearMotionNotification.willMove,
-            notifying_object=self,
-            user_info=position,
-        )
         self.doMoveTo(position)
-        NotificationCenter().post_notification(
-            LinearMotionNotification.didMove,
-            notifying_object=self,
-            user_info=position,
-        )
 
+    @notifies(will=LinearMotionNotification.willMove,
+              did=LinearMotionNotification.didMove)
     def moveBy(self, displacement):
-        NotificationCenter().post_notification(
-            LinearMotionNotification.willMove,
-            notifying_object=self,
-            user_info=displacement,
-        )
         self.doMoveBy(displacement)
-        NotificationCenter().post_notification(
-            LinearMotionNotification.didMove,
-            notifying_object=self,
-            user_info=displacement,
-        )
 
+    @notifies(did=LinearMotionNotification.didGetPosition)
     def position(self) -> ():
-        position = self.doGetPosition()
-        NotificationCenter().post_notification(
-            LinearMotionNotification.didGetPosition,
-            notifying_object=self,
-            user_info=position,
-        )
-        return position
+        return self.doGetPosition()
 
+    @notifies(will=LinearMotionNotification.willMove,
+              did=LinearMotionNotification.didMove)
     def home(self) -> ():
-        NotificationCenter().post_notification(
-            LinearMotionNotification.willMove, notifying_object=self
-        )
         self.doHome()
-        NotificationCenter().post_notification(
-            LinearMotionNotification.didMove, notifying_object=self
-        )
 
     def moveInMicronsTo(self, position):
         nativePosition = [x * self.nativeStepsPerMicrons for x in position]

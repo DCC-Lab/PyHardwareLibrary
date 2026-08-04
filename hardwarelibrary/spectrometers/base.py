@@ -41,6 +41,7 @@ class SpectrumRequestTimeoutError(RuntimeError):
 class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
+    notification = SpectrometerNotification
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
         import numpy as np
 

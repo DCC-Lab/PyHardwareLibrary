@@ -434,7 +434,9 @@ def onPowerSet(notification):
 
 Capabilities related by inheritance share one enum, so you never have to know which variant a device mixed in: `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability` and `AnalogInputStreamCapability` all post `AnalogNotification`, and the three digital ones post `DigitalNotification`. Observing `AnalogNotification.didSetAnalogVoltage` catches the event from a LabJack (which mixes in the combined `AnalogIOCapability`) and from a lock-in amplifier (which mixes in only `AnalogOutputCapability`) alike.
 
-`python -m hardwarelibrary --capabilities` prints every capability with the notifications it posts. Beyond the capabilities, the device-wide enums are `PhysicalDeviceNotification`, `LinearMotionNotification`, `RotationMotionNotification`, `PowerMeterNotification`, `CameraDeviceNotification`, `SpectrometerNotification`, `DeviceControllerNotification`, and `DeviceManagerNotification`.
+`python -m hardwarelibrary --capabilities` prints every capability with the notifications it posts.
+
+The family base classes follow the same scheme, and name their enum in a `notification` attribute too: `LinearMotionNotification` (`willMove`/`didMove`/`didGetPosition`), `RotationMotionNotification` (`willMove`/`didMove`/`didGetOrientation`), `PowerMeterNotification` (`didGetAbsolutePower`) and `SpectrometerNotification`. Motion groups `moveTo`, `moveBy` and `home` under a single `willMove`/`didMove` pair, because to an observer they are all "the stage is moving"; the payload tells them apart, carrying a `position`, a `displacement`, or neither. The remaining enums are `PhysicalDeviceNotification` (device lifecycle), `CameraDeviceNotification`, `DeviceControllerNotification` and `DeviceManagerNotification`.
 
 ### Testing without hardware
 

@@ -252,20 +252,33 @@ Devices post Cocoa-style notifications (state changes, measurements, moves) inst
 requiring polling. Observe them from anywhere:
 
 ```python
-from hardwarelibrary.notificationcenter import NotificationCenter
+from notificationcenter import NotificationCenter
 from hardwarelibrary.powermeters.powermeterdevice import PowerMeterNotification
 
 def onMeasure(notification):
-    print("power:", notification.userInfo)
+    if notification.user_info["error"] is None:
+        print("power:", notification.user_info["result"])
 
-NotificationCenter().addObserver(self, onMeasure, PowerMeterNotification.didMeasure)
-# ... measurements now call onMeasure with the value in notification.userInfo
-NotificationCenter().removeObserver(self)
+NotificationCenter().add_observer(self, onMeasure, PowerMeterNotification.didGetAbsolutePower)
+# ... measurements now call onMeasure
+NotificationCenter().remove_observer(self)
 ```
+
+Every capability posts notifications too, named after the hook: an operation that
+changes the instrument posts `will<Stem>` then `did<Stem>`, a read posts `did<Stem>`
+only, and the `did` is posted even when the driver raised, with the exception under
+`user_info["error"]` (the exception itself still propagates to the caller). The
+payload also carries the method's arguments by name and the return value under
+`"result"`. Each capability names its enum in its `notification` attribute, and
+capabilities related by inheritance share one enum, so `AnalogNotification` covers
+analog input, output, IO and streaming alike. `python -m hardwarelibrary
+--capabilities` lists them all.
 
 Useful notification enums: `PhysicalDeviceNotification` (will/did initialize/shutdown,
 status), `LinearMotionNotification` (willMove/didMove/didGetPosition),
-`PowerMeterNotification.didMeasure`.
+`RotationMotionNotification` (willMove/didMove/didGetOrientation),
+`PowerMeterNotification.didGetAbsolutePower`, `SpectrometerNotification`
+(willGetSpectrum/didGetSpectrum/didGetSerialNumber).
 
 ## Headless / GUI apps: DeviceController
 
