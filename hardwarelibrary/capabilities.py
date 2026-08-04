@@ -65,6 +65,10 @@ def notifies(did, will=None, requiresReady=True):
     observer should hear nothing at all. Pass requiresReady=False for a method
     that only reports what the instrument supports, which a UI may legitimately
     ask before connecting.
+
+    validateReady is PhysicalDevice's, which is where the device lifecycle lives;
+    a capability is meant to be mixed alongside one, so anything else hosting a
+    capability must answer for readiness itself.
     """
     def decorator(method):
         signature = inspect.signature(method)
@@ -113,17 +117,6 @@ class Capability(ABC):
     # The <Capability>Notification enum each mixin posts, so that
     # allCapabilities() also enumerates every notification the library defines.
     notification = None
-
-    def validateReady(self, operation=None):
-        """Confirm the device is initialized before an operation touches it.
-
-        A mixin standing on its own has no device state to check, so this does
-        nothing. PhysicalDevice sits ahead of every capability in a driver's MRO
-        and overrides it with the real check, which is the one that runs on real
-        hardware; this fallback exists so a capability can still be exercised
-        bare, as the tests do.
-        """
-        pass
 
 
 # ---------------------------------------------------------------------------

@@ -157,6 +157,10 @@ class _RecordingAnalogDevice(AnalogIOCapability):
     def __init__(self):
         self.calls = []
 
+    def validateReady(self, operation=None):
+        """Stands in for a device that is open and ready."""
+        pass
+
     def doGetAnalogVoltage(self, channel):
         self.calls.append(("doGetAnalogVoltage", channel))
         return 1.5
@@ -325,6 +329,10 @@ class _FailingAnalogDevice(AnalogIOCapability):
     """Every hook raises, so the failure path can be exercised."""
 
     class Failure(RuntimeError):
+        pass
+
+    def validateReady(self, operation=None):
+        """Stands in for a device that is open and ready."""
         pass
 
     def doGetAnalogVoltage(self, channel):

@@ -233,6 +233,10 @@ class _MinimalLockIn(PhaseLockedDetectionCapability, TriggerCapability):
     the base-class optional hooks and the base getDemodulatedValues are exercised
     (SR830Device overrides all of these)."""
 
+    def validateReady(self, operation=None):
+        """Stands in for a device that is open and ready."""
+        pass
+
     def doGetInPhaseVoltage(self):
         return 0.1
 

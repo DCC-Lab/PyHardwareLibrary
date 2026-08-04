@@ -59,9 +59,10 @@ API changes can land even when the minor version is unchanged.
   `AttributeError: 'NoneType' object has no attribute ...` on a port that was never
   opened, or -- on a debug device -- answered as though the hardware had done it and
   posted a `did*` claiming success. The check runs before the `will` is posted, so a
-  refused call announces nothing. `PhysicalDevice.validateReady` is the real check;
-  `Capability.validateReady` is a no-op behind it in the MRO so a mixin can still be
-  exercised on its own. Methods that only report what a model supports
+  refused call announces nothing. `validateReady` is defined once, on
+  `PhysicalDevice`, where the device lifecycle belongs; `capabilities.py` only calls
+  it, so a class mixing in a capability without being a `PhysicalDevice` answers for
+  readiness itself rather than silently skipping the check. Methods that only report what a model supports
   (`supportedInputSources`, `supportedSensitivities`, `supportedTimeConstants`,
   `supportedTriggerSources`, `outletCount`) are exempt via `requiresReady=False`,
   since a UI populates its menus before connecting.
