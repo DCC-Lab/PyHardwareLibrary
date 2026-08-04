@@ -6,6 +6,8 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-04
+
 ### Added
 - **Notifications on every capability.** Each capability owns a
   `<Capability>Notification` enum, reachable as its `notification` attribute, and
