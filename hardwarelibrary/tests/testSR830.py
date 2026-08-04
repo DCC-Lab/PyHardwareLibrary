@@ -164,8 +164,9 @@ class TestDebugSR830Device(unittest.TestCase):
     def testExternalSampleClockAdvancesOnSoftwareTrigger(self):
         # With an External sample clock, no samples accrue until each trigger edge.
         self.device.setTriggerSource(TriggerSource.Internal)
+        # None, not 0: the documented way to say the rate is the external clock's.
         self.device.configureStream(
-            channels=[StreamChannel.X], sampleRate=0, sampleClock=SampleClock.External)
+            channels=[StreamChannel.X], sampleRate=None, sampleClock=SampleClock.External)
         self.device.startStream()
         try:
             self.assertEqual(self.device.readStream()[StreamChannel.X], [])

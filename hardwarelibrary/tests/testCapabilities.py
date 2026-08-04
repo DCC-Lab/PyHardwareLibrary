@@ -13,11 +13,11 @@ from hardwarelibrary.capabilities import (
     Capability, allCapabilities, capabilityInterface,
     OnOffCapability, ShutterCapability, PowerCapability,
     AnalogInputCapability, AnalogOutputCapability, AnalogIOCapability,
-    AnalogNotification, OutletSwitchingCapability)
-from hardwarelibrary.daq import DebugSR830Device
+    AnalogNotification, InputSource, OutletSwitchingCapability)
+from hardwarelibrary.daq import DebugLabjackDevice, DebugSR830Device
 from hardwarelibrary.physicaldevice import DeviceState, PhysicalDevice
 from hardwarelibrary.powerstrips import DebugPwrUSBDevice
-from hardwarelibrary.sources import DebugMillenniaDevice
+from hardwarelibrary.sources import DebugMatisseDevice, DebugMillenniaDevice
 from notificationcenter import NotificationCenter
 
 
@@ -323,6 +323,98 @@ class TestStateGuard(unittest.TestCase):
                 self.assertTrue(hasattr(method, "__wrapped__"),
                                 "{0}.{1} is not wrapped by @notifies".format(
                                     capability.__name__, member.name))
+
+
+class TestArgumentValidation(unittest.TestCase):
+    def setUp(self):
+        self.daq = DebugLabjackDevice()
+        self.daq.initializeDevice()
+        self.strip = DebugPwrUSBDevice()
+        self.strip.initializeDevice()
+        self.recorder = NotificationRecorder()
+
+    def tearDown(self):
+        self.recorder.stop()
+        self.daq.shutdownDevice()
+        self.strip.shutdownDevice()
+
+    def testARejectedCallPostsNothing(self):
+        # The invariant the validate= hook buys: a will/did pair means the driver
+        # really was invoked, so a refused call announces nothing at all.
+        self.recorder.observe(AnalogNotification)
+        with self.assertRaises(ValueError):
+            self.daq.acquireWaveform([0], sampleRate=100, sampleCount=0)
+        self.assertEqual(self.recorder.names(), [])
+
+    def testAnEmptyChannelListIsRefusedClearly(self):
+        # It used to fail inside the drain loop with "min() iterable argument is
+        # empty", which named nothing the caller had written.
+        with self.assertRaises(ValueError) as raised:
+            self.daq.acquireWaveform([], sampleRate=100, sampleCount=10)
+        self.assertIn("channels", str(raised.exception))
+
+    def testASampleCountOfZeroNoLongerReturnsAnEmptyAcquisition(self):
+        for sampleCount in (0, -5):
+            with self.assertRaises(ValueError):
+                self.daq.acquireWaveform([0], sampleRate=100, sampleCount=sampleCount)
+
+    def testANegativeSampleRateIsRefused(self):
+        with self.assertRaises(ValueError):
+            self.daq.configureStream([0], sampleRate=-100)
+
+    def testAnExternalClockMaySayItHasNoRate(self):
+        self.daq.configureStream([0], sampleRate=None)   # accepted, means "not mine"
+
+    def testALogicLevelMustBeOne(self):
+        with self.assertRaises(TypeError):
+            self.daq.setDigitalValue("yes", channel=4)
+        self.daq.setDigitalValue(1, channel=4)           # 0 and 1 still work
+        self.assertTrue(self.daq.getDigitalValue(4))
+
+    def testAVoltageMustBeANumber(self):
+        with self.assertRaises(TypeError):
+            self.daq.setAnalogVoltage("2.5", channel=0)
+
+    def testAnOutletMustBeOneTheStripHas(self):
+        for outlet in (0, 4, 1.5):
+            with self.assertRaises((ValueError, TypeError)):
+                self.strip.turnOutletOn(outlet)
+        self.strip.turnOutletOn(3)
+
+    def testAWavelengthMustBeInTheRangeTheDriverReports(self):
+        matisse = DebugMatisseDevice()
+        matisse.initializeDevice()
+        try:
+            self.assertEqual(matisse.wavelengthRange(), (700.0, 1000.0))
+            with self.assertRaises(ValueError) as raised:
+                matisse.setWavelength(50.0)
+            self.assertIn("700.0", str(raised.exception))
+            matisse.setWavelength(780.0)
+        finally:
+            matisse.shutdownDevice()
+
+    def testAnEnumArgumentAcceptsAnythingTheEnumAccepts(self):
+        lockin = DebugSR830Device()
+        lockin.initializeDevice()
+        try:
+            lockin.setInputSource("Differential")        # coerced for the driver
+            self.assertEqual(lockin.getInputSource(), InputSource.Differential)
+            with self.assertRaises(ValueError) as raised:
+                lockin.setInputSource("Telepathy")
+            self.assertIn("SingleEnded", str(raised.exception))
+        finally:
+            lockin.shutdownDevice()
+
+    def testInstrumentLimitsStayWithTheDriver(self):
+        # The capability checks the contract (a real number); the SR830's own
+        # +/-10.5 V limit is the driver's business and still applies.
+        lockin = DebugSR830Device()
+        lockin.initializeDevice()
+        try:
+            with self.assertRaises(ValueError):
+                lockin.setAnalogVoltage(50.0, channel=1)
+        finally:
+            lockin.shutdownDevice()
 
 
 class _FailingAnalogDevice(AnalogIOCapability):

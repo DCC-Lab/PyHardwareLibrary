@@ -52,6 +52,30 @@ API changes can land even when the minor version is unchanged.
   - `Spectrometer` gained the `notification` attribute it was missing.
   - `CameraDeviceNotification` is left alone: a capture session is a different
     shape (`imageCaptured` fires per frame), not a will/did pair around one hook.
+- **Contract-level argument validation on the capability public methods**, through a
+  new `validate=` parameter on `@notifies` and a new `hardwarelibrary/validation.py`
+  holding the shared `require*` checks. The validator runs before anything is posted,
+  so a refused call announces nothing and a will/did pair still means the driver was
+  invoked. **Breaking**: calls that used to be accepted silently now raise.
+  - `acquireWaveform(sampleCount=0)` returned an empty acquisition; now `ValueError`.
+    An empty `channels` list failed with `min() iterable argument is empty`; now it
+    names the parameter.
+  - `configureStream(sampleRate=-100)` was accepted; a rate must be positive, or
+    `None` to say the clock is external. `sampleRate=0` no longer means "external":
+    pass `None`, which is what the docstring always said.
+  - `setDigitalValue("yes", channel)` set the line True; a logic level must be a bool
+    (0 and 1 accepted). `setAnalogVoltage("2.5", channel)` now raises `TypeError`.
+  - `setSensitivity(-1)` and `setTimeConstant(0)` were silently snapped to a step;
+    both must be positive.
+  - `setWavelength` and `setDispersion` are checked against the range the driver
+    reports, so `matisse.setWavelength(50.0)` no longer drives the birefringent
+    filter outside the installed optics' 700-1000 nm.
+  - Outlets are checked against `doGetOutletCount()` in `OutletSwitchingCapability`
+    and `DefaultOutletCapability`, so `PwrUSBDevice._validateOutlet` is gone and every
+    future strip inherits the rule.
+  - `setInputSource` and `setTriggerSource` accept anything their enum accepts
+    (`setInputSource("Differential")`) and hand the driver a member.
+  - Instrument-specific limits stay in the drivers, unchanged.
 - **Every notified operation now requires an initialized device.** `@notifies` calls
   `validateReady()` before anything else, raising `PhysicalDevice.NotInitialized`
   unless the device is `Ready` and naming the operation, the class and the actual

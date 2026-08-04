@@ -41,10 +41,13 @@ from abc import ABC, abstractmethod
 from collections import namedtuple
 from enum import Enum
 
+from hardwarelibrary.validation import (
+    requireAtLeast, requireBool, requireInteger, requireMember, requireNonEmpty,
+    requirePositive, requireRealNumber, requireWithinRange)
 from notificationcenter import NotificationCenter
 
 
-def notifies(did, will=None, requiresReady=True):
+def notifies(did, will=None, requiresReady=True, validate=None):
     """Bracket a capability's public method with notifications.
 
     Posts `will` (when the operation changes the instrument) before the call and
@@ -69,6 +72,12 @@ def notifies(did, will=None, requiresReady=True):
     validateReady is PhysicalDevice's, which is where the device lifecycle lives;
     a capability is meant to be mixed alongside one, so anything else hosting a
     capability must answer for readiness itself.
+
+    `validate` is an optional function taking the same arguments as the method,
+    called before anything is posted so that a refused call announces nothing: a
+    will/did pair means the driver really was invoked. It holds the contract-level
+    checks (see hardwarelibrary.validation); limits that vary by model belong in
+    the driver's hook.
     """
     def decorator(method):
         signature = inspect.signature(method)
@@ -78,6 +87,8 @@ def notifies(did, will=None, requiresReady=True):
         def wrapper(self, *args, **keywordArguments):
             if requiresReady:
                 self.validateReady(operation=method.__name__)
+            if validate is not None:
+                validate(self, *args, **keywordArguments)
 
             arguments = {}
             if takesArguments:
@@ -215,7 +226,11 @@ class PowerCapability(Capability):
     isWritable = True
     notification = PowerNotification
 
-    @notifies(will=PowerNotification.willSetPower, did=PowerNotification.didSetPower)
+    def _validateSetPower(self, power: float):
+        requireAtLeast(power, 0, "power", self.unit)
+
+    @notifies(will=PowerNotification.willSetPower, did=PowerNotification.didSetPower,
+              validate=_validateSetPower)
     def setPower(self, power: float):
         return self.doSetPower(power)
 
@@ -301,8 +316,14 @@ class WavelengthCapability(Capability):
     isWritable = True
     notification = WavelengthNotification
 
+    def _validateSetWavelength(self, wavelength: float):
+        # Against the hook, not wavelengthRange(): validating must not post a
+        # notification of its own.
+        requireWithinRange(wavelength, self.doGetWavelengthRange(), "wavelength", self.unit)
+
     @notifies(will=WavelengthNotification.willSetWavelength,
-              did=WavelengthNotification.didSetWavelength)
+              did=WavelengthNotification.didSetWavelength,
+              validate=_validateSetWavelength)
     def setWavelength(self, wavelength: float):
         return self.doSetWavelength(wavelength)
 
@@ -340,8 +361,12 @@ class DispersionCapability(Capability):
     isWritable = True
     notification = DispersionNotification
 
+    def _validateSetDispersion(self, dispersion: float):
+        requireWithinRange(dispersion, self.doGetDispersionRange(), "dispersion", self.unit)
+
     @notifies(will=DispersionNotification.willSetDispersion,
-              did=DispersionNotification.didSetDispersion)
+              did=DispersionNotification.didSetDispersion,
+              validate=_validateSetDispersion)
     def setDispersion(self, dispersion: float):
         return self.doSetDispersion(dispersion)
 
@@ -391,8 +416,12 @@ class WavelengthCalibrationCapability(Capability):
         self.doGetCalibrationWavelength()
         return self.calibrationWavelength
 
+    def _validateSetCalibrationWavelength(self, wavelength):
+        requirePositive(wavelength, "wavelength", self.unit)
+
     @notifies(will=WavelengthCalibrationNotification.willSetCalibrationWavelength,
-              did=WavelengthCalibrationNotification.didSetCalibrationWavelength)
+              did=WavelengthCalibrationNotification.didSetCalibrationWavelength,
+              validate=_validateSetCalibrationWavelength)
     def setCalibrationWavelength(self, wavelength):
         self.doSetCalibrationWavelength(wavelength)
         self.doGetCalibrationWavelength()
@@ -472,7 +501,11 @@ class ScaleCapability(Capability):
         self.doGetScale()
         return self.scale
 
-    @notifies(will=ScaleNotification.willSetScale, did=ScaleNotification.didSetScale)
+    def _validateSetScale(self, scale):
+        requirePositive(scale, "scale", self.unit)
+
+    @notifies(will=ScaleNotification.willSetScale, did=ScaleNotification.didSetScale,
+              validate=_validateSetScale)
     def setScale(self, scale):
         self.doSetScale(scale)
         self.doGetScale()
@@ -543,8 +576,15 @@ class AnalogOutputCapability(Capability):
 
     notification = AnalogNotification
 
+    def _validateSetAnalogVoltage(self, value, channel):
+        # The channel is deliberately not checked: an SR830 addresses its outputs
+        # with AuxOutput members where a LabJack uses bare ints, so there is no
+        # shared rule. The driver knows its own channels.
+        requireRealNumber(value, "value", "V")
+
     @notifies(will=AnalogNotification.willSetAnalogVoltage,
-              did=AnalogNotification.didSetAnalogVoltage)
+              did=AnalogNotification.didSetAnalogVoltage,
+              validate=_validateSetAnalogVoltage)
     def setAnalogVoltage(self, value, channel):
         """Set the output on channel to value, in volts."""
         return self.doSetAnalogVoltage(value, channel)
@@ -617,8 +657,14 @@ class AnalogInputStreamCapability(AnalogInputCapability):
 
     notification = AnalogNotification
 
+    def _validateConfigureStream(self, channels, sampleRate=None, **parameters):
+        requireNonEmpty(channels, "channels")
+        if sampleRate is not None:
+            requirePositive(sampleRate, "sampleRate", "Hz")
+
     @notifies(will=AnalogNotification.willConfigureStream,
-              did=AnalogNotification.didConfigureStream)
+              did=AnalogNotification.didConfigureStream,
+              validate=_validateConfigureStream)
     def configureStream(self, channels, sampleRate=None, **parameters):
         """Set up a hardware-timed acquisition of channels at sampleRate (Hz).
 
@@ -646,8 +692,14 @@ class AnalogInputStreamCapability(AnalogInputCapability):
         """Stop the acquisition and release any hardware streaming resources."""
         return self.doStopStream()
 
+    def _validateAcquireWaveform(self, channels, sampleRate, sampleCount):
+        requireNonEmpty(channels, "channels")
+        requirePositive(sampleRate, "sampleRate", "Hz")
+        requireAtLeast(requireInteger(sampleCount, "sampleCount"), 1, "sampleCount")
+
     @notifies(will=AnalogNotification.willAcquireWaveform,
-              did=AnalogNotification.didAcquireWaveform)
+              did=AnalogNotification.didAcquireWaveform,
+              validate=_validateAcquireWaveform)
     def acquireWaveform(self, channels, sampleRate, sampleCount):
         """Acquire exactly sampleCount samples per channel, blocking until done.
 
@@ -767,19 +819,30 @@ class PhaseLockedDetectionCapability(Capability):
         """Returns the signal input the demodulator currently measures."""
         return self.doGetInputSource()
 
+    def _validateSetInputSource(self, source: InputSource):
+        requireMember(source, InputSource, "source")
+
     @notifies(will=PhaseLockedDetectionNotification.willSetInputSource,
-              did=PhaseLockedDetectionNotification.didSetInputSource)
+              did=PhaseLockedDetectionNotification.didSetInputSource,
+              validate=_validateSetInputSource)
     def setInputSource(self, source: InputSource):
-        """Select which signal input (an InputSource member) the demodulator measures."""
-        return self.doSetInputSource(source)
+        """Select which signal input (an InputSource member) the demodulator measures.
+
+        A name or value the enum accepts works too; the driver always sees a member.
+        """
+        return self.doSetInputSource(InputSource(source))
 
     @notifies(did=PhaseLockedDetectionNotification.didGetSensitivity)
     def getSensitivity(self):
         """Returns the full-scale sensitivity, in volts."""
         return self.doGetSensitivity()
 
+    def _validateSetSensitivity(self, volts):
+        requirePositive(volts, "volts", "V")
+
     @notifies(will=PhaseLockedDetectionNotification.willSetSensitivity,
-              did=PhaseLockedDetectionNotification.didSetSensitivity)
+              did=PhaseLockedDetectionNotification.didSetSensitivity,
+              validate=_validateSetSensitivity)
     def setSensitivity(self, volts):
         """Set the full-scale sensitivity to the nearest supported step, in volts."""
         return self.doSetSensitivity(volts)
@@ -789,8 +852,12 @@ class PhaseLockedDetectionCapability(Capability):
         """Returns the time constant, in seconds."""
         return self.doGetTimeConstant()
 
+    def _validateSetTimeConstant(self, seconds):
+        requirePositive(seconds, "seconds", "s")
+
     @notifies(will=PhaseLockedDetectionNotification.willSetTimeConstant,
-              did=PhaseLockedDetectionNotification.didSetTimeConstant)
+              did=PhaseLockedDetectionNotification.didSetTimeConstant,
+              validate=_validateSetTimeConstant)
     def setTimeConstant(self, seconds):
         """Set the time constant to the nearest supported step, in seconds."""
         return self.doSetTimeConstant(seconds)
@@ -929,11 +996,18 @@ class TriggerCapability(Capability):
 
     notification = TriggerNotification
 
+    def _validateSetTriggerSource(self, source: 'TriggerSource'):
+        requireMember(source, TriggerSource, "source")
+
     @notifies(will=TriggerNotification.willSetTriggerSource,
-              did=TriggerNotification.didSetTriggerSource)
+              did=TriggerNotification.didSetTriggerSource,
+              validate=_validateSetTriggerSource)
     def setTriggerSource(self, source: 'TriggerSource'):
-        """Select whether the acquisition starts immediately or on an external trigger."""
-        return self.doSetTriggerSource(source)
+        """Select whether the acquisition starts immediately or on an external trigger.
+
+        A name or value the enum accepts works too; the driver always sees a member.
+        """
+        return self.doSetTriggerSource(TriggerSource(source))
 
     @notifies(did=TriggerNotification.didGetTriggerSource)
     def getTriggerSource(self) -> 'TriggerSource':
@@ -1003,8 +1077,12 @@ class DigitalOutputCapability(Capability):
 
     notification = DigitalNotification
 
+    def _validateSetDigitalValue(self, value, channel):
+        requireBool(value, "value")
+
     @notifies(will=DigitalNotification.willSetDigitalValue,
-              did=DigitalNotification.didSetDigitalValue)
+              did=DigitalNotification.didSetDigitalValue,
+              validate=_validateSetDigitalValue)
     def setDigitalValue(self, value, channel):
         """Drive channel to the logic level value."""
         return self.doSetDigitalValue(value, channel)
@@ -1074,22 +1152,40 @@ class OutletSwitchingCapability(Capability):
 
     notification = OutletSwitchingNotification
 
+    def _validateOutlet(self, outlet: int):
+        """Require an outlet the strip actually has, addressed by its label.
+
+        Reads doGetOutletCount() rather than outletCount, so validating posts no
+        notification of its own; a driver whose count costs a hardware query
+        should cache it at initialization.
+        """
+        requireInteger(outlet, "outlet")
+        requireWithinRange(outlet, (1, self.doGetOutletCount()), "outlet")
+
+    def _validateSetOutletState(self, outlet: int, isOn: bool):
+        self._validateOutlet(outlet)
+        requireBool(isOn, "isOn")
+
     @notifies(will=OutletSwitchingNotification.willSetOutletState,
-              did=OutletSwitchingNotification.didSetOutletState)
+              did=OutletSwitchingNotification.didSetOutletState,
+              validate=_validateOutlet)
     def turnOutletOn(self, outlet: int):
         self.doSetOutletState(outlet, True)
 
     @notifies(will=OutletSwitchingNotification.willSetOutletState,
-              did=OutletSwitchingNotification.didSetOutletState)
+              did=OutletSwitchingNotification.didSetOutletState,
+              validate=_validateOutlet)
     def turnOutletOff(self, outlet: int):
         self.doSetOutletState(outlet, False)
 
     @notifies(will=OutletSwitchingNotification.willSetOutletState,
-              did=OutletSwitchingNotification.didSetOutletState)
+              did=OutletSwitchingNotification.didSetOutletState,
+              validate=_validateSetOutletState)
     def setOutletState(self, outlet: int, isOn: bool):
         self.doSetOutletState(outlet, isOn)
 
-    @notifies(did=OutletSwitchingNotification.didGetOutletState)
+    @notifies(did=OutletSwitchingNotification.didGetOutletState,
+              validate=_validateOutlet)
     def isOutletOn(self, outlet: int) -> bool:
         return self.doGetOutletState(outlet)
 
@@ -1127,18 +1223,32 @@ class DefaultOutletCapability(Capability):
 
     notification = DefaultOutletNotification
 
+    def _validateDefaultOutlet(self, outlet: int):
+        """Same bounds as OutletSwitchingCapability, which a strip exposing boot
+        defaults also has; repeated rather than inherited, since the two
+        capabilities are independent."""
+        requireInteger(outlet, "outlet")
+        requireWithinRange(outlet, (1, self.doGetOutletCount()), "outlet")
+
+    def _validateSetOutletDefaultState(self, outlet: int, isOn: bool):
+        self._validateDefaultOutlet(outlet)
+        requireBool(isOn, "isOn")
+
     @notifies(will=DefaultOutletNotification.willSetOutletDefaultState,
-              did=DefaultOutletNotification.didSetOutletDefaultState)
+              did=DefaultOutletNotification.didSetOutletDefaultState,
+              validate=_validateDefaultOutlet)
     def setOutletDefaultOn(self, outlet: int):
         self.doSetOutletDefaultState(outlet, True)
 
     @notifies(will=DefaultOutletNotification.willSetOutletDefaultState,
-              did=DefaultOutletNotification.didSetOutletDefaultState)
+              did=DefaultOutletNotification.didSetOutletDefaultState,
+              validate=_validateDefaultOutlet)
     def setOutletDefaultOff(self, outlet: int):
         self.doSetOutletDefaultState(outlet, False)
 
     @notifies(will=DefaultOutletNotification.willSetOutletDefaultState,
-              did=DefaultOutletNotification.didSetOutletDefaultState)
+              did=DefaultOutletNotification.didSetOutletDefaultState,
+              validate=_validateSetOutletDefaultState)
     def setOutletDefaultState(self, outlet: int, isOn: bool):
         self.doSetOutletDefaultState(outlet, isOn)
 
