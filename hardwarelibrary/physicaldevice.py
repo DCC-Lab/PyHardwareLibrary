@@ -1,3 +1,10 @@
+"""The abstract base every device in the library is built on.
+
+PhysicalDevice owns what is the same for all hardware -- identity, the connection
+lifecycle and its state machine, the port handle, notifications, and the background
+status thread -- so a driver writes only the bytes its instrument expects.
+"""
+
 from abc import ABC, abstractmethod
 from enum import Enum, IntEnum
 from threading import Thread, RLock
@@ -13,12 +20,27 @@ import re
 debugClassIdVendor = 0xffff # My special vendorId for debug classes
 
 class DeviceState(IntEnum):
+    """Where a device is in its connection lifecycle.
+
+    A device starts Unconfigured, becomes Ready when initializeDevice() succeeds,
+    and returns to Recognized on shutdown: known to work, but currently closed.
+    Unrecognized means initialization was attempted and failed.
+    """
+
     Unconfigured = 0 # Dont know anything
     Ready = 1        # Connected and initialized
     Recognized = 2   # Initialization has succeeded, but currently shutdown
     Unrecognized = 3 # Initialization failed
 
 class PhysicalDeviceNotification(Enum):
+    """What every device announces about its own lifecycle.
+
+    The did* notifications are posted whether the operation succeeded or not,
+    carrying the exception as their user_info when it failed. `status` is posted
+    by the background thread at every refreshInterval, carrying whatever
+    doGetStatusUserInfo() returns.
+    """
+
     willInitializeDevice       = "willInitializeDevice"
     didInitializeDevice        = "didInitializeDevice"
     willShutdownDevice         = "willShutdownDevice"
@@ -26,14 +48,37 @@ class PhysicalDeviceNotification(Enum):
     status                     = "status"
 
 class PhysicalDevice(ABC):
+    """Abstract base for every device the library supports.
+
+    A driver subclasses this -- usually through its family base, and alongside the
+    capability mixins it supports -- and implements doInitializeDevice and
+    doShutdownDevice. Forgetting either raises TypeError at instantiation rather
+    than at call time.
+
+    A device is identified by a USB vendor/product pair and a serial number. The
+    class attributes classIdVendor and classIdProduct declare what a driver binds
+    to, and an instance may narrow that with its own serialNumber. An instrument
+    reached through a generic USB/RS-232 converter has no identity of its own and
+    sets usesGenericSerialConverter, which changes how it is matched (see vidpids).
+
+    Public methods here are concrete and delegate to do* hooks, the pattern the
+    whole library follows: the public side owns state, validation and
+    notifications, so none of that has to be repeated in a driver.
+    """
+
     class UnableToInitialize(Exception):
-        pass
+        """doInitializeDevice failed. The driver's own exception is wrapped in
+        this one's args, so the true cause stays readable."""
+
     class UnableToShutdown(Exception):
-        pass
+        """doShutdownDevice failed, wrapping the driver's exception the same way."""
+
     class ClassIncompatibleWithRequestedDevice(Exception):
-        pass
+        """The requested idVendor/idProduct is not one this driver class binds to."""
+
     class NotInitialized(Exception):
-        pass
+        """An operation was attempted on a device that is not Ready. Raised by
+        validateReady(), which guards every operation the capabilities expose."""
 
     classIdVendor = None
     classIdProduct = None
@@ -48,6 +93,17 @@ class PhysicalDevice(ABC):
     usesGenericSerialConverter = False
 
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
+        """Bind this instance to one device, without opening anything.
+
+        A serialNumber of "*" or None becomes the regex ".*", so both spellings
+        mean "the first one found"; any other value is matched as a pattern.
+        idProduct and idVendor fall back to the class attributes when None, which
+        is why most drivers are constructed with no arguments at all. The pair must
+        be one this class binds to, or ClassIncompatibleWithRequestedDevice is
+        raised.
+
+        The device is left Unconfigured: no port is opened until initializeDevice().
+        """
         if serialNumber == "*" or serialNumber is None:
             serialNumber = ".*"
         if idProduct is None:
@@ -96,6 +152,13 @@ class PhysicalDevice(ABC):
                     type(self).__name__, self.state.name))
 
     def capabilities(self) -> list:
+        """Returns the capability mixins this device supports, as classes.
+
+        Walks the MRO for Capability subclasses, which is why a driver gets this
+        for free by declaring the mixins it implements. Use hasCapability() to ask
+        about one, and allCapabilities() in capabilities.py for what the library
+        can express at all.
+        """
         # The capability mixins, not the Capability marker nor the device class
         # itself (a driver is a Capability subclass too, but it is a
         # PhysicalDevice).
@@ -105,10 +168,22 @@ class PhysicalDevice(ABC):
                 and not issubclass(klass, PhysicalDevice)]
 
     def hasCapability(self, capabilityClass) -> bool:
+        """True when this device supports capabilityClass, e.g. ShutterCapability.
+
+        Lets a caller adapt to whatever is on the bench rather than hard-coding one
+        model: `if laser.hasCapability(ShutterCapability): laser.closeShutter()`.
+        """
         return isinstance(self, capabilityClass)
 
     @classmethod
     def vidpids(cls):
+        """Returns the (idVendor, idProduct) pairs this class binds to.
+
+        Normally the single pair declared by classIdVendor/classIdProduct. An
+        instrument behind a generic converter matches every generic converter
+        vendor instead, with the product wildcarded to None, since its USB identity
+        is the cable's rather than its own.
+        """
         if cls.usesGenericSerialConverter:
             # Identity is not in the VID/PID: match any generic converter chip,
             # PID wildcarded (None). Local import avoids a physicaldevice <->
@@ -119,6 +194,13 @@ class PhysicalDevice(ABC):
 
     @classmethod
     def isCompatibleWith(cls, serialNumber, idProduct, idVendor):
+        """True when this class binds to the given idVendor/idProduct.
+
+        A None product in a vidpids pair is a wildcard matching any product from
+        that vendor. serialNumber is accepted for symmetry with the callers but
+        takes no part in the decision: a serial number tells two identical
+        instruments apart, not two driver classes.
+        """
         for compatibleIdVendor, compatibleIdProduct in cls.vidpids():
             if idVendor == compatibleIdVendor:
                 # A None product id in the pair is a wildcard: it matches any
@@ -130,6 +212,11 @@ class PhysicalDevice(ABC):
 
     @classmethod
     def commandHelp(cls):
+        """Print the commands table of this class, if it has one.
+
+        Only the few devices using the table-driven `commands` pattern have
+        anything to show; every other driver reports that no help is available.
+        """
         className = "{0}".format(cls)
         match = re.search(r".*?\.(\w*?)'>", className)
         if match is not None:
@@ -148,13 +235,25 @@ class PhysicalDevice(ABC):
 
     @classmethod
     def isDebugClass(cls):
+        """True for the debug drivers, which carry the reserved vendor id 0xFFFF
+        so that discovery can leave them out of a search for real hardware."""
         return cls.classIdVendor == debugClassIdVendor
 
     @classmethod
     def isAbstractClass(cls):
+        """True when the class declares no USB identity, which marks a family base
+        rather than a driver that can be instantiated against hardware."""
         return (cls.classIdVendor == None) or (cls.classIdProduct == None)
 
     def initializeDevice(self):
+        """Open the device and bring it to Ready, unless it already is.
+
+        Posts willInitializeDevice, runs the driver's doInitializeDevice, then
+        posts didInitializeDevice. On failure the state becomes Unrecognized, the
+        did notification is posted anyway with the exception as its user_info, and
+        the driver's exception is wrapped in UnableToInitialize -- wrapped rather
+        than replaced, so the true cause stays readable in its args.
+        """
         if self.state != DeviceState.Ready:
             try:
                 NotificationCenter().post_notification(PhysicalDeviceNotification.willInitializeDevice, notifying_object=self)
@@ -168,13 +267,31 @@ class PhysicalDevice(ABC):
 
     @abstractmethod
     def doInitializeDevice(self):
+        """Open the port and configure the instrument. Written by the driver.
+
+        Keep it minimal: the state machine, notifications and error wrapping are
+        initializeDevice()'s business. Raise on failure; do not swallow.
+        """
         ...
 
     def initializeIfNeeded(self):
+        """Initialize a device that has never been opened, and do nothing otherwise.
+
+        Note that a device which has been shut down is Recognized, not
+        Unconfigured, so this will not reopen one; call initializeDevice() for that.
+        """
         if self.state == DeviceState.Unconfigured:
             self.initializeDevice()
 
     def shutdownDevice(self):
+        """Close the device and leave it Recognized, if it is Ready.
+
+        Stops the background status thread first, then runs the driver's
+        doShutdownDevice between willShutdownDevice and didShutdownDevice. The
+        state is set and the port closed whatever happens, so a driver that raises
+        on the way down still leaves a device that can be reopened; its exception
+        is wrapped in UnableToShutdown.
+        """
         if self.state == DeviceState.Ready:
             try:
                 NotificationCenter().post_notification(PhysicalDeviceNotification.willShutdownDevice, notifying_object=self)
@@ -194,9 +311,18 @@ class PhysicalDevice(ABC):
 
     @abstractmethod
     def doShutdownDevice(self):
+        """Release the instrument. Written by the driver.
+
+        Keep it minimal, as with doInitializeDevice: closing self.port is
+        shutdownDevice()'s business, not the driver's.
+        """
         ...
 
     def startBackgroundStatusUpdates(self):
+        """Start the thread that posts a status notification every refreshInterval.
+
+        Raises RuntimeError when one is already running; ask isMonitoring first.
+        """
         with self.lock:
             if not self.isMonitoring:
                 self.quitMonitoring = False
@@ -206,6 +332,12 @@ class PhysicalDevice(ABC):
                 raise RuntimeError("Monitoring loop already running")
 
     def backgroundStatusUpdates(self):
+        """The monitoring thread's loop: post the status, then wait, until asked to stop.
+
+        The stop request is only read after a post, so one notification always goes
+        out and stopBackgroundStatusUpdates() returns at the end of the current
+        cycle rather than immediately.
+        """
         while True:
             user_info = self.doGetStatusUserInfo()
 
@@ -218,14 +350,25 @@ class PhysicalDevice(ABC):
             time.sleep(self.refreshInterval)
 
     def doGetStatusUserInfo(self):
+        """What the periodic status notification carries. None by default.
+
+        Optional: a driver overrides it with whatever is worth watching, the way a
+        power meter reports its latest reading.
+        """
         return None
 
     @property
     def isMonitoring(self):
+        """True while the background status thread is running."""
         with self.lock:
             return self.monitoring is not None
 
     def stopBackgroundStatusUpdates(self):
+        """Ask the monitoring thread to stop and wait for it to finish.
+
+        Raises RuntimeError when none is running. Called for you by
+        shutdownDevice(), so a closed device never leaves a thread behind.
+        """
         if self.isMonitoring:
             with self.lock:
                 self.quitMonitoring = True
@@ -252,11 +395,29 @@ class PhysicalDevice(ABC):
 
     @classmethod
     def any(cls):
+        """Incomplete: enumerates, discards the result, and returns None.
+
+        Intended to return the first connected device of this class or any of its
+        subclasses, ready to use. Spectrometer.any() overrides it with a working
+        implementation, which is why nothing has noticed. Two things block the
+        generic version: getAllUSBIds walks subclasses only, so a leaf driver such
+        as SutterDevice searches an empty list, and only modules that have been
+        imported are visible to that walk.
+        """
         vidpids = utils.getAllUSBIds(cls)
         utils.connectedUSBDevices(vidpids)
 
     @classmethod
     def connectedDevices(cls, vidpids = None, serialNumberPattern=None):
+        """Returns an (idVendor, idProduct, candidateClasses) triple per device found.
+
+        Searches the USB identities of this class's subclasses, or the vidpids
+        given. candidateClasses is a list because it can hold more than one driver:
+        four of them share the stock FTDI 0x0403:0x6001, so an identity match alone
+        cannot say which instrument is on the other end.
+
+        Prints its intermediate results; that is debugging left in place.
+        """
         if vidpids is None:
             vidpids = utils.getAllUSBIds(cls)
         usbDevices = utils.connectedUSBDevices(vidpids=vidpids, serialNumberPattern=serialNumberPattern)
@@ -272,9 +433,18 @@ class PhysicalDevice(ABC):
 
     @classmethod
     def uniqueDevice(cls, vidpids=None, serialNumberPattern=None):
-        pass
+        """Not implemented: returns None.
+
+        Intended to return the one connected device of this class, raising when
+        none or several match, so that a script can state that it expects exactly
+        one instrument.
+        """
 
     @classmethod
     def anyDevice(cls, vidpids=None, serialNumberPattern=None):
+        """Incomplete, and a duplicate of any(): enumerates, discards, returns None.
+
+        One of the two should go when discovery is written properly.
+        """
         vidpids = utils.getAllUSBIds(cls)
         utils.connectedUSBDevices(vidpids)
