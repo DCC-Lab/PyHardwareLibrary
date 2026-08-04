@@ -39,15 +39,27 @@ class Spectrometer(PhysicalDevice):
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
 
-    # The contract a driver must implement. For spectrometers the public
-    # method is the hook itself (no doXxx wrapper), on top of
-    # doInitializeDevice and doShutdownDevice inherited from PhysicalDevice.
-    @abstractmethod
     def getSerialNumber(self):
+        """Returns the serial number, which tells two connected spectrometers apart."""
+        return self.doGetSerialNumber()
+
+    def getSpectrum(self, **parameters) -> np.array:
+        """Returns one spectrum, as an array of intensities.
+
+        Any keyword argument is passed on to the driver, which is where
+        instrument-specific options live (the Ocean Insight units take an
+        integrationTime and bounds on how long to wait for the data).
+        """
+        return self.doGetSpectrum(**parameters)
+
+    # The contract a driver must implement, on top of doInitializeDevice and
+    # doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
+    def doGetSerialNumber(self):
         ...
 
     @abstractmethod
-    def getSpectrum(self) -> np.array:
+    def doGetSpectrum(self) -> np.array:
         ...
 
     def display(self):

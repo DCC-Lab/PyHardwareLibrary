@@ -233,46 +233,46 @@ class _MinimalLockIn(PhaseLockedDetectionCapability, TriggerCapability):
     the base-class optional hooks and the base getDemodulatedValues are exercised
     (SR830Device overrides all of these)."""
 
-    def getInPhaseVoltage(self):
+    def doGetInPhaseVoltage(self):
         return 0.1
 
-    def getQuadratureVoltage(self):
+    def doGetQuadratureVoltage(self):
         return 0.2
 
-    def getMagnitude(self):
+    def doGetMagnitude(self):
         return 0.3
 
-    def getPhase(self):
+    def doGetPhase(self):
         return 45.0
 
-    def getReferenceFrequency(self):
+    def doGetReferenceFrequency(self):
         return 1000.0
 
-    def getInputSource(self):
+    def doGetInputSource(self):
         return InputSource.SingleEnded
 
-    def setInputSource(self, source):
+    def doSetInputSource(self, source):
         pass
 
-    def getSensitivity(self):
+    def doGetSensitivity(self):
         return 1.0
 
-    def setSensitivity(self, volts):
+    def doSetSensitivity(self, volts):
         pass
 
-    def getTimeConstant(self):
+    def doGetTimeConstant(self):
         return 0.1
 
-    def setTimeConstant(self, seconds):
+    def doSetTimeConstant(self, seconds):
         pass
 
-    def setTriggerSource(self, source):
+    def doSetTriggerSource(self, source):
         pass
 
-    def getTriggerSource(self):
+    def doGetTriggerSource(self):
         return TriggerSource.Internal
 
-    def softwareTrigger(self):
+    def doSoftwareTrigger(self):
         pass
 
 

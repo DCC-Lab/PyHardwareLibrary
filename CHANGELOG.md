@@ -6,6 +6,73 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+### Added
+- `allCapabilities()` in `hardwarelibrary/capabilities.py`: returns every capability
+  mixin the library defines, in declaration order. It answers the library-wide
+  question ("what can be expressed?"), where `PhysicalDevice.capabilities()` answers
+  the per-device one ("what does this instrument support?"). Enumerating the module
+  rather than walking `Capability.__subclasses__()` keeps the answer independent of
+  which device modules happen to be imported, and excludes the drivers, which are
+  `Capability` subclasses themselves.
+- `capabilityInterface()` in `hardwarelibrary/capabilities.py`: describes one capability
+  as `extends` / `publicAPI` / `hooks` lists of `CapabilityMember(name, signature,
+  isAbstract)` tuples. The `do` prefix is what separates a hook from the public API,
+  not abstractness: the DAQ capabilities make the public method itself abstract with
+  no `do*` counterpart. Members a parent capability declares are left to that parent.
+- `python -m hardwarelibrary --capabilities` (`-c`): prints every capability with the
+  methods it defines and the hooks a driver must implement, so the list never has to
+  be maintained by hand.
+- `hardwarelibrary/tests/testCapabilities.py`: covers `allCapabilities()` and
+  `capabilityInterface()`, and enforces the invariant that every capability mixin is
+  declared in `capabilities.py`, by comparing the module listing against a full walk
+  of the `Capability` subclass graph.
+
+### Changed
+- **The public/`do*` template method pattern is now uniform across every capability.**
+  The DAQ, lock-in and trigger capabilities used to declare their public method
+  itself as the `@abstractmethod`; they now follow the same rule as every other
+  family: `getXxx()` is concrete and calls `doGetXxx()`, and only the hook is
+  abstract. This keeps the public method free for the argument validation,
+  notifications and error handling to be added there. Affected:
+  `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability`,
+  `AnalogInputStreamCapability`, `PhaseLockedDetectionCapability`,
+  `TriggerCapability`, `DigitalInputCapability`, `DigitalOutputCapability`,
+  `DigitalIOCapability`.
+  - **Callers are unaffected**: every public name and signature is unchanged.
+  - **Driver authors must rename their implementations** to the `do*` hook, e.g.
+    `getAnalogVoltage` -> `doGetAnalogVoltage`, `setDigitalValue` ->
+    `doSetDigitalValue`, `configureStream` -> `doConfigureStream`,
+    `softwareTrigger` -> `doSoftwareTrigger`, `supportedSensitivities` ->
+    `doGetSupportedSensitivities`. A driver that misses one fails loudly at
+    instantiation with `TypeError`, naming the missing hook. `LabjackDevice` and
+    `SR830Device` (and their debug counterparts) were migrated.
+  - `configureStream(channels, sampleRate=None, **parameters)` forwards extra
+    keyword arguments to `doConfigureStream`, so instrument-specific options
+    (the SR830's `sampleClock`, the LabJack's deprecated `scanRate`) still reach
+    the driver through the shared public method.
+- **`Spectrometer` follows the same pattern**: `getSpectrum()` and
+  `getSerialNumber()` are now concrete and delegate to the abstract
+  `doGetSpectrum()` / `doGetSerialNumber()`, which is the last place in the
+  library where the public method was itself the hook. `getSpectrum(**parameters)`
+  forwards keywords to the driver, so `getSpectrum(maxRequests=2, maxWait=0.05)`
+  still reaches `OISpectrometer`. `OISpectrometer` was migrated; `DebugSpectro`
+  is unaffected because it does not subclass `Spectrometer`.
+  - **ACTION REQUIRED for the licenced StellarNet driver**, which is distributed
+    encrypted and is not in this repository: rename its `getSpectrum` and
+    `getSerialNumber` to `doGetSpectrum` and `doGetSerialNumber`. Until then
+    `StellarNet()` raises `TypeError` for the missing hooks.
+- `hardwarelibrary/tests/testCapabilities.py` now also asserts that no
+  `PhysicalDevice` subclass in the library declares an abstract method outside its
+  `do*` hooks, so the pattern is enforced for family base classes, not just mixins.
+  `HOPSInterface` (`sources/verdig.py`) is deliberately exempt: it is a transport
+  strategy behind `VerdiGDevice`, closer to `CommunicationPort` than to a device API.
+- README: the supported-hardware table now lists every driver in the tree. It was
+  missing `VerdiGDevice`, `FieldMasterDevice`, `SR830Device`, `PwrUSBDevice` and
+  `StellarNet`, and carried the Millennia without its USB identity
+  (`0x0483:0x5740`). Added a "Capabilities" section explaining the mixin pattern
+  from first principles, and refreshed the class-hierarchy diagram, which was
+  stale in the same way.
+
 ## [1.5.0] - 2026-07-22
 
 ### Added

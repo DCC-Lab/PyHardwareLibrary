@@ -122,7 +122,7 @@ rot.shutdownDevice()
 
 ### Spectrometers — Ocean Insight USB2000 / USB2000+ / USB4000 / USB650 / SAS
 
-Base: `Spectrometer`. The public method *is* the hardware hook (no `do*` wrapper).
+Base: `Spectrometer`. Drivers implement `doGetSpectrum` / `doGetSerialNumber`; `getSpectrum()` forwards any keyword argument to the hook.
 
 ```python
 from hardwarelibrary.spectrometers import Spectrometer

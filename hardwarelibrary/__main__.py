@@ -32,6 +32,8 @@ ap.add_argument("-dm", "--devicemanager", required=False, action='store_const',
                 const=True, help="Show notifications from DeviceManager")
 ap.add_argument("-d", "--debugusb", required=False, action='store_const',
                 const=True, help="Help debugging USB libraries issues")
+ap.add_argument("-c", "--capabilities", required=False, action='store_const',
+                const=True, help="List every capability and the API it defines")
 
 args = vars(ap.parse_args())
 decrypt = args['stellarnet']
@@ -39,6 +41,7 @@ displaySpectrum = args['spectrometer']
 deviceManager = args['devicemanager']
 debugUSB = args['debugusb']
 listAll = args['list']
+listCapabilities = args['capabilities']
 
 if not any(args.values()):
     ap.print_help()
@@ -70,6 +73,30 @@ if deviceManager == True:
     dm = DeviceManager()
     dm.showNotifications()
     dm.startMonitoring()
+
+if listCapabilities == True:
+    from hardwarelibrary import capabilities as capabilitiesModule
+    from hardwarelibrary.capabilities import allCapabilities, capabilityInterface
+
+    def readableSignature(member):
+        return member.signature.replace("{0}.".format(capabilitiesModule.__name__), "")
+
+    everyCapability = allCapabilities()
+    print("{0} capabilities defined in {1}\n".format(
+        len(everyCapability), capabilitiesModule.__file__))
+
+    for capability in everyCapability:
+        interface = capabilityInterface(capability)
+        extends = ", ".join(klass.__name__ for klass in interface["extends"])
+        print("{0}{1}".format(capability.__name__,
+                              "  (extends {0})".format(extends) if extends else ""))
+        for member in interface["publicAPI"]:
+            print("    {0}{1}{2}".format(member.name, readableSignature(member),
+                                         "   [must be implemented]" if member.isAbstract else ""))
+        for member in interface["hooks"]:
+            print("    - hook: {0}{1}{2}".format(member.name, readableSignature(member),
+                                                 "" if member.isAbstract else "   [optional]"))
+        print()
 
 if debugUSB == True:
     from hardwarelibrary.communication import validateUSBBackend

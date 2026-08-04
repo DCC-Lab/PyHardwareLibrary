@@ -2,9 +2,12 @@
 
 A capability is a feature an instrument may have (turn on/off, open a shutter,
 read a voltage, ...). A driver declares the capabilities it supports by mixing
-them alongside a PhysicalDevice subclass; the mixin's public methods delegate to
-the do* hooks (or, for some families, are themselves the abstract hook) the
-driver implements. Mixins carry the *Capability suffix; only instantiable
+them alongside a PhysicalDevice subclass. Every public method here is concrete and
+delegates to a do* hook the driver implements: getXxx() calls doGetXxx(), and the
+hook is the abstract one, so the public method stays free to validate arguments and
+post notifications on every driver's behalf. A hook a driver may leave alone (an
+optional feature, or a default built on the other hooks) is not abstract, but it
+still carries the do prefix. Mixins carry the *Capability suffix; only instantiable
 hardware drivers are named *Device.
 
 PhysicalDevice.capabilities() / hasCapability() introspect these by walking the
@@ -12,7 +15,9 @@ MRO for Capability subclasses, so every capability across every family must
 subclass the single Capability base defined here.
 """
 
+import inspect
 from abc import ABC, abstractmethod
+from collections import namedtuple
 from enum import Enum
 
 
@@ -291,16 +296,24 @@ class ScaleCapability(Capability):
 class AnalogInputCapability(Capability):
     """Analog input capability (ADC). Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
     def getAnalogVoltage(self, channel):
+        """Returns the voltage measured on channel, in volts."""
+        return self.doGetAnalogVoltage(channel)
+
+    @abstractmethod
+    def doGetAnalogVoltage(self, channel):
         ...
 
 
 class AnalogOutputCapability(Capability):
     """Analog output capability (DAC). Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
     def setAnalogVoltage(self, value, channel):
+        """Set the output on channel to value, in volts."""
+        return self.doSetAnalogVoltage(value, channel)
+
+    @abstractmethod
+    def doSetAnalogVoltage(self, value, channel):
         ...
 
 
@@ -311,12 +324,24 @@ class AnalogIOCapability(AnalogInputCapability, AnalogOutputCapability):
     """
 
     def configureAnalogIO(self, parameters: dict):
-        pass
+        """Apply the driver-specific analog configuration in parameters."""
+        return self.doConfigureAnalogIO(parameters)
 
     def getAnalogDirection(self, channel):
-        pass
+        """Returns whether channel is configured as an input or an output."""
+        return self.doGetAnalogDirection(channel)
 
     def setAnalogDirection(self, channel):
+        """Configure the direction of channel."""
+        return self.doSetAnalogDirection(channel)
+
+    def doConfigureAnalogIO(self, parameters: dict):
+        pass
+
+    def doGetAnalogDirection(self, channel):
+        pass
+
+    def doSetAnalogDirection(self, channel):
         pass
 
 
@@ -350,32 +375,56 @@ class AnalogInputStreamCapability(AnalogInputCapability):
         willAcquire = "willAcquire"
         didAcquire  = "didAcquire"
 
-    @abstractmethod
-    def configureStream(self, channels, sampleRate):
-        """Set up a hardware-timed acquisition of channels at sampleRate (Hz)."""
-        ...
+    def configureStream(self, channels, sampleRate=None, **parameters):
+        """Set up a hardware-timed acquisition of channels at sampleRate (Hz).
 
-    @abstractmethod
+        Any further keyword argument is passed on to the driver, which is where
+        instrument-specific options live (the SR830 takes a sampleClock, for
+        instance). A driver that ignores sampleRate, because its clock is
+        external, accepts None for it.
+        """
+        return self.doConfigureStream(channels, sampleRate, **parameters)
+
     def startStream(self):
         """Start the configured acquisition."""
-        ...
+        return self.doStartStream()
 
-    @abstractmethod
     def readStream(self):
-        """Return the samples acquired since the last read, as {channel: [volts, ...]}."""
-        ...
+        """Returns the samples acquired since the last read, as {channel: [volts, ...]}."""
+        return self.doReadStream()
 
-    @abstractmethod
     def stopStream(self):
         """Stop the acquisition and release any hardware streaming resources."""
-        ...
+        return self.doStopStream()
 
     def acquireWaveform(self, channels, sampleRate, sampleCount):
         """Acquire exactly sampleCount samples per channel, blocking until done.
 
-        Configures, starts, and drains the stream (looping readStream) on the
-        caller's behalf, then stops it; returns {channel: [volts, ...]} truncated
-        to sampleCount per channel.
+        Returns {channel: [volts, ...]} truncated to sampleCount per channel.
+        """
+        return self.doAcquireWaveform(channels, sampleRate, sampleCount)
+
+    @abstractmethod
+    def doConfigureStream(self, channels, sampleRate):
+        ...
+
+    @abstractmethod
+    def doStartStream(self):
+        ...
+
+    @abstractmethod
+    def doReadStream(self):
+        ...
+
+    @abstractmethod
+    def doStopStream(self):
+        ...
+
+    def doAcquireWaveform(self, channels, sampleRate, sampleCount):
+        """Configure, start, and drain the stream, then stop it.
+
+        Optional: a driver whose hardware has a native one-shot acquisition
+        overrides this instead of being drained a block at a time.
         """
         self.configureStream(channels, sampleRate)
         samples = {channel: [] for channel in channels}
@@ -414,79 +463,127 @@ class PhaseLockedDetectionCapability(Capability):
     contract; a driver snaps a requested value to its nearest supported step.
     """
 
-    @abstractmethod
     def getInPhaseVoltage(self):
         """Returns the in-phase component X, in volts."""
-        ...
+        return self.doGetInPhaseVoltage()
 
-    @abstractmethod
     def getQuadratureVoltage(self):
         """Returns the quadrature component Y, in volts."""
-        ...
+        return self.doGetQuadratureVoltage()
 
-    @abstractmethod
     def getMagnitude(self):
         """Returns the magnitude R = sqrt(X^2 + Y^2), in volts."""
-        ...
+        return self.doGetMagnitude()
 
-    @abstractmethod
     def getPhase(self):
         """Returns the phase theta, in degrees."""
-        ...
+        return self.doGetPhase()
 
-    @abstractmethod
     def getReferenceFrequency(self):
         """Returns the reference frequency, in Hz."""
-        ...
+        return self.doGetReferenceFrequency()
 
-    @abstractmethod
     def getInputSource(self) -> InputSource:
         """Returns the signal input the demodulator currently measures."""
-        ...
+        return self.doGetInputSource()
 
-    @abstractmethod
     def setInputSource(self, source: InputSource):
         """Select which signal input (an InputSource member) the demodulator measures."""
-        ...
+        return self.doSetInputSource(source)
 
-    @abstractmethod
     def getSensitivity(self):
         """Returns the full-scale sensitivity, in volts."""
-        ...
+        return self.doGetSensitivity()
 
-    @abstractmethod
     def setSensitivity(self, volts):
         """Set the full-scale sensitivity to the nearest supported step, in volts."""
-        ...
+        return self.doSetSensitivity(volts)
 
-    @abstractmethod
     def getTimeConstant(self):
         """Returns the time constant, in seconds."""
+        return self.doGetTimeConstant()
+
+    def setTimeConstant(self, seconds):
+        """Set the time constant to the nearest supported step, in seconds."""
+        return self.doSetTimeConstant(seconds)
+
+    def supportedInputSources(self):
+        """Returns the InputSource members this instrument supports, or None."""
+        return self.doGetSupportedInputSources()
+
+    def supportedSensitivities(self):
+        """Returns the full-scale sensitivities (volts) this instrument supports, or None."""
+        return self.doGetSupportedSensitivities()
+
+    def supportedTimeConstants(self):
+        """Returns the time constants (seconds) this instrument supports, or None."""
+        return self.doGetSupportedTimeConstants()
+
+    def getDemodulatedValues(self):
+        """One reading of all demodulated outputs plus the reference frequency."""
+        return self.doGetDemodulatedValues()
+
+    @abstractmethod
+    def doGetInPhaseVoltage(self):
         ...
 
     @abstractmethod
-    def setTimeConstant(self, seconds):
-        """Set the time constant to the nearest supported step, in seconds."""
+    def doGetQuadratureVoltage(self):
         ...
 
-    def supportedInputSources(self):
-        """Optional: the InputSource members this instrument supports, or None."""
+    @abstractmethod
+    def doGetMagnitude(self):
+        ...
+
+    @abstractmethod
+    def doGetPhase(self):
+        ...
+
+    @abstractmethod
+    def doGetReferenceFrequency(self):
+        ...
+
+    @abstractmethod
+    def doGetInputSource(self) -> InputSource:
+        ...
+
+    @abstractmethod
+    def doSetInputSource(self, source: InputSource):
+        ...
+
+    @abstractmethod
+    def doGetSensitivity(self):
+        ...
+
+    @abstractmethod
+    def doSetSensitivity(self, volts):
+        ...
+
+    @abstractmethod
+    def doGetTimeConstant(self):
+        ...
+
+    @abstractmethod
+    def doSetTimeConstant(self, seconds):
+        ...
+
+    def doGetSupportedInputSources(self):
+        """Optional: None means the instrument does not advertise a list."""
         return None
 
-    def supportedSensitivities(self):
-        """Optional: the full-scale sensitivities (volts) this instrument supports, or None."""
+    def doGetSupportedSensitivities(self):
+        """Optional: None means the instrument does not advertise a list."""
         return None
 
-    def supportedTimeConstants(self):
-        """Optional: the time constants (seconds) this instrument supports, or None."""
+    def doGetSupportedTimeConstants(self):
+        """Optional: None means the instrument does not advertise a list."""
         return None
 
-    def getDemodulatedValues(self):
-        """One reading of all demodulated outputs plus the reference frequency.
+    def doGetDemodulatedValues(self):
+        """Read the outputs one at a time.
 
-        Built on the individual getters; a driver may override it to read the
-        outputs atomically (a single coherent timepoint) when the hardware
-        supports it.
+        Optional: a driver overrides this when the hardware can read them
+        atomically, at a single coherent timepoint.
         """
         return {
             "X": self.getInPhaseVoltage(),
@@ -526,39 +623,60 @@ class TriggerCapability(Capability):
     PhysicalDevice in a driver.
     """
 
-    @abstractmethod
     def setTriggerSource(self, source: 'TriggerSource'):
         """Select whether the acquisition starts immediately or on an external trigger."""
-        ...
+        return self.doSetTriggerSource(source)
 
-    @abstractmethod
     def getTriggerSource(self) -> 'TriggerSource':
         """Returns the currently selected TriggerSource."""
+        return self.doGetTriggerSource()
+
+    def softwareTrigger(self):
+        """Issue a manual (software) trigger edge."""
+        return self.doSoftwareTrigger()
+
+    def supportedTriggerSources(self):
+        """Returns the TriggerSource members this device supports, or None."""
+        return self.doGetSupportedTriggerSources()
+
+    @abstractmethod
+    def doSetTriggerSource(self, source: 'TriggerSource'):
         ...
 
     @abstractmethod
-    def softwareTrigger(self):
-        """Issue a manual (software) trigger edge."""
+    def doGetTriggerSource(self) -> 'TriggerSource':
         ...
 
-    def supportedTriggerSources(self):
-        """Optional: the TriggerSource members this device supports, or None."""
+    @abstractmethod
+    def doSoftwareTrigger(self):
+        ...
+
+    def doGetSupportedTriggerSources(self):
+        """Optional: None means the device does not advertise a list."""
         return None
 
 
 class DigitalInputCapability(Capability):
     """Digital input capability. Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
     def getDigitalValue(self, channel):
+        """Returns the logic level read on channel."""
+        return self.doGetDigitalValue(channel)
+
+    @abstractmethod
+    def doGetDigitalValue(self, channel):
         ...
 
 
 class DigitalOutputCapability(Capability):
     """Digital output capability. Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
     def setDigitalValue(self, value, channel):
+        """Drive channel to the logic level value."""
+        return self.doSetDigitalValue(value, channel)
+
+    @abstractmethod
+    def doSetDigitalValue(self, value, channel):
         ...
 
 
@@ -569,12 +687,24 @@ class DigitalIOCapability(DigitalInputCapability, DigitalOutputCapability):
     """
 
     def configureDigitalIO(self, parameters: dict):
-        pass
+        """Apply the driver-specific digital configuration in parameters."""
+        return self.doConfigureDigitalIO(parameters)
 
     def getDigitalDirection(self, channel):
-        pass
+        """Returns whether channel is configured as an input or an output."""
+        return self.doGetDigitalDirection(channel)
 
     def setDigitalDirection(self, channel):
+        """Configure the direction of channel."""
+        return self.doSetDigitalDirection(channel)
+
+    def doConfigureDigitalIO(self, parameters: dict):
+        pass
+
+    def doGetDigitalDirection(self, channel):
+        pass
+
+    def doSetDigitalDirection(self, channel):
         pass
 
 
@@ -675,3 +805,65 @@ class CurrentMeteringCapability(Capability):
     @abstractmethod
     def doResetAccumulatedCharge(self):
         ...
+
+
+# ---------------------------------------------------------------------------
+# Introspection
+# ---------------------------------------------------------------------------
+
+
+def allCapabilities() -> list:
+    """Return every capability mixin defined here, in declaration order.
+
+    Use this to enumerate what the library can express, as opposed to
+    PhysicalDevice.capabilities(), which reports what one device supports. The
+    Capability marker base is excluded, and so are the drivers that mix these
+    in: a driver is a Capability subclass too, but it is declared in its own
+    module.
+    """
+    # A module's __dict__ is insertion-ordered, so filtering it in place yields
+    # the classes in the order they are declared above, grouped by family.
+    return [candidate for candidate in list(globals().values())
+            if isinstance(candidate, type)
+            and issubclass(candidate, Capability)
+            and candidate is not Capability
+            and candidate.__module__ == __name__]
+
+
+CapabilityMember = namedtuple("CapabilityMember", ["name", "signature", "isAbstract"])
+
+
+def capabilityInterface(aCapability) -> dict:
+    """Describe what a capability declares, as three lists under the keys
+    extends, publicAPI and hooks.
+
+    The publicAPI entries are the methods a user calls; the hooks are the ones a
+    driver implements. Both are CapabilityMember tuples, with an empty signature
+    for a property. Members a parent capability declares are left to that parent,
+    so a listing built from allCapabilities() never repeats them.
+    """
+    publicAPI, hooks = [], []
+    for name, member in vars(aCapability).items():
+        if name.startswith("_"):
+            continue
+
+        if isinstance(member, property):
+            signature = ""
+            isAbstract = getattr(member.fget, "__isabstractmethod__", False)
+        elif inspect.isfunction(member):
+            signature = inspect.signature(member)
+            signature = str(signature.replace(
+                parameters=list(signature.parameters.values())[1:]))
+            isAbstract = getattr(member, "__isabstractmethod__", False)
+        else:
+            continue
+
+        # The do prefix is what marks a hook, not abstractness: a hook that is
+        # optional, or that defaults to a composition of the other hooks, is
+        # concrete and would otherwise be mistaken for public API.
+        destination = hooks if name.startswith("do") else publicAPI
+        destination.append(CapabilityMember(name, signature, isAbstract))
+
+    extends = [klass for klass in aCapability.__mro__[1:]
+               if issubclass(klass, Capability) and klass is not Capability]
+    return {"extends": extends, "publicAPI": publicAPI, "hooks": hooks}
