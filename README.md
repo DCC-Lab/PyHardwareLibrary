@@ -4,10 +4,10 @@ A simple device-oriented library for controlling hardware devices in the laborat
 
 You may be here for one of two things:
 
-1. You want to use a device (e.g., Ocean Insight spectrometer), get data, and save it.
+1. You want to use a lab device (e.g., A translation stage from Thorlabs, an Ocean Optics spectrometer, a pwoermeter from Gentech-EO), get data, and save it.
 2. You want to program a driver to get a new device to work on your computer.
 
-If this applies to you, then keep reading.
+If this applies to you, then keep reading. It is not particularly difficult to communicate with USB devices and creating cross-platform drivers is trivial, but you need to understand USB itself.
 
 ## Learning more
 
@@ -396,26 +396,6 @@ frames = cam.captureFrames(n=5)        # capture 5 frames
 cam.shutdownDevice()
 ```
 
-### Using the DeviceManager
-
-The `DeviceManager` provides centralized discovery and monitoring of all connected USB devices:
-
-```python
-from hardwarelibrary import DeviceManager
-
-dm = DeviceManager()
-dm.startMonitoring()                   # background USB hotplug detection
-
-stages = dm.linearMotionDevices()      # all connected motion stages
-spectros = dm.spectrometerDevices()    # all connected spectrometers
-meters = dm.powerMeterDevices()        # all connected power meters
-
-# or get any single device of a type
-stage = dm.anyLinearMotionDevice()
-
-dm.stopMonitoring()
-```
-
 ### Listening for device events
 
 All devices post notifications through the `NotificationCenter`. You can observe device events without polling:
@@ -663,7 +643,7 @@ The strategy used by the present library is the following:
 
 ## Motivation
 
-I must also vent my frustration that end-user software from the manufacturers is often abysmaIly-designed, buggy and/or simply frustrating to use but most of the time, all of the above. I have even seen example code from companies that simply does not even compile. Others will only support Windows 7, and even say it with a straight face in 2021 like it's totally normal. On top of that, many companies will claim (erroneously) that their hardware cannot run on macOS, my platform of choice.  This is usually because of shear laziness or straight out incompetence: as long as it can connect to the computer, it can be supported.  For USB devices, it is often **trivial** to write a "driver" to support a device with appropriate documentation, and I have done it on numerous occasions. The rule of thumb is that the companies that have good software say, on Windows, usually have good software on many platforms, as they obviously understand how to program and undertand the simplicity of writing cross-platform code if you make it a design requirement. On the other hand, I have found that lack of support for platforms other than Windows usually translates in fairly crappy software on Windows anyway: these companies tend to be hardware companies that consider software only secondary and probably farm it out.  Shout out to ActiveSilicon, Sutter Instruments, Hamamatsu, Ocean Insight (for their excellent protocol documentation but holy mother certainly not for their software, "which is teh suck!"), and Thorlabs for being friendly to developers: they provide all the necessary information upon request and are of great help to scientists. On the other hand, here is a middle finger🖕 to many other companies I will not name here, but many camera providers come to mind (some sell cameras and are located near *Princeton* University) as well as a prominent company that rhymes with *ationalinstruments* that wins the grand prize for its uselessness and overall incompetence at providing anything useful in software to their end users for the last 20 years despite producing great hardware (somebody should also let them know that more than 12 pixels can be used to draw icons because this <img src="README.assets/automation.png" alt="automation" style="zoom:200%;" /> with a big red x in it apparently represents "automation" and this <img src="README.assets/Am.png" alt="Am" style="zoom:200%;" /> is "amplitude modulation". It would be funny if it wasn't so sad).
+I must also vent my frustration that end-user software from the manufacturers is often abysmaIly-designed, buggy and/or simply frustrating to use but most of the time, all of the above. I have even seen example code from companies that simply does not even compile. Others will only support Windows 7, and even say it with a straight face in 2021 like it's totally normal. On top of that, many companies will claim (erroneously) that their hardware cannot run on macOS, my platform of choice.  This is usually because of shear laziness or straight out incompetence: as long as it can connect to the computer, it can be supported.  For USB devices, it is often **trivial** to write a "driver" to support a device with appropriate documentation, and I have done it on numerous occasions. The rule of thumb is that the companies that have good software say, on Windows, usually have good software on many platforms, as they obviously understand how to program and undertand the simplicity of writing cross-platform code if you make it a design requirement. On the other hand, I have found that lack of support for platforms other than Windows usually translates in fairly crappy software on Windows anyway: these companies tend to be hardware companies that consider software only secondary and probably farm it out.  Shout out to ActiveSilicon, Sutter Instruments, Hamamatsu, Ocean ~Optics~ ~Insight~ Optics (for their excellent protocol documentation but holy mother certainly not for their software, "which is teh suck!"), and Thorlabs for being friendly to developers: they provide all the necessary information upon request and are of great help to scientists. On the other hand, here is a middle finger🖕 to many other companies I will not name here, but many camera providers come to mind (some sell cameras and are located near *Princeton* University) as well as a prominent company that rhymes with *ationalinstruments* that wins the grand prize for its uselessness and overall incompetence at providing anything useful in software to their end users for the last 20 years despite producing great hardware (somebody should also let them know that more than 12 pixels can be used to draw icons because this <img src="README.assets/automation.png" alt="automation" style="zoom:200%;" /> with a big red x in it apparently represents "automation" and this <img src="README.assets/Am.png" alt="Am" style="zoom:200%;" /> is "amplitude modulation". It would be funny if it wasn't so sad).
 
 PyHardwareLibrary is therefore a personnel project to get around those missing, buggy, awkward, poorly-designed, unsupported, slow, unusable drivers and libraries from vendors and also a teaching tool for myself and others.
 
