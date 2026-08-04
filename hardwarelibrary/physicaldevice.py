@@ -79,6 +79,22 @@ class PhysicalDevice(ABC):
         # arguments and call super().__init__() itself.
         super().__init__()
 
+    def validateReady(self, operation=None):
+        """Raise PhysicalDevice.NotInitialized unless the device is Ready.
+
+        Overrides the no-op on Capability, which sits behind PhysicalDevice in a
+        driver's MRO, so every notified operation is guarded without a driver
+        writing anything. Without it, an operation on an unopened device fails
+        deep inside the driver on a port that is still None -- or worse, a debug
+        device answers as though the hardware had done it.
+        """
+        if self.state != DeviceState.Ready:
+            raise PhysicalDevice.NotInitialized(
+                "Cannot {0} on {1}: the device is {2}, not Ready. Call "
+                "initializeDevice() first.".format(
+                    "{0}()".format(operation) if operation else "operate",
+                    type(self).__name__, self.state.name))
+
     def capabilities(self) -> list:
         # The capability mixins, not the Capability marker nor the device class
         # itself (a driver is a Capability subclass too, but it is a

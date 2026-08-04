@@ -422,6 +422,8 @@ center.add_observer(
 * a **read** posts only `did...`, e.g. `didGetPower` — bracketing a value that is merely being read would double the traffic on hot paths like a voltage sampled in a loop, for no added information. The exception is `SpectrometerNotification.willGetSpectrum`, because an acquisition takes an integration time and a display has something to show while it waits;
 * the `did...` is posted **whether the operation worked or not**, so a `will...` is always followed by its `did...` and you never have to wonder whether an operation is still running. If the driver raised, the exception continues on its way untouched — your code still sees it — and the notification carries it.
 
+Every one of these operations also requires an initialized device: calling `laser.turnOn()` before `initializeDevice()` raises `PhysicalDevice.NotInitialized` telling you which operation, which device and what state it is in, instead of failing deep inside the driver on a port that was never opened. Nothing is posted in that case, since nothing was attempted. Asking what a model supports (`supportedSensitivities()`, `outletCount`) is exempt, so a UI can populate its menus before connecting.
+
 The payload in `notification.user_info` is a dict of the method's arguments by name, plus `"result"` and `"error"`. Exactly one of those two is set, which is how an observer tells the outcome:
 
 ```python

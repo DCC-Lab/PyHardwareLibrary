@@ -44,7 +44,7 @@ from enum import Enum
 from notificationcenter import NotificationCenter
 
 
-def notifies(did, will=None):
+def notifies(did, will=None, requiresReady=True):
     """Bracket a capability's public method with notifications.
 
     Posts `will` (when the operation changes the instrument) before the call and
@@ -58,6 +58,13 @@ def notifies(did, will=None):
     driver's own exception type is part of its contract, and the library must
     not disguise it. An observer decides what to do from the presence of an
     error; a caller still gets the exception.
+
+    The device must be initialized: validateReady() runs first and raises
+    PhysicalDevice.NotInitialized otherwise. It runs before the will is posted,
+    because nothing was attempted and the hardware was never touched, so an
+    observer should hear nothing at all. Pass requiresReady=False for a method
+    that only reports what the instrument supports, which a UI may legitimately
+    ask before connecting.
     """
     def decorator(method):
         signature = inspect.signature(method)
@@ -65,6 +72,9 @@ def notifies(did, will=None):
 
         @functools.wraps(method)
         def wrapper(self, *args, **keywordArguments):
+            if requiresReady:
+                self.validateReady(operation=method.__name__)
+
             arguments = {}
             if takesArguments:
                 bound = signature.bind(self, *args, **keywordArguments)
@@ -103,6 +113,17 @@ class Capability(ABC):
     # The <Capability>Notification enum each mixin posts, so that
     # allCapabilities() also enumerates every notification the library defines.
     notification = None
+
+    def validateReady(self, operation=None):
+        """Confirm the device is initialized before an operation touches it.
+
+        A mixin standing on its own has no device state to check, so this does
+        nothing. PhysicalDevice sits ahead of every capability in a driver's MRO
+        and overrides it with the real check, which is the one that runs on real
+        hardware; this fallback exists so a capability can still be exercised
+        bare, as the tests do.
+        """
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -781,17 +802,20 @@ class PhaseLockedDetectionCapability(Capability):
         """Set the time constant to the nearest supported step, in seconds."""
         return self.doSetTimeConstant(seconds)
 
-    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedInputSources)
+    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedInputSources,
+              requiresReady=False)
     def supportedInputSources(self):
         """Returns the InputSource members this instrument supports, or None."""
         return self.doGetSupportedInputSources()
 
-    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedSensitivities)
+    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedSensitivities,
+              requiresReady=False)
     def supportedSensitivities(self):
         """Returns the full-scale sensitivities (volts) this instrument supports, or None."""
         return self.doGetSupportedSensitivities()
 
-    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedTimeConstants)
+    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedTimeConstants,
+              requiresReady=False)
     def supportedTimeConstants(self):
         """Returns the time constants (seconds) this instrument supports, or None."""
         return self.doGetSupportedTimeConstants()
@@ -929,7 +953,8 @@ class TriggerCapability(Capability):
         """Issue a manual (software) trigger edge."""
         return self.doSoftwareTrigger()
 
-    @notifies(did=TriggerNotification.didGetSupportedTriggerSources)
+    @notifies(did=TriggerNotification.didGetSupportedTriggerSources,
+              requiresReady=False)
     def supportedTriggerSources(self):
         """Returns the TriggerSource members this device supports, or None."""
         return self.doGetSupportedTriggerSources()
@@ -1076,7 +1101,8 @@ class OutletSwitchingCapability(Capability):
         return self.doGetOutletState(outlet)
 
     @property
-    @notifies(did=OutletSwitchingNotification.didGetOutletCount)
+    # How many outlets the model has is a fact about the strip, not a reading.
+    @notifies(did=OutletSwitchingNotification.didGetOutletCount, requiresReady=False)
     def outletCount(self) -> int:
         return self.doGetOutletCount()
 

@@ -2,6 +2,7 @@ import env
 import unittest
 import time
 
+from hardwarelibrary.physicaldevice import DeviceState
 from hardwarelibrary.spectrometers.oceaninsight import (
     OISpectrometer, SpectrumRequestTimeoutError,
 )
@@ -15,6 +16,10 @@ class MockOISpectrometer(OISpectrometer):
     """
 
     def __init__(self, spectrumReady=False):
+        # PhysicalDevice.__init__ is bypassed, so declare the state it would
+        # have set: this mock stands in for a spectrometer already connected,
+        # and getSpectrum refuses to run on a device that is not Ready.
+        self.state = DeviceState.Ready
         self.spectrumReady = spectrumReady
         self.requestCount = 0
 

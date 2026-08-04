@@ -52,6 +52,19 @@ API changes can land even when the minor version is unchanged.
   - `Spectrometer` gained the `notification` attribute it was missing.
   - `CameraDeviceNotification` is left alone: a capture session is a different
     shape (`imageCaptured` fires per frame), not a will/did pair around one hook.
+- **Every notified operation now requires an initialized device.** `@notifies` calls
+  `validateReady()` before anything else, raising `PhysicalDevice.NotInitialized`
+  unless the device is `Ready` and naming the operation, the class and the actual
+  state. Previously such a call either failed deep inside the driver with
+  `AttributeError: 'NoneType' object has no attribute ...` on a port that was never
+  opened, or -- on a debug device -- answered as though the hardware had done it and
+  posted a `did*` claiming success. The check runs before the `will` is posted, so a
+  refused call announces nothing. `PhysicalDevice.validateReady` is the real check;
+  `Capability.validateReady` is a no-op behind it in the MRO so a mixin can still be
+  exercised on its own. Methods that only report what a model supports
+  (`supportedInputSources`, `supportedSensitivities`, `supportedTimeConstants`,
+  `supportedTriggerSources`, `outletCount`) are exempt via `requiresReady=False`,
+  since a UI populates its menus before connecting.
 - `allCapabilities()` in `hardwarelibrary/capabilities.py`: returns every capability
   mixin the library defines, in declaration order. It answers the library-wide
   question ("what can be expressed?"), where `PhysicalDevice.capabilities()` answers
@@ -62,8 +75,8 @@ API changes can land even when the minor version is unchanged.
 - `capabilityInterface()` in `hardwarelibrary/capabilities.py`: describes one capability
   as `extends` / `publicAPI` / `hooks` lists of `CapabilityMember(name, signature,
   isAbstract)` tuples. The `do` prefix is what separates a hook from the public API,
-  not abstractness: the DAQ capabilities make the public method itself abstract with
-  no `do*` counterpart. Members a parent capability declares are left to that parent.
+  not abstractness: a hook that is optional, or that defaults to a composition of the
+  others, is concrete. Members a parent capability declares are left to that parent.
 - `python -m hardwarelibrary --capabilities` (`-c`): prints every capability with the
   methods it defines and the hooks a driver must implement, so the list never has to
   be maintained by hand.

@@ -14,7 +14,10 @@ from hardwarelibrary.capabilities import (
     OnOffCapability, ShutterCapability, PowerCapability,
     AnalogInputCapability, AnalogOutputCapability, AnalogIOCapability,
     AnalogNotification, OutletSwitchingCapability)
-from hardwarelibrary.physicaldevice import PhysicalDevice
+from hardwarelibrary.daq import DebugSR830Device
+from hardwarelibrary.physicaldevice import DeviceState, PhysicalDevice
+from hardwarelibrary.powerstrips import DebugPwrUSBDevice
+from hardwarelibrary.sources import DebugMillenniaDevice
 from notificationcenter import NotificationCenter
 
 
@@ -242,6 +245,80 @@ class TestCapabilityInterface(unittest.TestCase):
         self.assertEqual(set(capabilityInterface(AnalogIOCapability)["extends"]),
                          {AnalogInputCapability, AnalogOutputCapability})
         self.assertEqual(capabilityInterface(OnOffCapability)["extends"], [])
+
+
+class TestStateGuard(unittest.TestCase):
+    def setUp(self):
+        self.laser = DebugMillenniaDevice()
+        self.recorder = NotificationRecorder()
+        self.recorder.observe(OnOffCapability.notification)
+
+    def tearDown(self):
+        self.recorder.stop()
+        if self.laser.state == DeviceState.Ready:
+            self.laser.shutdownDevice()
+
+    def testAnOperationBeforeInitializationRaises(self):
+        with self.assertRaises(PhysicalDevice.NotInitialized):
+            self.laser.turnOn()
+
+    def testTheErrorNamesTheOperationTheDeviceAndTheState(self):
+        with self.assertRaises(PhysicalDevice.NotInitialized) as raised:
+            self.laser.turnOn()
+        message = str(raised.exception)
+        self.assertIn("turnOn()", message)
+        self.assertIn("DebugMillenniaEv25Device", message)
+        self.assertIn("Unconfigured", message)
+
+    def testNothingIsPostedWhenTheDeviceIsNotReady(self):
+        # Not even a will: nothing was attempted and the hardware was never
+        # touched, so an observer should hear nothing at all.
+        with self.assertRaises(PhysicalDevice.NotInitialized):
+            self.laser.turnOn()
+        self.assertEqual(self.recorder.names(), [])
+
+    def testAReadIsGuardedToo(self):
+        with self.assertRaises(PhysicalDevice.NotInitialized):
+            self.laser.isLaserOn()
+
+    def testTheOperationRunsOnceTheDeviceIsReady(self):
+        self.laser.initializeDevice()
+        self.laser.turnOn()
+        self.assertTrue(self.laser.isLaserOn())
+        self.assertEqual(self.recorder.names(),
+                         ["willTurnOn", "didTurnOn", "didGetOnOffState"])
+
+    def testAShutdownDeviceIsGuardedAgain(self):
+        self.laser.initializeDevice()
+        self.laser.shutdownDevice()
+        with self.assertRaises(PhysicalDevice.NotInitialized):
+            self.laser.turnOn()
+
+    def testWhatAnInstrumentSupportsCanBeAskedBeforeConnecting(self):
+        # A UI populates its menus before the device is opened, so the methods
+        # that only report capabilities of the model are exempt from the guard.
+        lockin = DebugSR830Device()
+        self.assertEqual(lockin.state, DeviceState.Unconfigured)
+        self.assertIsNotNone(lockin.supportedSensitivities())
+        self.assertIsNotNone(lockin.supportedTimeConstants())
+        self.assertIsNotNone(lockin.supportedInputSources())
+        self.assertIsNotNone(lockin.supportedTriggerSources())
+        self.assertEqual(DebugPwrUSBDevice().outletCount, 3)
+
+    def testEveryOtherOperationOfEveryCapabilityIsGuarded(self):
+        # Walks the public API rather than naming methods, so a capability added
+        # later cannot quietly escape the guard.
+        exempt = {"supportedInputSources", "supportedSensitivities",
+                  "supportedTimeConstants", "supportedTriggerSources",
+                  "outletCount", "canTurnOn"}
+        for capability in allCapabilities():
+            for member in capabilityInterface(capability)["publicAPI"]:
+                if member.name in exempt:
+                    continue
+                method = getattr(capability, member.name)
+                self.assertTrue(hasattr(method, "__wrapped__"),
+                                "{0}.{1} is not wrapped by @notifies".format(
+                                    capability.__name__, member.name))
 
 
 class _FailingAnalogDevice(AnalogIOCapability):
