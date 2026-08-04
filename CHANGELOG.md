@@ -158,6 +158,27 @@ API changes can land even when the minor version is unchanged.
   from first principles, and refreshed the class-hierarchy diagram, which was
   stale in the same way.
 
+## [2.0.0] - 2026-07-24
+
+Recorded after the fact: this release was tagged without a changelog entry.
+
+### Changed
+- **`NotificationCenter` now comes from the standalone `notifcenter` package** on
+  PyPI, added as a dependency, rather than living in the library.
+  `hardwarelibrary/notificationcenter.py` is deleted, and the 19 imports across the
+  tree point at `from notificationcenter import ...`. `hardwarelibrary/__init__.py`
+  re-exports the external package, so `from hardwarelibrary import
+  NotificationCenter` keeps working.
+- **The notification API is snake_case**, a clean break with no aliases, across
+  roughly 286 call sites: `addObserver` -> `add_observer`, `postNotification` ->
+  `post_notification`, `removeObserver` -> `remove_observer`, `observersCount` ->
+  `observers_count`, and the keyword arguments and attributes `notificationName`,
+  `observedObject`, `userInfo`, `notifyingObject` -> `notification_name`,
+  `observed_object`, `user_info`, `notifying_object`. Any code observing a device
+  must be updated; this is what made the release a major one. Note that the rest of
+  the library remains camelCase -- the snake_case is the external package's
+  convention, not a change of style here.
+
 ## [1.5.0] - 2026-07-22
 
 ### Added
