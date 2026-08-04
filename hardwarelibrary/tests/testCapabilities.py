@@ -2,6 +2,7 @@ import env
 import os
 import sys
 import unittest
+from enum import Enum
 
 import hardwarelibrary.daq
 import hardwarelibrary.powermeters
@@ -12,8 +13,9 @@ from hardwarelibrary.capabilities import (
     Capability, allCapabilities, capabilityInterface,
     OnOffCapability, ShutterCapability, PowerCapability,
     AnalogInputCapability, AnalogOutputCapability, AnalogIOCapability,
-    OutletSwitchingCapability)
+    AnalogNotification, OutletSwitchingCapability)
 from hardwarelibrary.physicaldevice import PhysicalDevice
+from notificationcenter import NotificationCenter
 
 
 testsDirectory = os.path.dirname(os.path.abspath(__file__))
@@ -199,6 +201,172 @@ class TestCapabilityInterface(unittest.TestCase):
         self.assertEqual(set(capabilityInterface(AnalogIOCapability)["extends"]),
                          {AnalogInputCapability, AnalogOutputCapability})
         self.assertEqual(capabilityInterface(OnOffCapability)["extends"], [])
+
+
+class _FailingAnalogDevice(AnalogIOCapability):
+    """Every hook raises, so the failure path can be exercised."""
+
+    class Failure(RuntimeError):
+        pass
+
+    def doGetAnalogVoltage(self, channel):
+        raise self.Failure("no hardware")
+
+    def doSetAnalogVoltage(self, value, channel):
+        raise self.Failure("no hardware")
+
+
+class NotificationRecorder:
+    """Collects every notification a capability posts, in order."""
+
+    def __init__(self):
+        self.received = []
+
+    def observe(self, notificationEnum):
+        for member in notificationEnum:
+            NotificationCenter().add_observer(self, self.record, member)
+
+    def record(self, notification):
+        self.received.append(notification)
+
+    def names(self):
+        return [notification.name.name for notification in self.received]
+
+    def stop(self):
+        NotificationCenter().remove_observer(self)
+
+
+class TestCapabilityNotifications(unittest.TestCase):
+    def setUp(self):
+        self.recorder = NotificationRecorder()
+
+    def tearDown(self):
+        self.recorder.stop()
+
+    def testEveryCapabilityOwnsANotificationEnum(self):
+        for capability in allCapabilities():
+            self.assertTrue(issubclass(capability.notification, Enum), capability.__name__)
+
+    def testNoEnumCarriesASeparateFailureMember(self):
+        # A failure is reported through the operation's own did*, so a will* is
+        # always followed by its did* and an observer never has to pair two
+        # different members to know an operation ended.
+        for capability in allCapabilities():
+            self.assertNotIn("didFail", capability.notification.__members__,
+                             capability.__name__)
+
+    def testEveryHookHasItsDidNotification(self):
+        for capability in allCapabilities():
+            members = capability.notification.__members__
+            for hook in capabilityInterface(capability)["hooks"]:
+                stem = hook.name[len("do"):]
+                self.assertIn("did" + stem, members,
+                              "{0}.{1}".format(capability.__name__, hook.name))
+
+    def testOnlyOperationsThatChangeTheInstrumentHaveAWillNotification(self):
+        # A read posts did only: bracketing a value being read doubles the
+        # traffic on the hot paths for no added information.
+        for capability in allCapabilities():
+            members = capability.notification.__members__
+            for hook in capabilityInterface(capability)["hooks"]:
+                stem = hook.name[len("do"):]
+                isRead = hook.name.startswith("doGet") or hook.name.startswith("doRead")
+                self.assertEqual("will" + stem not in members, isRead,
+                                 "{0}.{1}".format(capability.__name__, hook.name))
+
+    def testNoNotificationIsDefinedForAHookThatDoesNotExist(self):
+        # An enum shared by a family of capabilities carries the members of every
+        # hook in that family, so the stems are checked against their union.
+        stemsByEnum = {}
+        for capability in allCapabilities():
+            stems = stemsByEnum.setdefault(capability.notification, set())
+            stems.update(hook.name[len("do"):]
+                         for hook in capabilityInterface(capability)["hooks"])
+        for notificationEnum, hookStems in stemsByEnum.items():
+            for memberName in notificationEnum.__members__:
+                stem = memberName[len("will"):] if memberName.startswith("will") \
+                    else memberName[len("did"):]
+                self.assertIn(stem, hookStems,
+                              "{0}.{1}".format(notificationEnum.__name__, memberName))
+
+    def testCapabilitiesInOneInheritanceChainShareOneEnum(self):
+        # Sharing is what makes the members interchangeable: a device mixing in
+        # AnalogIOCapability posts the same member as one mixing in only
+        # AnalogOutputCapability, so an observer registers once.
+        for capability in allCapabilities():
+            for other in allCapabilities():
+                if capability is not other and issubclass(capability, other):
+                    self.assertIs(capability.notification, other.notification,
+                                  "{0} vs {1}".format(capability.__name__, other.__name__))
+
+    def testAnActionPostsWillThenDidWithItsArgumentsAndResult(self):
+        self.recorder.observe(AnalogNotification)
+        device = _RecordingAnalogDevice()
+        device.setAnalogVoltage(2.5, channel=1)
+        self.assertEqual(self.recorder.names(),
+                         ["willSetAnalogVoltage", "didSetAnalogVoltage"])
+        willNotification, didNotification = self.recorder.received
+        self.assertEqual(willNotification.user_info, {"value": 2.5, "channel": 1})
+        self.assertEqual(didNotification.user_info,
+                         {"value": 2.5, "channel": 1, "result": None, "error": None})
+
+    def testAReadPostsDidOnly(self):
+        self.recorder.observe(AnalogNotification)
+        device = _RecordingAnalogDevice()
+        device.getAnalogVoltage(3)
+        self.assertEqual(self.recorder.names(), ["didGetAnalogVoltage"])
+        self.assertEqual(self.recorder.received[0].user_info,
+                         {"channel": 3, "result": 1.5, "error": None})
+
+    def testTheNotifyingObjectIsTheDevice(self):
+        self.recorder.observe(AnalogNotification)
+        device = _RecordingAnalogDevice()
+        device.getAnalogVoltage(0)
+        self.assertIs(self.recorder.received[0].object, device)
+
+    def testAFailingHookStillPostsDidCarryingTheErrorAndReRaisesUntouched(self):
+        self.recorder.observe(AnalogNotification)
+        device = _FailingAnalogDevice()
+        with self.assertRaises(_FailingAnalogDevice.Failure):
+            device.setAnalogVoltage(2.5, channel=1)
+        self.assertEqual(self.recorder.names(),
+                         ["willSetAnalogVoltage", "didSetAnalogVoltage"])
+        payload = self.recorder.received[-1].user_info
+        self.assertEqual(payload["value"], 2.5)
+        self.assertEqual(payload["channel"], 1)
+        self.assertIsNone(payload["result"])
+        self.assertIsInstance(payload["error"], _FailingAnalogDevice.Failure)
+
+    def testAFailingReadPostsItsDidWithTheError(self):
+        self.recorder.observe(AnalogNotification)
+        device = _FailingAnalogDevice()
+        with self.assertRaises(_FailingAnalogDevice.Failure):
+            device.getAnalogVoltage(0)
+        self.assertEqual(self.recorder.names(), ["didGetAnalogVoltage"])
+        self.assertIsInstance(self.recorder.received[0].user_info["error"],
+                              _FailingAnalogDevice.Failure)
+
+    def testAnObserverTellsSuccessFromFailureByTheErrorAlone(self):
+        self.recorder.observe(AnalogNotification)
+        _RecordingAnalogDevice().getAnalogVoltage(0)
+        try:
+            _FailingAnalogDevice().getAnalogVoltage(0)
+        except _FailingAnalogDevice.Failure:
+            pass
+        succeeded, failed = self.recorder.received
+        self.assertIs(succeeded.name, failed.name)
+        self.assertIsNone(succeeded.user_info["error"])
+        self.assertIsNotNone(failed.user_info["error"])
+
+    def testDecoratedMethodsKeepTheirIdentity(self):
+        # capabilityInterface and the docs read the public signature, so the
+        # decorator must not replace it with (*args, **kwargs).
+        interface = capabilityInterface(AnalogOutputCapability)
+        member = interface["publicAPI"][0]
+        self.assertEqual(member.name, "setAnalogVoltage")
+        self.assertEqual(member.signature, "(value, channel)")
+        self.assertEqual(AnalogOutputCapability.setAnalogVoltage.__doc__,
+                         "Set the output on channel to value, in volts.")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,34 @@ API changes can land even when the minor version is unchanged.
 ## [Unreleased]
 
 ### Added
+- **Notifications on every capability.** Each capability owns a
+  `<Capability>Notification` enum, reachable as its `notification` attribute, and
+  every public method is wrapped in the new `@notifies(will=..., did=...)`
+  decorator, so a driver gets notifications by implementing hooks and writing no
+  notification code at all. An operation that changes the instrument posts
+  `will<Stem>` then `did<Stem>`; a read (`doGet*`, `doReadStream`) posts only
+  `did<Stem>`, to keep a voltage sampled in a loop at one notification instead of
+  two. `Spectrometer` gets `SpectrometerNotification`, whose `getSpectrum` keeps a
+  `will` because an acquisition takes an integration time.
+  - `did*` is posted whether the operation succeeded or not, so a `will*` is always
+    followed by its `did*` and there is no separate failure member to pair up. The
+    exception is still **re-raised untouched**, since a driver's exception type is
+    part of its contract, so a caller sees it exactly as before while an observer
+    decides what to do from the payload.
+  - `user_info` is a dict of the public method's arguments by name, plus `"result"`
+    and `"error"`, exactly one of which is non-None.
+  - Capabilities related by inheritance share one enum, so `notification` is the
+    same object on all of them and the members are interchangeable:
+    `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability` and
+    `AnalogInputStreamCapability` all post `AnalogNotification`, and the digital
+    trio posts `DigitalNotification` (17 enums for 22 capabilities). Members are
+    keyed by identity, so without sharing an observer would have to know which
+    variant a device mixed in.
+  - Measured overhead on a read with no observer is ~1.6 us per call (~2.0 us with
+    one observer), against millisecond-scale device I/O.
+  - Removes the unused nested `AnalogInputStreamCapability.Notification`
+    (`willAcquire` / `didAcquire`), which was never posted; the equivalent members
+    are now `AnalogInputStreamNotification.willAcquireWaveform` / `didAcquireWaveform`.
 - `allCapabilities()` in `hardwarelibrary/capabilities.py`: returns every capability
   mixin the library defines, in declaration order. It answers the library-wide
   question ("what can be expressed?"), where `PhysicalDevice.capabilities()` answers

@@ -398,25 +398,43 @@ cam.shutdownDevice()
 
 ### Listening for device events
 
-All devices post notifications through the `NotificationCenter`. You can observe device events without polling:
+All devices post notifications through the `NotificationCenter`, so you can observe what the hardware does without polling:
 
 ```python
-from hardwarelibrary import NotificationCenter
-from hardwarelibrary.motion.linearmotiondevice import LinearMotionNotification
+from notificationcenter import NotificationCenter
+from hardwarelibrary.capabilities import ShutterNotification
 
-def onMove(notification):
-    print(f"Stage moved to {notification.userInfo}")
+def onShutter(notification):
+    print("shutter opened on", notification.object)
 
-nc = NotificationCenter()
-nc.addObserver(
+center = NotificationCenter()
+center.add_observer(
     observer=self,
-    method=onMove,
-    notificationName=LinearMotionNotification.didMove,
-    observedObject=stage
+    method=onShutter,
+    notification_name=ShutterNotification.didOpenShutter,
+    observed_object=laser,          # omit to hear it from every device
 )
 ```
 
-Available notification enums include `PhysicalDeviceNotification`, `LinearMotionNotification`, `RotationMotionNotification`, `PowerMeterNotification`, `CameraDeviceNotification`, and `DeviceManagerNotification`.
+**Every capability posts its own notifications**, and you get them for free: a driver only implements the `do` hooks, and the public method does the announcing. Each capability owns an enum, reachable as `ShutterCapability.notification`, following three rules:
+
+* an operation that **changes** the instrument posts `will...` before and `did...` after, e.g. `willOpenShutter` then `didOpenShutter`;
+* a **read** posts only `did...`, e.g. `didGetPower` — bracketing a value that is merely being read would double the traffic on hot paths like a voltage sampled in a loop, for no added information. The exception is `SpectrometerNotification.willGetSpectrum`, because an acquisition takes an integration time and a display has something to show while it waits;
+* the `did...` is posted **whether the operation worked or not**, so a `will...` is always followed by its `did...` and you never have to wonder whether an operation is still running. If the driver raised, the exception continues on its way untouched — your code still sees it — and the notification carries it.
+
+The payload in `notification.user_info` is a dict of the method's arguments by name, plus `"result"` and `"error"`. Exactly one of those two is set, which is how an observer tells the outcome:
+
+```python
+def onPowerSet(notification):
+    if notification.user_info["error"] is not None:
+        log.warning("could not set the power: %s", notification.user_info["error"])
+    else:
+        display.update(notification.user_info["power"])
+```
+
+Capabilities related by inheritance share one enum, so you never have to know which variant a device mixed in: `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability` and `AnalogInputStreamCapability` all post `AnalogNotification`, and the three digital ones post `DigitalNotification`. Observing `AnalogNotification.didSetAnalogVoltage` catches the event from a LabJack (which mixes in the combined `AnalogIOCapability`) and from a lock-in amplifier (which mixes in only `AnalogOutputCapability`) alike.
+
+`python -m hardwarelibrary --capabilities` prints every capability with the notifications it posts. Beyond the capabilities, the device-wide enums are `PhysicalDeviceNotification`, `LinearMotionNotification`, `RotationMotionNotification`, `PowerMeterNotification`, `CameraDeviceNotification`, `SpectrometerNotification`, `DeviceControllerNotification`, and `DeviceManagerNotification`.
 
 ### Testing without hardware
 

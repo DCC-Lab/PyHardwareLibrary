@@ -90,6 +90,9 @@ if listCapabilities == True:
         extends = ", ".join(klass.__name__ for klass in interface["extends"])
         print("{0}{1}".format(capability.__name__,
                               "  (extends {0})".format(extends) if extends else ""))
+        print("    posts: {0} ({1})".format(
+            capability.notification.__name__,
+            ", ".join(member.name for member in capability.notification)))
         for member in interface["publicAPI"]:
             print("    {0}{1}{2}".format(member.name, readableSignature(member),
                                          "   [must be implemented]" if member.isAbstract else ""))

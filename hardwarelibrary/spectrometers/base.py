@@ -16,8 +16,18 @@ import usb.core
 import usb.util
 import usb.backend.libusb1
 
+from enum import Enum
 from pathlib import *
+from hardwarelibrary.capabilities import notifies
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
+
+class SpectrometerNotification(Enum):
+    # getSpectrum keeps a will, unlike the other reads in the library: acquiring
+    # a spectrum takes an integration time, so a display has something to show
+    # while it waits.
+    willGetSpectrum    = "willGetSpectrum"
+    didGetSpectrum     = "didGetSpectrum"
+    didGetSerialNumber = "didGetSerialNumber"
 
 class NoSpectrometerConnected(RuntimeError):
     pass
@@ -39,10 +49,13 @@ class Spectrometer(PhysicalDevice):
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
 
+    @notifies(did=SpectrometerNotification.didGetSerialNumber)
     def getSerialNumber(self):
         """Returns the serial number, which tells two connected spectrometers apart."""
         return self.doGetSerialNumber()
 
+    @notifies(will=SpectrometerNotification.willGetSpectrum,
+              did=SpectrometerNotification.didGetSpectrum)
     def getSpectrum(self, **parameters) -> np.array:
         """Returns one spectrum, as an array of intensities.
 
