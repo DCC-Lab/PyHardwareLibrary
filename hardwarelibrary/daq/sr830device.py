@@ -233,14 +233,14 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
         self.idn = self.query("*IDN?")
         return self.idn
 
-    def getAnalogVoltage(self, channel):
+    def doGetAnalogVoltage(self, channel):
         """Read an Aux Input, in volts (SR830 OAUX?). channel is an AuxInput
         member; a bare 1-4 is also accepted and coerced, and anything else
         raises ValueError."""
         channel = AuxInput(channel)
         return self.queryFloat("OAUX? {0}".format(channel.value))
 
-    def setAnalogVoltage(self, value, channel):
+    def doSetAnalogVoltage(self, value, channel):
         """Set an Aux Output to value volts (SR830 AUXV). channel is an AuxOutput
         member (a bare 1-4 is also accepted and coerced). value must be within
         [-10.5, 10.5] V or ValueError is raised."""
@@ -257,23 +257,23 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
         channel = AuxOutput(channel)
         return self.queryFloat("AUXV? {0}".format(channel.value))
 
-    def getInPhaseVoltage(self):
+    def doGetInPhaseVoltage(self):
         """Returns the in-phase component X, in volts (SR830 OUTP? 1)."""
         return self.queryFloat("OUTP? 1")
 
-    def getQuadratureVoltage(self):
+    def doGetQuadratureVoltage(self):
         """Returns the quadrature component Y, in volts (SR830 OUTP? 2)."""
         return self.queryFloat("OUTP? 2")
 
-    def getMagnitude(self):
+    def doGetMagnitude(self):
         """Returns the magnitude R = sqrt(X^2 + Y^2), in volts (SR830 OUTP? 3)."""
         return self.queryFloat("OUTP? 3")
 
-    def getPhase(self):
+    def doGetPhase(self):
         """Returns the phase theta, in degrees (SR830 OUTP? 4)."""
         return self.queryFloat("OUTP? 4")
 
-    def getReferenceFrequency(self):
+    def doGetReferenceFrequency(self):
         """Returns the reference frequency, in Hz (SR830 FREQ?)."""
         return self.queryFloat("FREQ?")
 
@@ -286,7 +286,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
         command = "SNAP? " + ",".join(str(int(parameter)) for parameter in parameters)
         return tuple(float(value) for value in self.query(command).split(","))
 
-    def getDemodulatedValues(self):
+    def doGetDemodulatedValues(self):
         """Read X, Y, R, and theta at one instant, plus the reference frequency.
 
         Overrides the base implementation to read the four outputs atomically via
@@ -300,7 +300,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
     # buffer. channels are StreamChannel members (at most one CH1 and one CH2
     # quantity). acquireWaveform (from the base) loops readStream for you.
 
-    def configureStream(self, channels, sampleRate, sampleClock=SampleClock.Internal):
+    def doConfigureStream(self, channels, sampleRate, sampleClock=SampleClock.Internal):
         """Set up buffered acquisition. channels is a list of StreamChannel
         members (1 or 2, not both on the same display). With an Internal
         sampleClock, sampleRate (Hz) is snapped to the nearest SRAT step. With an
@@ -327,7 +327,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
         self._streamChannels = channels
         self._streamReadIndex = 0
 
-    def startStream(self):
+    def doStartStream(self):
         """Clear the data buffer (REST) and start acquisition (STRT).
 
         With an External trigger source the SR830 arms here but does not record
@@ -337,7 +337,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
         self._streamReadIndex = 0
         self.writeCommand("STRT")
 
-    def readStream(self):
+    def doReadStream(self):
         """Return the samples buffered since the last read, as {channel: [volts, ...]}.
 
         Reads how many points the buffer holds (SPTS?) and transfers only the new
@@ -357,7 +357,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
         self._streamReadIndex = available
         return block
 
-    def stopStream(self):
+    def doStopStream(self):
         """Pause acquisition into the data buffer (SR830 PAUS)."""
         self.writeCommand("PAUS")
 
@@ -373,7 +373,7 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
     # TriggerCapability: the rear-panel TRIG IN. setTriggerSource(External) arms
     # the scan to start on a trigger edge (TSTR); trigger() issues a software edge.
 
-    def setTriggerSource(self, source: TriggerSource):
+    def doSetTriggerSource(self, source: TriggerSource):
         """Select immediate (Internal) or external-trigger (External) scan start
         (SR830 TSTR). source must be a supported TriggerSource or ValueError is
         raised."""
@@ -381,54 +381,54 @@ class SR830Device(PhysicalDevice, AnalogInputStreamCapability, AnalogOutputCapab
             raise ValueError("Unsupported trigger source {0}".format(source))
         self.writeCommand("TSTR {0}".format(_TRIGGER_SOURCE_TO_INDEX[source]))
 
-    def getTriggerSource(self) -> TriggerSource:
+    def doGetTriggerSource(self) -> TriggerSource:
         """Returns the current scan-start TriggerSource (SR830 TSTR?)."""
         return _INDEX_TO_TRIGGER_SOURCE[self.queryInteger("TSTR?")]
 
-    def softwareTrigger(self):
+    def doSoftwareTrigger(self):
         """Issue a software trigger edge (SR830 TRIG), as if TRIG IN pulsed."""
         self.writeCommand("TRIG")
 
-    def supportedTriggerSources(self):
+    def doGetSupportedTriggerSources(self):
         """Returns the trigger sources the SR830 supports (Internal, External)."""
         return list(TriggerSource)
 
-    def getInputSource(self) -> InputSource:
+    def doGetInputSource(self) -> InputSource:
         """Returns the demodulator's signal input source (SR830 ISRC?)."""
         return _INDEX_TO_INPUT_SOURCE[self.queryInteger("ISRC?")]
 
-    def setInputSource(self, source: InputSource):
+    def doSetInputSource(self, source: InputSource):
         """Select the demodulator's signal input source (SR830 ISRC). source must
         be a supported InputSource or ValueError is raised."""
         if source not in _INPUT_SOURCE_TO_INDEX:
             raise ValueError("Unsupported input source {0}".format(source))
         self.writeCommand("ISRC {0}".format(_INPUT_SOURCE_TO_INDEX[source]))
 
-    def supportedInputSources(self):
+    def doGetSupportedInputSources(self):
         """Returns the four input sources the SR830 supports."""
         return list(InputSource)
 
-    def getSensitivity(self):
+    def doGetSensitivity(self):
         """Returns the current full-scale sensitivity, in volts (SR830 SENS?)."""
         return self.sensitivities[self.queryInteger("SENS?")]
 
-    def setSensitivity(self, volts):
+    def doSetSensitivity(self, volts):
         """Set the full-scale sensitivity to the smallest step >= volts (SR830 SENS)."""
         self.writeCommand("SENS {0}".format(self._sensitivityIndexFor(volts)))
 
-    def getTimeConstant(self):
+    def doGetTimeConstant(self):
         """Returns the current time constant, in seconds (SR830 OFLT?)."""
         return self.timeConstants[self.queryInteger("OFLT?")]
 
-    def setTimeConstant(self, seconds):
+    def doSetTimeConstant(self, seconds):
         """Set the time constant to the nearest step, in seconds (SR830 OFLT)."""
         self.writeCommand("OFLT {0}".format(self._timeConstantIndexFor(seconds)))
 
-    def supportedSensitivities(self):
+    def doGetSupportedSensitivities(self):
         """Returns the SR830's discrete full-scale sensitivities, in volts."""
         return list(self.sensitivities)
 
-    def supportedTimeConstants(self):
+    def doGetSupportedTimeConstants(self):
         """Returns the SR830's discrete time constants, in seconds."""
         return list(self.timeConstants)
 

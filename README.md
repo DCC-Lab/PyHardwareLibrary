@@ -39,18 +39,151 @@ The library currently supports the following hardware:
 | | Ocean Insight USB4000 | `USB4000` | `0x2457:0x1022` | USB (PyUSB) |
 | | Ocean Insight USB650 | `USB650` | `0x2457:0x1014` | USB (PyUSB) |
 | | Ocean Insight SAS | `SAS` | `0x2457:0x1006` | USB (PyUSB) |
+| | StellarNet | `StellarNet` | `0x0BD7:0xA012` | USB (licensed module, see note) |
 | **Motion (linear)** | Sutter MP-285 | `SutterDevice` | `0x1342:0x0001` | Serial (FTDI) |
 | | Thorlabs (Kinesis) | `ThorlabsDevice` | `0x0403:0xFAF0` | Kinesis (pylablib) |
 | **Motion (rotation)** | Intellidrive | `IntellidriveDevice` | `0x0403:0x6001` | Serial (FTDI) |
 | **Laser sources** | Cobolt laser | `CoboltDevice` | (serial) | Serial |
-| | Spectra-Physics Millennia eV | `MillenniaEv25Device` | (serial) | Serial |
+| | Spectra-Physics Millennia eV | `MillenniaEv25Device` (alias `MillenniaDevice`) | `0x0483:0x5740` | Serial (STM32 USB-CDC) |
+| | Coherent Verdi G / Genesis (HOPS supply) | `VerdiGDevice` | `0x0403:0x6010` | I2C over FTDI (pyftdi) or `CohrHOPS.dll` |
 | | Sirah Matisse | `MatisseDevice` | (TCP) | TCP/IP |
 | **Power meters** | Gentec-EO Integra | `IntegraDevice` | `0x1AD5:0x0300` | USB (PyUSB) |
+| | Coherent FieldMaster GS | `FieldMasterDevice` | `0x0403:0x6001` | Serial (FTDI) |
 | **DAQ** | LabJack U3 | `LabjackDevice` | `0x0CD5:0x0003` | USB (LabJackPython) |
+| | SRS SR830 lock-in amplifier | `SR830Device` | `0x0403:0x6001` | GPIB via Prologix adaptor (serial) |
 | **Oscilloscopes** | Tektronix TDS series | `OscilloscopeDevice` | `0x0403:0x6001` | Serial (FTDI/SCPI) |
+| **Power strips** | PwrUSB switched power strip | `PwrUSBDevice` | `0x04D8:0x003F` | USB HID (hidapi) |
 | **Cameras** | Any OpenCV camera | `OpenCVCamera` | (OS driver) | OpenCV |
 
-Every device above also has a debug/simulated counterpart (e.g., `DebugLinearMotionDevice`, `DebugSpectro`) that works without hardware, useful for development and testing.
+Several devices have no USB identity of their own and connect through a generic FTDI RS-232 adaptor (`0x0403:0x6001`). When more than one such adaptor is plugged in, disambiguate with the adaptor's `serialNumber` or by passing an explicit `portPath`.
+
+The StellarNet driver ships encrypted and must be licenced and decrypted by StellarNet; run `python -m hardwarelibrary --stellar` and enter the password to unlock it.
+
+Every device above also has a debug/simulated counterpart (e.g., `DebugLinearMotionDevice`, `DebugMillenniaDevice`, `DebugSR830Device`, `DebugSpectro`) that works without hardware, useful for development and testing.
+
+## Capabilities: what a device can actually do
+
+Before using the library, it helps to understand one design decision that shows up everywhere: devices are described by *what they can do*, not only by *what they are*. This section explains the idea from scratch; no prior knowledge of object-oriented jargon is assumed.
+
+### The problem
+
+Look at two lasers from the table above. The Spectra-Physics Millennia can be turned on and off, has a mechanical shutter, and lets you set its output power. The Cobolt can also be turned on and off and lets you set its power, but it has **no shutter** — and it does have an interlock and an "autostart" mode that the Millennia does not expose. Both are lasers, yet neither is a subset of the other. Motion stages, power meters and DAQ cards are the same story: every model implements a slightly different mix of features.
+
+So how do we write one common interface? Two obvious answers are both bad:
+
+* **One big `Laser` class containing every method any laser might have.** Then `CoboltDevice` inherits an `openShutter()` it cannot honour. Your code can call it, the editor will autocomplete it, and you only discover the truth at runtime when it raises an error — in the middle of an experiment.
+* **One class per combination of features** (`LaserWithShutter`, `LaserWithShutterAndInterlock`, ...). The number of classes explodes and nothing is reusable.
+
+### The solution: small classes, one skill each
+
+We use a third approach. Each individual skill gets its own small class, called a **capability**:
+
+* `OnOffCapability` — knows about `turnOn()`, `turnOff()`, `isLaserOn()`
+* `ShutterCapability` — knows about `openShutter()`, `closeShutter()`, `isShutterOpen()`
+* `PowerCapability` — knows about `setPower()`, `power()`
+* `InterlockCapability`, `AutostartCapability`, `WavelengthCapability`, ...
+
+A capability is **not** a device: you can never create one on its own, it has no port, no serial number, and it cannot talk to anything. It is a small, reusable bundle of methods, meant to be *mixed into* a real device class. That is why such a class is traditionally called a **mixin**.
+
+In Python a class may inherit from several classes at once, and this is exactly what a driver does. It says "I am a physical device, and I happen to have these skills":
+
+```python
+class MillenniaEv25Device(LaserSourceDevice, OnOffCapability, ShutterCapability, PowerCapability):
+    ...
+
+class CoboltDevice(LaserSourceDevice, OnOffCapability, PowerCapability,
+                   InterlockCapability, AutostartCapability):
+    ...
+```
+
+Read those two lines as sentences. They *are* the specification of each laser: the Millennia has on/off, a shutter and power control; the Cobolt has on/off, power, an interlock and autostart. There is no `openShutter()` on the Cobolt at all — calling it raises `AttributeError` immediately, instead of pretending to work. The list of parent classes is the documentation, and it cannot go out of date, because it is the code.
+
+Two conventions make this readable at a glance:
+
+* a class whose name ends in **`Capability`** is a mixin: a skill, never instantiated by itself;
+* a class whose name ends in **`Device`** is real hardware you can create, connect to, and use.
+
+### Who writes what: public methods and `do` hooks
+
+Each capability provides the *public* method that you, the user, call — and it delegates the actual hardware work to a companion method whose name starts with `do`, which the driver author must write. For instance `OnOffCapability` provides `turnOn()` and requires `doTurnOn()`:
+
+```python
+class MillenniaEv25Device(LaserSourceDevice, OnOffCapability, ShutterCapability, PowerCapability):
+    def doTurnOn(self):
+        self.writeActionAndConfirm("ON", "?D", "1", "diodes on")   # what this laser expects
+```
+
+The benefit is a clean division of labour. The public method is written once and is the same for every laser, so it is the name your scripts should use; the driver author only supplies the few lines that are genuinely model-specific. It also gives the library a single place to put behaviour shared by all models, whenever there is any: `LinearMotionDevice.moveTo()`, for instance, posts a `willMove` notification, calls `doMoveTo()`, then posts `didMove`, so any GUI or logger watching the stage is informed without the driver author writing a line for it (see [Listening for device events](#listening-for-device-events)). Most laser capabilities have nothing to add and simply forward to the `do` method.
+
+Better still, the `do` methods are declared *abstract*, which is Python's way of saying "a subclass must provide this". If you declare `ShutterCapability` on your new driver but forget `doOpenShutter()`, Python refuses to even create the object and tells you which method is missing:
+
+```
+TypeError: Can't instantiate abstract class MyLaser without an implementation for abstract method 'doOpenShutter'
+```
+
+That is a mistake caught the first time you run your code, not the day you are aligning an experiment.
+
+This split is uniform across the whole library: every public method of every capability is concrete and delegates, and only the `do` hooks are abstract. There are no exceptions to remember, and a test enforces it, so the rule cannot quietly erode as drivers are added.
+
+### Asking a device what it can do
+
+Because the capabilities are ordinary classes, a device can be asked about them at runtime. Every `PhysicalDevice` offers two methods:
+
+```python
+from hardwarelibrary.sources import DebugMillenniaDevice, CoboltDevice, ShutterCapability
+
+laser = DebugMillenniaDevice()
+print([c.__name__ for c in laser.capabilities()])
+# ['OnOffCapability', 'ShutterCapability', 'PowerCapability']
+
+laser.hasCapability(ShutterCapability)          # True
+CoboltDevice().hasCapability(ShutterCapability) # False
+```
+
+This is what lets you write code that adapts to whatever is on the bench, rather than code that only works with one model:
+
+```python
+if laser.hasCapability(ShutterCapability):
+    laser.closeShutter()
+else:
+    laser.turnOff()
+```
+
+A GUI can use the very same trick to decide which buttons to display, and a generic acquisition script can decide whether it is allowed to block the beam without shutting the laser down.
+
+### Where they live
+
+All capabilities are defined in the single module `hardwarelibrary/capabilities.py`, and they are re-exported by the family they belong to, so you can import them from where you already import the device (`from hardwarelibrary.sources import ShutterCapability`). Capabilities exist for every family, not just lasers:
+
+| Family | Typical capabilities |
+|---|---|
+| Laser sources | `OnOffCapability`, `ShutterCapability`, `PowerCapability`, `InterlockCapability`, `AutostartCapability`, `WavelengthCapability`, `DispersionCapability` |
+| DAQ | `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability`, `AnalogInputStreamCapability`, `DigitalInputCapability`, `DigitalOutputCapability`, `DigitalIOCapability`, `PhaseLockedDetectionCapability`, `TriggerCapability` |
+| Power meters | `WavelengthCalibrationCapability`, `AutoScaleCapability`, `ScaleCapability` |
+| Power strips | `OutletSwitchingCapability`, `DefaultOutletCapability`, `CurrentMeteringCapability` |
+
+A capability may also be built out of others: `AnalogIOCapability` is simply `AnalogInputCapability` plus `AnalogOutputCapability`, which is why `LabjackDevice` declares the combined one and gets both sets of methods.
+
+You never have to trust a list in a document to be current: ask the library itself.
+
+```shell
+python -m hardwarelibrary --capabilities
+```
+
+This prints every capability, the capabilities it extends, the public methods it defines, and the `do` hooks a driver must implement:
+
+```
+OnOffCapability
+    isLaserOn() -> bool
+    turnOn()
+    turnOff()
+    canTurnOn() -> bool
+    - hook: doTurnOn()
+    - hook: doTurnOff()
+    - hook: doGetOnOffState() -> bool
+```
+
+The same information is available from Python through `allCapabilities()` and `capabilityInterface()` in `hardwarelibrary/capabilities.py`.
 
 ## Getting started with using devices
 
@@ -167,6 +300,26 @@ laser.turnOff()
 laser.shutdownDevice()
 ```
 
+The other lasers use the same methods, minus or plus the ones their capabilities declare. A Millennia or a Verdi adds a shutter, and the Matisse is tuned by wavelength:
+
+```python
+from hardwarelibrary.sources import MillenniaDevice, VerdiGDevice, MatisseDevice
+
+pump = MillenniaDevice()               # or VerdiGDevice()
+pump.initializeDevice()
+pump.turnOn()
+pump.setPower(5.0)                     # watts
+pump.openShutter()                     # not available on the Cobolt
+pump.closeShutter()
+pump.shutdownDevice()
+
+matisse = MatisseDevice(host="192.168.1.10")
+matisse.initializeDevice()
+matisse.setWavelength(780.0)           # nm
+print(matisse.wavelength())
+matisse.shutdownDevice()
+```
+
 ### Power meters (Gentec-EO Integra)
 
 ```python
@@ -212,6 +365,22 @@ waveform = scope.getWaveform(channel="CH1")  # list of (time, voltage)
 scope.shutdownDevice()
 ```
 
+### Power strips (PwrUSB)
+
+```python
+from hardwarelibrary.powerstrips import PwrUSBDevice
+
+strip = PwrUSBDevice()
+strip.initializeDevice()
+
+strip.turnOutletOn(1)                  # outlets are 1-based, as labelled
+strip.turnOutletOff(2)
+print(strip.isOutletOn(1))             # True
+print(strip.current())                 # amperes drawn by the whole strip
+
+strip.shutdownDevice()
+```
+
 ### Cameras (OpenCV)
 
 ```python
@@ -229,25 +398,47 @@ cam.shutdownDevice()
 
 ### Listening for device events
 
-All devices post notifications through the `NotificationCenter`. You can observe device events without polling:
+All devices post notifications through the `NotificationCenter`, so you can observe what the hardware does without polling:
 
 ```python
-from hardwarelibrary import NotificationCenter
-from hardwarelibrary.motion.linearmotiondevice import LinearMotionNotification
+from notificationcenter import NotificationCenter
+from hardwarelibrary.capabilities import ShutterNotification
 
-def onMove(notification):
-    print(f"Stage moved to {notification.userInfo}")
+def onShutter(notification):
+    print("shutter opened on", notification.object)
 
-nc = NotificationCenter()
-nc.addObserver(
+center = NotificationCenter()
+center.add_observer(
     observer=self,
-    method=onMove,
-    notificationName=LinearMotionNotification.didMove,
-    observedObject=stage
+    method=onShutter,
+    notification_name=ShutterNotification.didOpenShutter,
+    observed_object=laser,          # omit to hear it from every device
 )
 ```
 
-Available notification enums include `PhysicalDeviceNotification`, `LinearMotionNotification`, `RotationMotionNotification`, `PowerMeterNotification`, `CameraDeviceNotification`, and `DeviceManagerNotification`.
+**Every capability posts its own notifications**, and you get them for free: a driver only implements the `do` hooks, and the public method does the announcing. Each capability owns an enum, reachable as `ShutterCapability.notification`, following three rules:
+
+* an operation that **changes** the instrument posts `will...` before and `did...` after, e.g. `willOpenShutter` then `didOpenShutter`;
+* a **read** posts only `did...`, e.g. `didGetPower` — bracketing a value that is merely being read would double the traffic on hot paths like a voltage sampled in a loop, for no added information. The exception is `SpectrometerNotification.willGetSpectrum`, because an acquisition takes an integration time and a display has something to show while it waits;
+* the `did...` is posted **whether the operation worked or not**, so a `will...` is always followed by its `did...` and you never have to wonder whether an operation is still running. If the driver raised, the exception continues on its way untouched — your code still sees it — and the notification carries it.
+
+Every one of these operations also requires an initialized device: calling `laser.turnOn()` before `initializeDevice()` raises `PhysicalDevice.NotInitialized` telling you which operation, which device and what state it is in, instead of failing deep inside the driver on a port that was never opened. Nothing is posted in that case, since nothing was attempted. Asking what a model supports (`supportedSensitivities()`, `outletCount`) is exempt, so a UI can populate its menus before connecting.
+
+The payload in `notification.user_info` is a dict of the method's arguments by name, plus `"result"` and `"error"`. Exactly one of those two is set, which is how an observer tells the outcome:
+
+```python
+def onPowerSet(notification):
+    if notification.user_info["error"] is not None:
+        log.warning("could not set the power: %s", notification.user_info["error"])
+    else:
+        display.update(notification.user_info["power"])
+```
+
+Capabilities related by inheritance share one enum, so you never have to know which variant a device mixed in: `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability` and `AnalogInputStreamCapability` all post `AnalogNotification`, and the three digital ones post `DigitalNotification`. Observing `AnalogNotification.didSetAnalogVoltage` catches the event from a LabJack (which mixes in the combined `AnalogIOCapability`) and from a lock-in amplifier (which mixes in only `AnalogOutputCapability`) alike.
+
+`python -m hardwarelibrary --capabilities` prints every capability with the notifications it posts.
+
+The family base classes follow the same scheme, and name their enum in a `notification` attribute too: `LinearMotionNotification` (`willMove`/`didMove`/`didGetPosition`), `RotationMotionNotification` (`willMove`/`didMove`/`didGetOrientation`), `PowerMeterNotification` (`didGetAbsolutePower`) and `SpectrometerNotification`. Motion groups `moveTo`, `moveBy` and `home` under a single `willMove`/`didMove` pair, because to an observer they are all "the stage is moving"; the payload tells them apart, carrying a `position`, a `displacement`, or neither. The remaining enums are `PhysicalDeviceNotification` (device lifecycle), `CameraDeviceNotification`, `DeviceControllerNotification` and `DeviceManagerNotification`.
 
 ### Testing without hardware
 
@@ -269,30 +460,39 @@ This is essential for writing and running tests on machines where the physical d
 
 ### Class hierarchy
 
-All devices inherit from `PhysicalDevice`, which provides lifecycle management (initialize/shutdown), state tracking, background monitoring, and notification support. Intermediate classes define category-specific interfaces:
+All devices inherit from `PhysicalDevice`, which provides lifecycle management (initialize/shutdown), state tracking, background monitoring, and notification support. Intermediate classes define category-specific interfaces, and the capability mixins described in [Capabilities](#capabilities-what-a-device-can-actually-do) add the per-model features on top:
 
 ```
 PhysicalDevice
 ├── LinearMotionDevice ──── moveTo(), moveBy(), position(), home()
 │   ├── SutterDevice
 │   ├── ThorlabsDevice
-│   ├── ThorlabsKinesisDevice
+│   │   └── ThorlabsKinesisDevice
 │   └── DebugLinearMotionDevice
 ├── RotationDevice ───────── moveTo(), moveBy(), orientation(), home()
 │   └── IntellidriveDevice
-├── LaserSourceDevice ────── turnOn(), turnOff(), setPower(), power()
-│   └── CoboltDevice
+├── LaserSourceDevice ────── marker base; the methods come from the capabilities
+│   ├── CoboltDevice ─────── OnOff, Power, Interlock, Autostart
+│   ├── MillenniaEv25Device  OnOff, Shutter, Power
+│   └── VerdiGDevice ─────── OnOff, Shutter, Power, Interlock
+├── MatisseDevice ────────── Wavelength (a laser, but wired as a PhysicalDevice)
 ├── PowerMeterDevice ─────── measureAbsolutePower(), setCalibrationWavelength()
-│   └── IntegraDevice
+│   ├── IntegraDevice
+│   └── FieldMasterDevice
 ├── Spectrometer ─────────── getSpectrum(), setIntegrationTime(), display()
-│   └── OISpectrometer
-│       ├── USB2000 / USB2000Plus
-│       ├── USB4000
-│       └── USB650
+│   ├── OISpectrometer
+│   │   ├── USB2000 / USB2000Plus
+│   │   ├── USB4000
+│   │   ├── USB650
+│   │   └── SAS
+│   └── StellarNet (licenced module, not distributed)
 ├── OscilloscopeDevice ───── getWaveform(), displayWaveforms()
 ├── CameraDevice ─────────── captureFrames(), livePreview(), start(), stop()
 │   └── OpenCVCamera
-└── LabjackDevice ────────── getAnalogVoltage(), setAnalogVoltage(), get/setDigitalValue()
+├── PowerStripDevice ─────── OutletSwitching, DefaultOutlet, CurrentMetering
+│   └── PwrUSBDevice
+├── LabjackDevice ────────── AnalogIO, DigitalIO, AnalogInputStream
+└── SR830Device ──────────── AnalogInputStream, AnalogOutput, PhaseLockedDetection, Trigger
 ```
 
 ### Communication layer

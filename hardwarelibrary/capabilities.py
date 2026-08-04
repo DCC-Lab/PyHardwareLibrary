@@ -2,18 +2,120 @@
 
 A capability is a feature an instrument may have (turn on/off, open a shutter,
 read a voltage, ...). A driver declares the capabilities it supports by mixing
-them alongside a PhysicalDevice subclass; the mixin's public methods delegate to
-the do* hooks (or, for some families, are themselves the abstract hook) the
-driver implements. Mixins carry the *Capability suffix; only instantiable
+them alongside a PhysicalDevice subclass. Every public method here is concrete and
+delegates to a do* hook the driver implements: getXxx() calls doGetXxx(), and the
+hook is the abstract one, so the public method stays free to validate arguments and
+post notifications on every driver's behalf. A hook a driver may leave alone (an
+optional feature, or a default built on the other hooks) is not abstract, but it
+still carries the do prefix. Mixins carry the *Capability suffix; only instantiable
 hardware drivers are named *Device.
+
+Each capability names its notification enum in its `notification` attribute, and
+every public method is wrapped in @notifies so an observer hears about the
+operation without the driver writing a line for it. An operation that changes the
+instrument posts will* before and did* after; a read posts only did*, because
+bracketing a value that is merely being read doubles the traffic on the hot paths
+(a voltage sampled in a loop) for no added information.
+
+did* is posted whether the operation succeeded or not, so a will* is always
+followed by its did*: the user_info carries "result" and "error", one of which is
+None, and an observer decides what to do from the presence of an error. A hook that
+raises still lets its exception through untouched, so a caller sees it as before.
+
+Capabilities related by inheritance share one enum, so `notification` is the same
+object on all of them and their members are interchangeable: AnalogInput,
+AnalogOutput, AnalogIO and AnalogInputStream all post AnalogNotification, and the
+digital trio posts DigitalNotification. Sharing is what makes an observer of
+AnalogNotification.didSetAnalogVoltage hear the post whether the device mixed in
+AnalogOutputCapability or the combined AnalogIOCapability -- members are keyed by
+identity, so two same-named members of two enums would never cross-fire.
 
 PhysicalDevice.capabilities() / hasCapability() introspect these by walking the
 MRO for Capability subclasses, so every capability across every family must
 subclass the single Capability base defined here.
 """
 
+import functools
+import inspect
 from abc import ABC, abstractmethod
+from collections import namedtuple
 from enum import Enum
+
+from hardwarelibrary.validation import (
+    requireAtLeast, requireBool, requireInteger, requireMember, requireNonEmpty,
+    requirePositive, requireRealNumber, requireWithinRange)
+from notificationcenter import NotificationCenter
+
+
+def notifies(did, will=None, requiresReady=True, validate=None):
+    """Bracket a capability's public method with notifications.
+
+    Posts `will` (when the operation changes the instrument) before the call and
+    `did` after it, whether the call succeeded or not: an observer that saw a
+    will always sees the matching did, so it never has to guess whether an
+    operation is still running.
+
+    user_info carries the method's arguments by name, plus "result" and "error".
+    On success "error" is None; when the hook raises, "result" is None, "error"
+    holds the exception, and the exception is then re-raised as it was -- a
+    driver's own exception type is part of its contract, and the library must
+    not disguise it. An observer decides what to do from the presence of an
+    error; a caller still gets the exception.
+
+    The device must be initialized: validateReady() runs first and raises
+    PhysicalDevice.NotInitialized otherwise. It runs before the will is posted,
+    because nothing was attempted and the hardware was never touched, so an
+    observer should hear nothing at all. Pass requiresReady=False for a method
+    that only reports what the instrument supports, which a UI may legitimately
+    ask before connecting.
+
+    validateReady is PhysicalDevice's, which is where the device lifecycle lives;
+    a capability is meant to be mixed alongside one, so anything else hosting a
+    capability must answer for readiness itself.
+
+    `validate` is an optional function taking the same arguments as the method,
+    called before anything is posted so that a refused call announces nothing: a
+    will/did pair means the driver really was invoked. It holds the contract-level
+    checks (see hardwarelibrary.validation); limits that vary by model belong in
+    the driver's hook.
+    """
+    def decorator(method):
+        signature = inspect.signature(method)
+        takesArguments = len(signature.parameters) > 1
+
+        @functools.wraps(method)
+        def wrapper(self, *args, **keywordArguments):
+            if requiresReady:
+                self.validateReady(operation=method.__name__)
+            if validate is not None:
+                validate(self, *args, **keywordArguments)
+
+            arguments = {}
+            if takesArguments:
+                bound = signature.bind(self, *args, **keywordArguments)
+                bound.apply_defaults()
+                arguments = dict(bound.arguments)
+                arguments.pop("self")
+
+            center = NotificationCenter()
+            if will is not None:
+                center.post_notification(will, notifying_object=self,
+                                         user_info=dict(arguments))
+            try:
+                result = method(self, *args, **keywordArguments)
+            except Exception as error:
+                center.post_notification(
+                    did, notifying_object=self,
+                    user_info={**arguments, "result": None, "error": error})
+                raise
+            center.post_notification(
+                did, notifying_object=self,
+                user_info={**arguments, "result": result, "error": None})
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class Capability(ABC):
@@ -22,20 +124,36 @@ class Capability(ABC):
     # super().__init__() after consuming the device-identity arguments), so a
     # mixin that holds per-instance state may define __init__ as long as it
     # takes no required arguments and forwards with super().__init__().
-    pass
+
+    # The <Capability>Notification enum each mixin posts, so that
+    # allCapabilities() also enumerates every notification the library defines.
+    notification = None
 
 
 # ---------------------------------------------------------------------------
 # Laser source capabilities
 # ---------------------------------------------------------------------------
 
+class OnOffNotification(Enum):
+    willTurnOn        = "willTurnOn"
+    didTurnOn         = "didTurnOn"
+    willTurnOff       = "willTurnOff"
+    didTurnOff        = "didTurnOff"
+    didGetOnOffState  = "didGetOnOffState"
+
+
 class OnOffCapability(Capability):
+    notification = OnOffNotification
+
+    @notifies(did=OnOffNotification.didGetOnOffState)
     def isLaserOn(self) -> bool:
         return self.doGetOnOffState()
 
+    @notifies(will=OnOffNotification.willTurnOn, did=OnOffNotification.didTurnOn)
     def turnOn(self):
         self.doTurnOn()
 
+    @notifies(will=OnOffNotification.willTurnOff, did=OnOffNotification.didTurnOff)
     def turnOff(self):
         self.doTurnOff()
 
@@ -58,15 +176,28 @@ class OnOffCapability(Capability):
         ...
 
 
+class ShutterNotification(Enum):
+    willOpenShutter    = "willOpenShutter"
+    didOpenShutter     = "didOpenShutter"
+    willCloseShutter   = "willCloseShutter"
+    didCloseShutter    = "didCloseShutter"
+    didGetShutterState = "didGetShutterState"
+
+
 class ShutterCapability(Capability):
     # Distinct from OnOffCapability: the shutter is a mechanical block in front of
     # the output, so it can be opened or closed while the laser stays on.
+    notification = ShutterNotification
+
+    @notifies(did=ShutterNotification.didGetShutterState)
     def isShutterOpen(self) -> bool:
         return self.doGetShutterState()
 
+    @notifies(will=ShutterNotification.willOpenShutter, did=ShutterNotification.didOpenShutter)
     def openShutter(self):
         self.doOpenShutter()
 
+    @notifies(will=ShutterNotification.willCloseShutter, did=ShutterNotification.didCloseShutter)
     def closeShutter(self):
         self.doCloseShutter()
 
@@ -83,14 +214,27 @@ class ShutterCapability(Capability):
         ...
 
 
+class PowerNotification(Enum):
+    willSetPower = "willSetPower"
+    didSetPower  = "didSetPower"
+    didGetPower  = "didGetPower"
+
+
 class PowerCapability(Capability):
     unit = "W"
     isReadable = True
     isWritable = True
+    notification = PowerNotification
 
+    def _validateSetPower(self, power: float):
+        requireAtLeast(power, 0, "power", self.unit)
+
+    @notifies(will=PowerNotification.willSetPower, did=PowerNotification.didSetPower,
+              validate=_validateSetPower)
     def setPower(self, power: float):
         return self.doSetPower(power)
 
+    @notifies(did=PowerNotification.didGetPower)
     def power(self) -> float:
         return self.doGetPower()
 
@@ -103,10 +247,16 @@ class PowerCapability(Capability):
         ...
 
 
+class InterlockNotification(Enum):
+    didGetInterlockState = "didGetInterlockState"
+
+
 class InterlockCapability(Capability):
     isReadable = True
     isWritable = False
+    notification = InterlockNotification
 
+    @notifies(did=InterlockNotification.didGetInterlockState)
     def interlock(self) -> bool:
         return self.doGetInterlockState()
 
@@ -115,13 +265,28 @@ class InterlockCapability(Capability):
         ...
 
 
+class AutostartNotification(Enum):
+    willTurnAutostartOn  = "willTurnAutostartOn"
+    didTurnAutostartOn   = "didTurnAutostartOn"
+    willTurnAutostartOff = "willTurnAutostartOff"
+    didTurnAutostartOff  = "didTurnAutostartOff"
+    didGetAutostart      = "didGetAutostart"
+
+
 class AutostartCapability(Capability):
+    notification = AutostartNotification
+
+    @notifies(did=AutostartNotification.didGetAutostart)
     def autostartIsOn(self) -> bool:
         return self.doGetAutostart()
 
+    @notifies(will=AutostartNotification.willTurnAutostartOn,
+              did=AutostartNotification.didTurnAutostartOn)
     def turnAutostartOn(self):
         self.doTurnAutostartOn()
 
+    @notifies(will=AutostartNotification.willTurnAutostartOff,
+              did=AutostartNotification.didTurnAutostartOff)
     def turnAutostartOff(self):
         self.doTurnAutostartOff()
 
@@ -138,17 +303,35 @@ class AutostartCapability(Capability):
         ...
 
 
+class WavelengthNotification(Enum):
+    willSetWavelength     = "willSetWavelength"
+    didSetWavelength      = "didSetWavelength"
+    didGetWavelength      = "didGetWavelength"
+    didGetWavelengthRange = "didGetWavelengthRange"
+
+
 class WavelengthCapability(Capability):
     unit = "nm"
     isReadable = True
     isWritable = True
+    notification = WavelengthNotification
 
+    def _validateSetWavelength(self, wavelength: float):
+        # Against the hook, not wavelengthRange(): validating must not post a
+        # notification of its own.
+        requireWithinRange(wavelength, self.doGetWavelengthRange(), "wavelength", self.unit)
+
+    @notifies(will=WavelengthNotification.willSetWavelength,
+              did=WavelengthNotification.didSetWavelength,
+              validate=_validateSetWavelength)
     def setWavelength(self, wavelength: float):
         return self.doSetWavelength(wavelength)
 
+    @notifies(did=WavelengthNotification.didGetWavelength)
     def wavelength(self) -> float:
         return self.doGetWavelength()
 
+    @notifies(did=WavelengthNotification.didGetWavelengthRange)
     def wavelengthRange(self) -> tuple:
         return self.doGetWavelengthRange()
 
@@ -165,17 +348,33 @@ class WavelengthCapability(Capability):
         ...
 
 
+class DispersionNotification(Enum):
+    willSetDispersion     = "willSetDispersion"
+    didSetDispersion      = "didSetDispersion"
+    didGetDispersion      = "didGetDispersion"
+    didGetDispersionRange = "didGetDispersionRange"
+
+
 class DispersionCapability(Capability):
     unit = "fs^2"  # group delay dispersion (GDD)
     isReadable = True
     isWritable = True
+    notification = DispersionNotification
 
+    def _validateSetDispersion(self, dispersion: float):
+        requireWithinRange(dispersion, self.doGetDispersionRange(), "dispersion", self.unit)
+
+    @notifies(will=DispersionNotification.willSetDispersion,
+              did=DispersionNotification.didSetDispersion,
+              validate=_validateSetDispersion)
     def setDispersion(self, dispersion: float):
         return self.doSetDispersion(dispersion)
 
+    @notifies(did=DispersionNotification.didGetDispersion)
     def dispersion(self) -> float:
         return self.doGetDispersion()
 
+    @notifies(did=DispersionNotification.didGetDispersionRange)
     def dispersionRange(self) -> tuple:
         return self.doGetDispersionRange()
 
@@ -196,19 +395,33 @@ class DispersionCapability(Capability):
 # Power meter capabilities
 # ---------------------------------------------------------------------------
 
+class WavelengthCalibrationNotification(Enum):
+    willSetCalibrationWavelength = "willSetCalibrationWavelength"
+    didSetCalibrationWavelength  = "didSetCalibrationWavelength"
+    didGetCalibrationWavelength  = "didGetCalibrationWavelength"
+
+
 class WavelengthCalibrationCapability(Capability):
     unit = "nm"
     isReadable = True
     isWritable = True
+    notification = WavelengthCalibrationNotification
 
     def __init__(self):
         super().__init__()
         self.calibrationWavelength = None
 
+    @notifies(did=WavelengthCalibrationNotification.didGetCalibrationWavelength)
     def getCalibrationWavelength(self):
         self.doGetCalibrationWavelength()
         return self.calibrationWavelength
 
+    def _validateSetCalibrationWavelength(self, wavelength):
+        requirePositive(wavelength, "wavelength", self.unit)
+
+    @notifies(will=WavelengthCalibrationNotification.willSetCalibrationWavelength,
+              did=WavelengthCalibrationNotification.didSetCalibrationWavelength,
+              validate=_validateSetCalibrationWavelength)
     def setCalibrationWavelength(self, wavelength):
         self.doSetCalibrationWavelength(wavelength)
         self.doGetCalibrationWavelength()
@@ -222,16 +435,31 @@ class WavelengthCalibrationCapability(Capability):
         ...
 
 
+class AutoScaleNotification(Enum):
+    willTurnAutoScaleOn  = "willTurnAutoScaleOn"
+    didTurnAutoScaleOn   = "didTurnAutoScaleOn"
+    willTurnAutoScaleOff = "willTurnAutoScaleOff"
+    didTurnAutoScaleOff  = "didTurnAutoScaleOff"
+    didGetAutoScale      = "didGetAutoScale"
+
+
 class AutoScaleCapability(Capability):
     # The meter picks its measurement range automatically when auto-scaling is
     # on; turning it off pins the range to whatever scale is active. A meter may
     # also expose ScaleCapability to choose that range by hand.
+    notification = AutoScaleNotification
+
+    @notifies(did=AutoScaleNotification.didGetAutoScale)
     def autoScaleIsOn(self) -> bool:
         return self.doGetAutoScale()
 
+    @notifies(will=AutoScaleNotification.willTurnAutoScaleOn,
+              did=AutoScaleNotification.didTurnAutoScaleOn)
     def turnAutoScaleOn(self):
         self.doTurnAutoScaleOn()
 
+    @notifies(will=AutoScaleNotification.willTurnAutoScaleOff,
+              did=AutoScaleNotification.didTurnAutoScaleOff)
     def turnAutoScaleOff(self):
         self.doTurnAutoScaleOff()
 
@@ -248,6 +476,13 @@ class AutoScaleCapability(Capability):
         ...
 
 
+class ScaleNotification(Enum):
+    willSetScale         = "willSetScale"
+    didSetScale          = "didSetScale"
+    didGetScale          = "didGetScale"
+    didGetAvailableScales = "didGetAvailableScales"
+
+
 class ScaleCapability(Capability):
     # The full-scale measurement range (e.g. 200e-3 W). Independent of
     # AutoScaleCapability: setting a scale by hand generally requires auto-scaling
@@ -255,19 +490,27 @@ class ScaleCapability(Capability):
     unit = "W"
     isReadable = True
     isWritable = True
+    notification = ScaleNotification
 
     def __init__(self):
         super().__init__()
         self.scale = None
 
+    @notifies(did=ScaleNotification.didGetScale)
     def getScale(self):
         self.doGetScale()
         return self.scale
 
+    def _validateSetScale(self, scale):
+        requirePositive(scale, "scale", self.unit)
+
+    @notifies(will=ScaleNotification.willSetScale, did=ScaleNotification.didSetScale,
+              validate=_validateSetScale)
     def setScale(self, scale):
         self.doSetScale(scale)
         self.doGetScale()
 
+    @notifies(did=ScaleNotification.didGetAvailableScales)
     def availableScales(self) -> list:
         return self.doGetAvailableScales()
 
@@ -288,19 +531,66 @@ class ScaleCapability(Capability):
 # DAQ capabilities
 # ---------------------------------------------------------------------------
 
+class AnalogNotification(Enum):
+    """Posted by every analog capability: input, output, the combined IO, and
+    streaming. One enum for the whole inheritance chain, so a device mixing in
+    AnalogIOCapability and the plain AnalogOutputCapability post the very same
+    member and an observer registers once."""
+
+    didGetAnalogVoltage    = "didGetAnalogVoltage"
+    willSetAnalogVoltage   = "willSetAnalogVoltage"
+    didSetAnalogVoltage    = "didSetAnalogVoltage"
+    willConfigureAnalogIO  = "willConfigureAnalogIO"
+    didConfigureAnalogIO   = "didConfigureAnalogIO"
+    willSetAnalogDirection = "willSetAnalogDirection"
+    didSetAnalogDirection  = "didSetAnalogDirection"
+    didGetAnalogDirection  = "didGetAnalogDirection"
+    willConfigureStream    = "willConfigureStream"
+    didConfigureStream     = "didConfigureStream"
+    willStartStream        = "willStartStream"
+    didStartStream         = "didStartStream"
+    willStopStream         = "willStopStream"
+    didStopStream          = "didStopStream"
+    willAcquireWaveform    = "willAcquireWaveform"
+    didAcquireWaveform     = "didAcquireWaveform"
+    didReadStream          = "didReadStream"
+
+
 class AnalogInputCapability(Capability):
     """Analog input capability (ADC). Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
+    notification = AnalogNotification
+
+    @notifies(did=AnalogNotification.didGetAnalogVoltage)
     def getAnalogVoltage(self, channel):
+        """Returns the voltage measured on channel, in volts."""
+        return self.doGetAnalogVoltage(channel)
+
+    @abstractmethod
+    def doGetAnalogVoltage(self, channel):
         ...
 
 
 class AnalogOutputCapability(Capability):
     """Analog output capability (DAC). Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
+    notification = AnalogNotification
+
+    def _validateSetAnalogVoltage(self, value, channel):
+        # The channel is deliberately not checked: an SR830 addresses its outputs
+        # with AuxOutput members where a LabJack uses bare ints, so there is no
+        # shared rule. The driver knows its own channels.
+        requireRealNumber(value, "value", "V")
+
+    @notifies(will=AnalogNotification.willSetAnalogVoltage,
+              did=AnalogNotification.didSetAnalogVoltage,
+              validate=_validateSetAnalogVoltage)
     def setAnalogVoltage(self, value, channel):
+        """Set the output on channel to value, in volts."""
+        return self.doSetAnalogVoltage(value, channel)
+
+    @abstractmethod
+    def doSetAnalogVoltage(self, value, channel):
         ...
 
 
@@ -310,13 +600,32 @@ class AnalogIOCapability(AnalogInputCapability, AnalogOutputCapability):
     The configure and direction hooks are optional and default to no-ops.
     """
 
+    notification = AnalogNotification
+
+    @notifies(will=AnalogNotification.willConfigureAnalogIO,
+              did=AnalogNotification.didConfigureAnalogIO)
     def configureAnalogIO(self, parameters: dict):
-        pass
+        """Apply the driver-specific analog configuration in parameters."""
+        return self.doConfigureAnalogIO(parameters)
 
+    @notifies(did=AnalogNotification.didGetAnalogDirection)
     def getAnalogDirection(self, channel):
+        """Returns whether channel is configured as an input or an output."""
+        return self.doGetAnalogDirection(channel)
+
+    @notifies(will=AnalogNotification.willSetAnalogDirection,
+              did=AnalogNotification.didSetAnalogDirection)
+    def setAnalogDirection(self, channel):
+        """Configure the direction of channel."""
+        return self.doSetAnalogDirection(channel)
+
+    def doConfigureAnalogIO(self, parameters: dict):
         pass
 
-    def setAnalogDirection(self, channel):
+    def doGetAnalogDirection(self, channel):
+        pass
+
+    def doSetAnalogDirection(self, channel):
         pass
 
 
@@ -346,36 +655,79 @@ class AnalogInputStreamCapability(AnalogInputCapability):
             device.stopStream()
     """
 
-    class Notification(Enum):
-        willAcquire = "willAcquire"
-        didAcquire  = "didAcquire"
+    notification = AnalogNotification
 
-    @abstractmethod
-    def configureStream(self, channels, sampleRate):
-        """Set up a hardware-timed acquisition of channels at sampleRate (Hz)."""
-        ...
+    def _validateConfigureStream(self, channels, sampleRate=None, **parameters):
+        requireNonEmpty(channels, "channels")
+        if sampleRate is not None:
+            requirePositive(sampleRate, "sampleRate", "Hz")
 
-    @abstractmethod
+    @notifies(will=AnalogNotification.willConfigureStream,
+              did=AnalogNotification.didConfigureStream,
+              validate=_validateConfigureStream)
+    def configureStream(self, channels, sampleRate=None, **parameters):
+        """Set up a hardware-timed acquisition of channels at sampleRate (Hz).
+
+        Any further keyword argument is passed on to the driver, which is where
+        instrument-specific options live (the SR830 takes a sampleClock, for
+        instance). A driver that ignores sampleRate, because its clock is
+        external, accepts None for it.
+        """
+        return self.doConfigureStream(channels, sampleRate, **parameters)
+
+    @notifies(will=AnalogNotification.willStartStream,
+              did=AnalogNotification.didStartStream)
     def startStream(self):
         """Start the configured acquisition."""
-        ...
+        return self.doStartStream()
 
-    @abstractmethod
+    @notifies(did=AnalogNotification.didReadStream)
     def readStream(self):
-        """Return the samples acquired since the last read, as {channel: [volts, ...]}."""
-        ...
+        """Returns the samples acquired since the last read, as {channel: [volts, ...]}."""
+        return self.doReadStream()
 
-    @abstractmethod
+    @notifies(will=AnalogNotification.willStopStream,
+              did=AnalogNotification.didStopStream)
     def stopStream(self):
         """Stop the acquisition and release any hardware streaming resources."""
-        ...
+        return self.doStopStream()
 
+    def _validateAcquireWaveform(self, channels, sampleRate, sampleCount):
+        requireNonEmpty(channels, "channels")
+        requirePositive(sampleRate, "sampleRate", "Hz")
+        requireAtLeast(requireInteger(sampleCount, "sampleCount"), 1, "sampleCount")
+
+    @notifies(will=AnalogNotification.willAcquireWaveform,
+              did=AnalogNotification.didAcquireWaveform,
+              validate=_validateAcquireWaveform)
     def acquireWaveform(self, channels, sampleRate, sampleCount):
         """Acquire exactly sampleCount samples per channel, blocking until done.
 
-        Configures, starts, and drains the stream (looping readStream) on the
-        caller's behalf, then stops it; returns {channel: [volts, ...]} truncated
-        to sampleCount per channel.
+        Returns {channel: [volts, ...]} truncated to sampleCount per channel.
+        """
+        return self.doAcquireWaveform(channels, sampleRate, sampleCount)
+
+    @abstractmethod
+    def doConfigureStream(self, channels, sampleRate):
+        ...
+
+    @abstractmethod
+    def doStartStream(self):
+        ...
+
+    @abstractmethod
+    def doReadStream(self):
+        ...
+
+    @abstractmethod
+    def doStopStream(self):
+        ...
+
+    def doAcquireWaveform(self, channels, sampleRate, sampleCount):
+        """Configure, start, and drain the stream, then stop it.
+
+        Optional: a driver whose hardware has a native one-shot acquisition
+        overrides this instead of being drained a block at a time.
         """
         self.configureStream(channels, sampleRate)
         samples = {channel: [] for channel in channels}
@@ -404,6 +756,27 @@ class InputSource(Enum):
     Current100M  = "Current100M"
 
 
+class PhaseLockedDetectionNotification(Enum):
+    willSetInputSource           = "willSetInputSource"
+    didSetInputSource            = "didSetInputSource"
+    willSetSensitivity           = "willSetSensitivity"
+    didSetSensitivity            = "didSetSensitivity"
+    willSetTimeConstant          = "willSetTimeConstant"
+    didSetTimeConstant           = "didSetTimeConstant"
+    didGetInPhaseVoltage         = "didGetInPhaseVoltage"
+    didGetQuadratureVoltage      = "didGetQuadratureVoltage"
+    didGetMagnitude              = "didGetMagnitude"
+    didGetPhase                  = "didGetPhase"
+    didGetReferenceFrequency     = "didGetReferenceFrequency"
+    didGetInputSource            = "didGetInputSource"
+    didGetSensitivity            = "didGetSensitivity"
+    didGetTimeConstant           = "didGetTimeConstant"
+    didGetSupportedInputSources  = "didGetSupportedInputSources"
+    didGetSupportedSensitivities = "didGetSupportedSensitivities"
+    didGetSupportedTimeConstants = "didGetSupportedTimeConstants"
+    didGetDemodulatedValues      = "didGetDemodulatedValues"
+
+
 class PhaseLockedDetectionCapability(Capability):
     """Phase-locked (lock-in) detection capability. Combine with PhysicalDevice.
 
@@ -414,79 +787,165 @@ class PhaseLockedDetectionCapability(Capability):
     contract; a driver snaps a requested value to its nearest supported step.
     """
 
-    @abstractmethod
+    notification = PhaseLockedDetectionNotification
+
+    @notifies(did=PhaseLockedDetectionNotification.didGetInPhaseVoltage)
     def getInPhaseVoltage(self):
         """Returns the in-phase component X, in volts."""
-        ...
+        return self.doGetInPhaseVoltage()
 
-    @abstractmethod
+    @notifies(did=PhaseLockedDetectionNotification.didGetQuadratureVoltage)
     def getQuadratureVoltage(self):
         """Returns the quadrature component Y, in volts."""
-        ...
+        return self.doGetQuadratureVoltage()
 
-    @abstractmethod
+    @notifies(did=PhaseLockedDetectionNotification.didGetMagnitude)
     def getMagnitude(self):
         """Returns the magnitude R = sqrt(X^2 + Y^2), in volts."""
-        ...
+        return self.doGetMagnitude()
 
-    @abstractmethod
+    @notifies(did=PhaseLockedDetectionNotification.didGetPhase)
     def getPhase(self):
         """Returns the phase theta, in degrees."""
-        ...
+        return self.doGetPhase()
 
-    @abstractmethod
+    @notifies(did=PhaseLockedDetectionNotification.didGetReferenceFrequency)
     def getReferenceFrequency(self):
         """Returns the reference frequency, in Hz."""
-        ...
+        return self.doGetReferenceFrequency()
 
-    @abstractmethod
+    @notifies(did=PhaseLockedDetectionNotification.didGetInputSource)
     def getInputSource(self) -> InputSource:
         """Returns the signal input the demodulator currently measures."""
-        ...
+        return self.doGetInputSource()
 
-    @abstractmethod
+    def _validateSetInputSource(self, source: InputSource):
+        requireMember(source, InputSource, "source")
+
+    @notifies(will=PhaseLockedDetectionNotification.willSetInputSource,
+              did=PhaseLockedDetectionNotification.didSetInputSource,
+              validate=_validateSetInputSource)
     def setInputSource(self, source: InputSource):
-        """Select which signal input (an InputSource member) the demodulator measures."""
-        ...
+        """Select which signal input (an InputSource member) the demodulator measures.
 
-    @abstractmethod
+        A name or value the enum accepts works too; the driver always sees a member.
+        """
+        return self.doSetInputSource(InputSource(source))
+
+    @notifies(did=PhaseLockedDetectionNotification.didGetSensitivity)
     def getSensitivity(self):
         """Returns the full-scale sensitivity, in volts."""
-        ...
+        return self.doGetSensitivity()
 
-    @abstractmethod
+    def _validateSetSensitivity(self, volts):
+        requirePositive(volts, "volts", "V")
+
+    @notifies(will=PhaseLockedDetectionNotification.willSetSensitivity,
+              did=PhaseLockedDetectionNotification.didSetSensitivity,
+              validate=_validateSetSensitivity)
     def setSensitivity(self, volts):
         """Set the full-scale sensitivity to the nearest supported step, in volts."""
-        ...
+        return self.doSetSensitivity(volts)
 
-    @abstractmethod
+    @notifies(did=PhaseLockedDetectionNotification.didGetTimeConstant)
     def getTimeConstant(self):
         """Returns the time constant, in seconds."""
+        return self.doGetTimeConstant()
+
+    def _validateSetTimeConstant(self, seconds):
+        requirePositive(seconds, "seconds", "s")
+
+    @notifies(will=PhaseLockedDetectionNotification.willSetTimeConstant,
+              did=PhaseLockedDetectionNotification.didSetTimeConstant,
+              validate=_validateSetTimeConstant)
+    def setTimeConstant(self, seconds):
+        """Set the time constant to the nearest supported step, in seconds."""
+        return self.doSetTimeConstant(seconds)
+
+    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedInputSources,
+              requiresReady=False)
+    def supportedInputSources(self):
+        """Returns the InputSource members this instrument supports, or None."""
+        return self.doGetSupportedInputSources()
+
+    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedSensitivities,
+              requiresReady=False)
+    def supportedSensitivities(self):
+        """Returns the full-scale sensitivities (volts) this instrument supports, or None."""
+        return self.doGetSupportedSensitivities()
+
+    @notifies(did=PhaseLockedDetectionNotification.didGetSupportedTimeConstants,
+              requiresReady=False)
+    def supportedTimeConstants(self):
+        """Returns the time constants (seconds) this instrument supports, or None."""
+        return self.doGetSupportedTimeConstants()
+
+    @notifies(did=PhaseLockedDetectionNotification.didGetDemodulatedValues)
+    def getDemodulatedValues(self):
+        """One reading of all demodulated outputs plus the reference frequency."""
+        return self.doGetDemodulatedValues()
+
+    @abstractmethod
+    def doGetInPhaseVoltage(self):
         ...
 
     @abstractmethod
-    def setTimeConstant(self, seconds):
-        """Set the time constant to the nearest supported step, in seconds."""
+    def doGetQuadratureVoltage(self):
         ...
 
-    def supportedInputSources(self):
-        """Optional: the InputSource members this instrument supports, or None."""
+    @abstractmethod
+    def doGetMagnitude(self):
+        ...
+
+    @abstractmethod
+    def doGetPhase(self):
+        ...
+
+    @abstractmethod
+    def doGetReferenceFrequency(self):
+        ...
+
+    @abstractmethod
+    def doGetInputSource(self) -> InputSource:
+        ...
+
+    @abstractmethod
+    def doSetInputSource(self, source: InputSource):
+        ...
+
+    @abstractmethod
+    def doGetSensitivity(self):
+        ...
+
+    @abstractmethod
+    def doSetSensitivity(self, volts):
+        ...
+
+    @abstractmethod
+    def doGetTimeConstant(self):
+        ...
+
+    @abstractmethod
+    def doSetTimeConstant(self, seconds):
+        ...
+
+    def doGetSupportedInputSources(self):
+        """Optional: None means the instrument does not advertise a list."""
         return None
 
-    def supportedSensitivities(self):
-        """Optional: the full-scale sensitivities (volts) this instrument supports, or None."""
+    def doGetSupportedSensitivities(self):
+        """Optional: None means the instrument does not advertise a list."""
         return None
 
-    def supportedTimeConstants(self):
-        """Optional: the time constants (seconds) this instrument supports, or None."""
+    def doGetSupportedTimeConstants(self):
+        """Optional: None means the instrument does not advertise a list."""
         return None
 
-    def getDemodulatedValues(self):
-        """One reading of all demodulated outputs plus the reference frequency.
+    def doGetDemodulatedValues(self):
+        """Read the outputs one at a time.
 
-        Built on the individual getters; a driver may override it to read the
-        outputs atomically (a single coherent timepoint) when the hardware
-        supports it.
+        Optional: a driver overrides this when the hardware can read them
+        atomically, at a single coherent timepoint.
         """
         return {
             "X": self.getInPhaseVoltage(),
@@ -517,6 +976,15 @@ class SampleClock(Enum):
     External = "External"
 
 
+class TriggerNotification(Enum):
+    willSetTriggerSource        = "willSetTriggerSource"
+    didSetTriggerSource         = "didSetTriggerSource"
+    willSoftwareTrigger         = "willSoftwareTrigger"
+    didSoftwareTrigger          = "didSoftwareTrigger"
+    didGetTriggerSource         = "didGetTriggerSource"
+    didGetSupportedTriggerSources = "didGetSupportedTriggerSources"
+
+
 class TriggerCapability(Capability):
     """Capability for a device whose acquisition can be armed to a trigger.
 
@@ -526,39 +994,101 @@ class TriggerCapability(Capability):
     PhysicalDevice in a driver.
     """
 
-    @abstractmethod
-    def setTriggerSource(self, source: 'TriggerSource'):
-        """Select whether the acquisition starts immediately or on an external trigger."""
-        ...
+    notification = TriggerNotification
 
-    @abstractmethod
+    def _validateSetTriggerSource(self, source: 'TriggerSource'):
+        requireMember(source, TriggerSource, "source")
+
+    @notifies(will=TriggerNotification.willSetTriggerSource,
+              did=TriggerNotification.didSetTriggerSource,
+              validate=_validateSetTriggerSource)
+    def setTriggerSource(self, source: 'TriggerSource'):
+        """Select whether the acquisition starts immediately or on an external trigger.
+
+        A name or value the enum accepts works too; the driver always sees a member.
+        """
+        return self.doSetTriggerSource(TriggerSource(source))
+
+    @notifies(did=TriggerNotification.didGetTriggerSource)
     def getTriggerSource(self) -> 'TriggerSource':
         """Returns the currently selected TriggerSource."""
+        return self.doGetTriggerSource()
+
+    @notifies(will=TriggerNotification.willSoftwareTrigger,
+              did=TriggerNotification.didSoftwareTrigger)
+    def softwareTrigger(self):
+        """Issue a manual (software) trigger edge."""
+        return self.doSoftwareTrigger()
+
+    @notifies(did=TriggerNotification.didGetSupportedTriggerSources,
+              requiresReady=False)
+    def supportedTriggerSources(self):
+        """Returns the TriggerSource members this device supports, or None."""
+        return self.doGetSupportedTriggerSources()
+
+    @abstractmethod
+    def doSetTriggerSource(self, source: 'TriggerSource'):
         ...
 
     @abstractmethod
-    def softwareTrigger(self):
-        """Issue a manual (software) trigger edge."""
+    def doGetTriggerSource(self) -> 'TriggerSource':
         ...
 
-    def supportedTriggerSources(self):
-        """Optional: the TriggerSource members this device supports, or None."""
+    @abstractmethod
+    def doSoftwareTrigger(self):
+        ...
+
+    def doGetSupportedTriggerSources(self):
+        """Optional: None means the device does not advertise a list."""
         return None
+
+
+class DigitalNotification(Enum):
+    """Posted by every digital capability: input, output, and the combined IO.
+    One enum for the whole inheritance chain (see AnalogNotification)."""
+
+    didGetDigitalValue      = "didGetDigitalValue"
+    willSetDigitalValue     = "willSetDigitalValue"
+    didSetDigitalValue      = "didSetDigitalValue"
+    willConfigureDigitalIO  = "willConfigureDigitalIO"
+    didConfigureDigitalIO   = "didConfigureDigitalIO"
+    willSetDigitalDirection = "willSetDigitalDirection"
+    didSetDigitalDirection  = "didSetDigitalDirection"
+    didGetDigitalDirection  = "didGetDigitalDirection"
 
 
 class DigitalInputCapability(Capability):
     """Digital input capability. Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
+    notification = DigitalNotification
+
+    @notifies(did=DigitalNotification.didGetDigitalValue)
     def getDigitalValue(self, channel):
+        """Returns the logic level read on channel."""
+        return self.doGetDigitalValue(channel)
+
+    @abstractmethod
+    def doGetDigitalValue(self, channel):
         ...
 
 
 class DigitalOutputCapability(Capability):
     """Digital output capability. Combine with PhysicalDevice in a driver."""
 
-    @abstractmethod
+    notification = DigitalNotification
+
+    def _validateSetDigitalValue(self, value, channel):
+        requireBool(value, "value")
+
+    @notifies(will=DigitalNotification.willSetDigitalValue,
+              did=DigitalNotification.didSetDigitalValue,
+              validate=_validateSetDigitalValue)
     def setDigitalValue(self, value, channel):
+        """Drive channel to the logic level value."""
+        return self.doSetDigitalValue(value, channel)
+
+    @abstractmethod
+    def doSetDigitalValue(self, value, channel):
         ...
 
 
@@ -568,13 +1098,32 @@ class DigitalIOCapability(DigitalInputCapability, DigitalOutputCapability):
     The configure and direction hooks are optional and default to no-ops.
     """
 
+    notification = DigitalNotification
+
+    @notifies(will=DigitalNotification.willConfigureDigitalIO,
+              did=DigitalNotification.didConfigureDigitalIO)
     def configureDigitalIO(self, parameters: dict):
-        pass
+        """Apply the driver-specific digital configuration in parameters."""
+        return self.doConfigureDigitalIO(parameters)
 
+    @notifies(did=DigitalNotification.didGetDigitalDirection)
     def getDigitalDirection(self, channel):
+        """Returns whether channel is configured as an input or an output."""
+        return self.doGetDigitalDirection(channel)
+
+    @notifies(will=DigitalNotification.willSetDigitalDirection,
+              did=DigitalNotification.didSetDigitalDirection)
+    def setDigitalDirection(self, channel):
+        """Configure the direction of channel."""
+        return self.doSetDigitalDirection(channel)
+
+    def doConfigureDigitalIO(self, parameters: dict):
         pass
 
-    def setDigitalDirection(self, channel):
+    def doGetDigitalDirection(self, channel):
+        pass
+
+    def doSetDigitalDirection(self, channel):
         pass
 
 
@@ -583,27 +1132,66 @@ class DigitalIOCapability(DigitalInputCapability, DigitalOutputCapability):
 # ---------------------------------------------------------------------------
 
 
+class OutletSwitchingNotification(Enum):
+    willSetOutletState = "willSetOutletState"
+    didSetOutletState  = "didSetOutletState"
+    didGetOutletState  = "didGetOutletState"
+    didGetOutletCount  = "didGetOutletCount"
+
+
 class OutletSwitchingCapability(Capability):
     """Switch individual outlets on and off and read their state.
 
     Outlets are addressed by their physical label (1-based): the first
     switchable outlet is outlet 1. Some strips also carry an always-on outlet
     that is not switchable and is not counted here.
+
+    turnOutletOn, turnOutletOff and setOutletState share one hook, so they share
+    one will/did pair; the outlet and its requested state are in the user_info.
     """
 
+    notification = OutletSwitchingNotification
+
+    def _validateOutlet(self, outlet: int):
+        """Require an outlet the strip actually has, addressed by its label.
+
+        Reads doGetOutletCount() rather than outletCount, so validating posts no
+        notification of its own; a driver whose count costs a hardware query
+        should cache it at initialization.
+        """
+        requireInteger(outlet, "outlet")
+        requireWithinRange(outlet, (1, self.doGetOutletCount()), "outlet")
+
+    def _validateSetOutletState(self, outlet: int, isOn: bool):
+        self._validateOutlet(outlet)
+        requireBool(isOn, "isOn")
+
+    @notifies(will=OutletSwitchingNotification.willSetOutletState,
+              did=OutletSwitchingNotification.didSetOutletState,
+              validate=_validateOutlet)
     def turnOutletOn(self, outlet: int):
         self.doSetOutletState(outlet, True)
 
+    @notifies(will=OutletSwitchingNotification.willSetOutletState,
+              did=OutletSwitchingNotification.didSetOutletState,
+              validate=_validateOutlet)
     def turnOutletOff(self, outlet: int):
         self.doSetOutletState(outlet, False)
 
+    @notifies(will=OutletSwitchingNotification.willSetOutletState,
+              did=OutletSwitchingNotification.didSetOutletState,
+              validate=_validateSetOutletState)
     def setOutletState(self, outlet: int, isOn: bool):
         self.doSetOutletState(outlet, isOn)
 
+    @notifies(did=OutletSwitchingNotification.didGetOutletState,
+              validate=_validateOutlet)
     def isOutletOn(self, outlet: int) -> bool:
         return self.doGetOutletState(outlet)
 
     @property
+    # How many outlets the model has is a fact about the strip, not a reading.
+    @notifies(did=OutletSwitchingNotification.didGetOutletCount, requiresReady=False)
     def outletCount(self) -> int:
         return self.doGetOutletCount()
 
@@ -620,6 +1208,11 @@ class OutletSwitchingCapability(Capability):
         ...
 
 
+class DefaultOutletNotification(Enum):
+    willSetOutletDefaultState = "willSetOutletDefaultState"
+    didSetOutletDefaultState  = "didSetOutletDefaultState"
+
+
 class DefaultOutletCapability(Capability):
     """Set the power-on (boot) state of individual outlets.
 
@@ -628,18 +1221,47 @@ class DefaultOutletCapability(Capability):
     state right now.
     """
 
+    notification = DefaultOutletNotification
+
+    def _validateDefaultOutlet(self, outlet: int):
+        """Same bounds as OutletSwitchingCapability, which a strip exposing boot
+        defaults also has; repeated rather than inherited, since the two
+        capabilities are independent."""
+        requireInteger(outlet, "outlet")
+        requireWithinRange(outlet, (1, self.doGetOutletCount()), "outlet")
+
+    def _validateSetOutletDefaultState(self, outlet: int, isOn: bool):
+        self._validateDefaultOutlet(outlet)
+        requireBool(isOn, "isOn")
+
+    @notifies(will=DefaultOutletNotification.willSetOutletDefaultState,
+              did=DefaultOutletNotification.didSetOutletDefaultState,
+              validate=_validateDefaultOutlet)
     def setOutletDefaultOn(self, outlet: int):
         self.doSetOutletDefaultState(outlet, True)
 
+    @notifies(will=DefaultOutletNotification.willSetOutletDefaultState,
+              did=DefaultOutletNotification.didSetOutletDefaultState,
+              validate=_validateDefaultOutlet)
     def setOutletDefaultOff(self, outlet: int):
         self.doSetOutletDefaultState(outlet, False)
 
+    @notifies(will=DefaultOutletNotification.willSetOutletDefaultState,
+              did=DefaultOutletNotification.didSetOutletDefaultState,
+              validate=_validateSetOutletDefaultState)
     def setOutletDefaultState(self, outlet: int, isOn: bool):
         self.doSetOutletDefaultState(outlet, isOn)
 
     @abstractmethod
     def doSetOutletDefaultState(self, outlet: int, isOn: bool):
         ...
+
+
+class CurrentMeteringNotification(Enum):
+    willResetAccumulatedCharge = "willResetAccumulatedCharge"
+    didResetAccumulatedCharge  = "didResetAccumulatedCharge"
+    didGetCurrent              = "didGetCurrent"
+    didGetAccumulatedCharge    = "didGetAccumulatedCharge"
 
 
 class CurrentMeteringCapability(Capability):
@@ -654,13 +1276,18 @@ class CurrentMeteringCapability(Capability):
     unit = "A"
     isReadable = True
     isWritable = False
+    notification = CurrentMeteringNotification
 
+    @notifies(did=CurrentMeteringNotification.didGetCurrent)
     def current(self) -> float:
         return self.doGetCurrent()
 
+    @notifies(did=CurrentMeteringNotification.didGetAccumulatedCharge)
     def accumulatedCharge(self) -> float:
         return self.doGetAccumulatedCharge()
 
+    @notifies(will=CurrentMeteringNotification.willResetAccumulatedCharge,
+              did=CurrentMeteringNotification.didResetAccumulatedCharge)
     def resetAccumulatedCharge(self):
         self.doResetAccumulatedCharge()
 
@@ -675,3 +1302,65 @@ class CurrentMeteringCapability(Capability):
     @abstractmethod
     def doResetAccumulatedCharge(self):
         ...
+
+
+# ---------------------------------------------------------------------------
+# Introspection
+# ---------------------------------------------------------------------------
+
+
+def allCapabilities() -> list:
+    """Return every capability mixin defined here, in declaration order.
+
+    Use this to enumerate what the library can express, as opposed to
+    PhysicalDevice.capabilities(), which reports what one device supports. The
+    Capability marker base is excluded, and so are the drivers that mix these
+    in: a driver is a Capability subclass too, but it is declared in its own
+    module.
+    """
+    # A module's __dict__ is insertion-ordered, so filtering it in place yields
+    # the classes in the order they are declared above, grouped by family.
+    return [candidate for candidate in list(globals().values())
+            if isinstance(candidate, type)
+            and issubclass(candidate, Capability)
+            and candidate is not Capability
+            and candidate.__module__ == __name__]
+
+
+CapabilityMember = namedtuple("CapabilityMember", ["name", "signature", "isAbstract"])
+
+
+def capabilityInterface(aCapability) -> dict:
+    """Describe what a capability declares, as three lists under the keys
+    extends, publicAPI and hooks.
+
+    The publicAPI entries are the methods a user calls; the hooks are the ones a
+    driver implements. Both are CapabilityMember tuples, with an empty signature
+    for a property. Members a parent capability declares are left to that parent,
+    so a listing built from allCapabilities() never repeats them.
+    """
+    publicAPI, hooks = [], []
+    for name, member in vars(aCapability).items():
+        if name.startswith("_"):
+            continue
+
+        if isinstance(member, property):
+            signature = ""
+            isAbstract = getattr(member.fget, "__isabstractmethod__", False)
+        elif inspect.isfunction(member):
+            signature = inspect.signature(member)
+            signature = str(signature.replace(
+                parameters=list(signature.parameters.values())[1:]))
+            isAbstract = getattr(member, "__isabstractmethod__", False)
+        else:
+            continue
+
+        # The do prefix is what marks a hook, not abstractness: a hook that is
+        # optional, or that defaults to a composition of the other hooks, is
+        # concrete and would otherwise be mistaken for public API.
+        destination = hooks if name.startswith("do") else publicAPI
+        destination.append(CapabilityMember(name, signature, isAbstract))
+
+    extends = [klass for klass in aCapability.__mro__[1:]
+               if issubclass(klass, Capability) and klass is not Capability]
+    return {"extends": extends, "publicAPI": publicAPI, "hooks": hooks}

@@ -90,11 +90,6 @@ class PwrUSBDevice(PowerStripDevice, OutletSwitchingCapability,
             self.port.close()
         self.port = None
 
-    def _validateOutlet(self, outlet: int):
-        if outlet not in range(1, self.switchableOutletCount + 1):
-            raise ValueError("Outlet must be 1..{0}, got {1}".format(
-                self.switchableOutletCount, outlet))
-
     def deviceType(self) -> str:
         # flush() first so the reply is read from a clean buffer: a report can be
         # longer than the bytes we need, leaving a remainder buffered from the
@@ -108,17 +103,14 @@ class PwrUSBDevice(PowerStripDevice, OutletSwitchingCapability,
         return self.switchableOutletCount
 
     def doSetOutletState(self, outlet: int, isOn: bool):
-        self._validateOutlet(outlet)
         key = "on" if isOn else "off"
         self.port.writeData(bytearray([self.outletCommands[key][outlet - 1]]))
         self._outletStateCache[outlet - 1] = bool(isOn)
 
     def doGetOutletState(self, outlet: int) -> bool:
-        self._validateOutlet(outlet)
         return self._outletStateCache[outlet - 1]
 
     def doSetOutletDefaultState(self, outlet: int, isOn: bool):
-        self._validateOutlet(outlet)
         key = "defaultOn" if isOn else "defaultOff"
         self.port.writeData(bytearray([self.outletCommands[key][outlet - 1]]))
 

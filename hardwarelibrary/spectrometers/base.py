@@ -16,8 +16,18 @@ import usb.core
 import usb.util
 import usb.backend.libusb1
 
+from enum import Enum
 from pathlib import *
+from hardwarelibrary.capabilities import notifies
 from hardwarelibrary.physicaldevice import PhysicalDevice, DeviceState
+
+class SpectrometerNotification(Enum):
+    # getSpectrum keeps a will, unlike the other reads in the library: acquiring
+    # a spectrum takes an integration time, so a display has something to show
+    # while it waits.
+    willGetSpectrum    = "willGetSpectrum"
+    didGetSpectrum     = "didGetSpectrum"
+    didGetSerialNumber = "didGetSerialNumber"
 
 class NoSpectrometerConnected(RuntimeError):
     pass
@@ -31,6 +41,7 @@ class SpectrumRequestTimeoutError(RuntimeError):
 class Spectrometer(PhysicalDevice):
     idVendor = None
     idProduct = None
+    notification = SpectrometerNotification
     def __init__(self, serialNumber=None, idProduct:int = None, idVendor:int = None):
         import numpy as np
 
@@ -39,15 +50,30 @@ class Spectrometer(PhysicalDevice):
         self.wavelength = np.linspace(400,1000,1024)
         self.integrationTime = 10
 
-    # The contract a driver must implement. For spectrometers the public
-    # method is the hook itself (no doXxx wrapper), on top of
-    # doInitializeDevice and doShutdownDevice inherited from PhysicalDevice.
-    @abstractmethod
+    @notifies(did=SpectrometerNotification.didGetSerialNumber)
     def getSerialNumber(self):
+        """Returns the serial number, which tells two connected spectrometers apart."""
+        return self.doGetSerialNumber()
+
+    @notifies(will=SpectrometerNotification.willGetSpectrum,
+              did=SpectrometerNotification.didGetSpectrum)
+    def getSpectrum(self, **parameters) -> np.array:
+        """Returns one spectrum, as an array of intensities.
+
+        Any keyword argument is passed on to the driver, which is where
+        instrument-specific options live (the Ocean Insight units take an
+        integrationTime and bounds on how long to wait for the data).
+        """
+        return self.doGetSpectrum(**parameters)
+
+    # The contract a driver must implement, on top of doInitializeDevice and
+    # doShutdownDevice inherited from PhysicalDevice.
+    @abstractmethod
+    def doGetSerialNumber(self):
         ...
 
     @abstractmethod
-    def getSpectrum(self) -> np.array:
+    def doGetSpectrum(self) -> np.array:
         ...
 
     def display(self):

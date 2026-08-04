@@ -51,17 +51,17 @@ class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, Ana
     def configuration(self):
         return self.dev.configU3()
 
-    def configureAnalogIO(self, parameters: dict):
+    def doConfigureAnalogIO(self, parameters: dict):
         self._validateConfigIOParameters(parameters)
         self.dev.configIO(**parameters)
 
-    def configureDigitalIO(self, parameters: dict):
+    def doConfigureDigitalIO(self, parameters: dict):
         self._validateConfigIOParameters(parameters)
         self.dev.configIO(**parameters)
 
     @staticmethod
     def _validateConfigIOParameters(parameters):
-        # configureAnalogIO and configureDigitalIO both forward to the U3's single
+        # doConfigureAnalogIO and doConfigureDigitalIO both forward to the U3's single
         # configIO command; validate keys against its actual signature so an
         # unexpected key fails clearly here instead of deep inside configIO.
         import u3
@@ -73,11 +73,11 @@ class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, Ana
                 f"valid keys are {sorted(valid)}"
             )
 
-    def getAnalogVoltage(self, channel):
+    def doGetAnalogVoltage(self, channel):
         """Returns volts."""
         return self.dev.getAIN(channel)
 
-    def setAnalogVoltage(self, value, channel):
+    def doSetAnalogVoltage(self, value, channel):
         """value in volts, on DAC0 (channel 0) or DAC1 (channel 1)."""
         # 5000/5002 are the U3 Modbus registers for DAC0/DAC1.
         if channel == 0:
@@ -88,10 +88,10 @@ class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, Ana
             raise ValueError(f"DAC channel must be 0 or 1, got {channel}")
         self.dev.writeRegister(register, value)
 
-    def setDigitalValue(self, value, channel):
+    def doSetDigitalValue(self, value, channel):
         self.dev.setDOState(channel, value)
 
-    def getDigitalValue(self, channel):
+    def doGetDigitalValue(self, channel):
         return self.dev.getDIState(channel) != 0
 
     def getTemperature(self):
@@ -101,7 +101,7 @@ class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, Ana
     def toggleLED(self):
         self.dev.toggleLED()
 
-    def configureStream(self, channels, sampleRate=None, scanRate=None):
+    def doConfigureStream(self, channels, sampleRate=None, scanRate=None):
         # scanRate is a deprecated synonym for sampleRate, kept temporarily for
         # callers written against the pre-1.4.0 configureStream signature.
         if sampleRate is None:
@@ -115,17 +115,17 @@ class LabjackDevice(PhysicalDevice, AnalogIOCapability, DigitalIOCapability, Ana
             ScanFrequency=sampleRate,
         )
 
-    def startStream(self):
+    def doStartStream(self):
         self.dev.streamStart()
         self._streamData = self.dev.streamData(convert=True)
 
-    def readStream(self):
+    def doReadStream(self):
         packet = next(self._streamData)
         if packet is None:
             return {channel: [] for channel in self._streamChannels}
         return {channel: packet[f'AIN{channel}'] for channel in self._streamChannels}
 
-    def stopStream(self):
+    def doStopStream(self):
         self.dev.streamStop()
         self._streamData = None
 
@@ -165,24 +165,24 @@ class DebugLabjackDevice(LabjackDevice):
     def configuration(self):
         return {'DeviceName': 'DebugU3', 'SerialNumber': 0}
 
-    def configureAnalogIO(self, parameters: dict):
+    def doConfigureAnalogIO(self, parameters: dict):
         self._validateConfigIOParameters(parameters)
 
-    def configureDigitalIO(self, parameters: dict):
+    def doConfigureDigitalIO(self, parameters: dict):
         self._validateConfigIOParameters(parameters)
 
-    def getAnalogVoltage(self, channel):
+    def doGetAnalogVoltage(self, channel):
         return self._analogValues.get(channel, 0.0)
 
-    def setAnalogVoltage(self, value, channel):
+    def doSetAnalogVoltage(self, value, channel):
         if channel not in (0, 1):
             raise ValueError(f"DAC channel must be 0 or 1, got {channel}")
         self._analogValues[channel] = value
 
-    def setDigitalValue(self, value, channel):
+    def doSetDigitalValue(self, value, channel):
         self._digitalValues[channel] = bool(value)
 
-    def getDigitalValue(self, channel):
+    def doGetDigitalValue(self, channel):
         return self._digitalValues.get(channel, False)
 
     def getTemperature(self):
@@ -191,16 +191,16 @@ class DebugLabjackDevice(LabjackDevice):
     def toggleLED(self):
         pass
 
-    def configureStream(self, channels, sampleRate=None, scanRate=None):
+    def doConfigureStream(self, channels, sampleRate=None, scanRate=None):
         self._streamChannels = list(channels)
 
-    def startStream(self):
+    def doStartStream(self):
         pass
 
-    def readStream(self):
+    def doReadStream(self):
         blockSize = 25
         return {channel: [self._analogValues.get(channel, 0.0)] * blockSize
                 for channel in self._streamChannels}
 
-    def stopStream(self):
+    def doStopStream(self):
         pass

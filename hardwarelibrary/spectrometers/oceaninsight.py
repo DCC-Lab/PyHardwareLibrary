@@ -311,7 +311,7 @@ class OISpectrometer(Spectrometer):
         status = self.getStatus()
         return float(status.integrationTime)/self.timeScale
 
-    def getSerialNumber(self):
+    def doGetSerialNumber(self):
         """ Get the serial nunmber of the spectrometer.  This can be used to
         differentiate two connected spectrometers.
         """
@@ -466,7 +466,7 @@ class OISpectrometer(Spectrometer):
         """
         raise NotImplementedError('You must implemented getSpectrumData for your subclass.')
 
-    def getSpectrum(self, integrationTime=None, maxRequests=4, maxWait=2.0):
+    def doGetSpectrum(self, integrationTime=None, maxRequests=4, maxWait=2.0):
         """ Obtain a spectrum from the spectrometer. This implies:
         1- changing the integration time if needed.
         2- requesting a spectrum,

@@ -6,6 +6,156 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+### Added
+- **Notifications on every capability.** Each capability owns a
+  `<Capability>Notification` enum, reachable as its `notification` attribute, and
+  every public method is wrapped in the new `@notifies(will=..., did=...)`
+  decorator, so a driver gets notifications by implementing hooks and writing no
+  notification code at all. An operation that changes the instrument posts
+  `will<Stem>` then `did<Stem>`; a read (`doGet*`, `doReadStream`) posts only
+  `did<Stem>`, to keep a voltage sampled in a loop at one notification instead of
+  two. `Spectrometer` gets `SpectrometerNotification`, whose `getSpectrum` keeps a
+  `will` because an acquisition takes an integration time.
+  - `did*` is posted whether the operation succeeded or not, so a `will*` is always
+    followed by its `did*` and there is no separate failure member to pair up. The
+    exception is still **re-raised untouched**, since a driver's exception type is
+    part of its contract, so a caller sees it exactly as before while an observer
+    decides what to do from the payload.
+  - `user_info` is a dict of the public method's arguments by name, plus `"result"`
+    and `"error"`, exactly one of which is non-None.
+  - Capabilities related by inheritance share one enum, so `notification` is the
+    same object on all of them and the members are interchangeable:
+    `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability` and
+    `AnalogInputStreamCapability` all post `AnalogNotification`, and the digital
+    trio posts `DigitalNotification` (17 enums for 22 capabilities). Members are
+    keyed by identity, so without sharing an observer would have to know which
+    variant a device mixed in.
+  - Measured overhead on a read with no observer is ~1.6 us per call (~2.0 us with
+    one observer), against millisecond-scale device I/O.
+  - Removes the unused nested `AnalogInputStreamCapability.Notification`
+    (`willAcquire` / `didAcquire`), which was never posted; the equivalent members
+    are now `AnalogInputStreamNotification.willAcquireWaveform` / `didAcquireWaveform`.
+- The family bases that already posted notifications now follow the same scheme,
+  through the same `@notifies` decorator, and name their enum in a `notification`
+  attribute like the capabilities do. **Breaking for observers**:
+  - `PowerMeterNotification.didMeasure` is now `didGetAbsolutePower`, named after
+    its hook like everywhere else.
+  - `LinearMotionNotification` and `RotationMotionNotification` keep their grouped
+    `willMove` / `didMove` (`moveTo`, `moveBy` and `home` are one operation to an
+    observer), but the payload changed: `user_info` is now a dict carrying the
+    method's arguments by name plus `"result"` and `"error"`, where it used to be
+    the bare position, displacement or angle. A handler reading
+    `notification.user_info` as a tuple must now read `user_info["position"]`,
+    `user_info["displacement"]` or `user_info["angle"]`.
+  - Every one of them now also reports failures: the `did*` is posted even when the
+    driver raised, with the exception under `user_info["error"]`.
+  - `Spectrometer` gained the `notification` attribute it was missing.
+  - `CameraDeviceNotification` is left alone: a capture session is a different
+    shape (`imageCaptured` fires per frame), not a will/did pair around one hook.
+- **Contract-level argument validation on the capability public methods**, through a
+  new `validate=` parameter on `@notifies` and a new `hardwarelibrary/validation.py`
+  holding the shared `require*` checks. The validator runs before anything is posted,
+  so a refused call announces nothing and a will/did pair still means the driver was
+  invoked. **Breaking**: calls that used to be accepted silently now raise.
+  - `acquireWaveform(sampleCount=0)` returned an empty acquisition; now `ValueError`.
+    An empty `channels` list failed with `min() iterable argument is empty`; now it
+    names the parameter.
+  - `configureStream(sampleRate=-100)` was accepted; a rate must be positive, or
+    `None` to say the clock is external. `sampleRate=0` no longer means "external":
+    pass `None`, which is what the docstring always said.
+  - `setDigitalValue("yes", channel)` set the line True; a logic level must be a bool
+    (0 and 1 accepted). `setAnalogVoltage("2.5", channel)` now raises `TypeError`.
+  - `setSensitivity(-1)` and `setTimeConstant(0)` were silently snapped to a step;
+    both must be positive.
+  - `setWavelength` and `setDispersion` are checked against the range the driver
+    reports, so `matisse.setWavelength(50.0)` no longer drives the birefringent
+    filter outside the installed optics' 700-1000 nm.
+  - Outlets are checked against `doGetOutletCount()` in `OutletSwitchingCapability`
+    and `DefaultOutletCapability`, so `PwrUSBDevice._validateOutlet` is gone and every
+    future strip inherits the rule.
+  - `setInputSource` and `setTriggerSource` accept anything their enum accepts
+    (`setInputSource("Differential")`) and hand the driver a member.
+  - Instrument-specific limits stay in the drivers, unchanged.
+- **Every notified operation now requires an initialized device.** `@notifies` calls
+  `validateReady()` before anything else, raising `PhysicalDevice.NotInitialized`
+  unless the device is `Ready` and naming the operation, the class and the actual
+  state. Previously such a call either failed deep inside the driver with
+  `AttributeError: 'NoneType' object has no attribute ...` on a port that was never
+  opened, or -- on a debug device -- answered as though the hardware had done it and
+  posted a `did*` claiming success. The check runs before the `will` is posted, so a
+  refused call announces nothing. `validateReady` is defined once, on
+  `PhysicalDevice`, where the device lifecycle belongs; `capabilities.py` only calls
+  it, so a class mixing in a capability without being a `PhysicalDevice` answers for
+  readiness itself rather than silently skipping the check. Methods that only report what a model supports
+  (`supportedInputSources`, `supportedSensitivities`, `supportedTimeConstants`,
+  `supportedTriggerSources`, `outletCount`) are exempt via `requiresReady=False`,
+  since a UI populates its menus before connecting.
+- `allCapabilities()` in `hardwarelibrary/capabilities.py`: returns every capability
+  mixin the library defines, in declaration order. It answers the library-wide
+  question ("what can be expressed?"), where `PhysicalDevice.capabilities()` answers
+  the per-device one ("what does this instrument support?"). Enumerating the module
+  rather than walking `Capability.__subclasses__()` keeps the answer independent of
+  which device modules happen to be imported, and excludes the drivers, which are
+  `Capability` subclasses themselves.
+- `capabilityInterface()` in `hardwarelibrary/capabilities.py`: describes one capability
+  as `extends` / `publicAPI` / `hooks` lists of `CapabilityMember(name, signature,
+  isAbstract)` tuples. The `do` prefix is what separates a hook from the public API,
+  not abstractness: a hook that is optional, or that defaults to a composition of the
+  others, is concrete. Members a parent capability declares are left to that parent.
+- `python -m hardwarelibrary --capabilities` (`-c`): prints every capability with the
+  methods it defines and the hooks a driver must implement, so the list never has to
+  be maintained by hand.
+- `hardwarelibrary/tests/testCapabilities.py`: covers `allCapabilities()` and
+  `capabilityInterface()`, and enforces the invariant that every capability mixin is
+  declared in `capabilities.py`, by comparing the module listing against a full walk
+  of the `Capability` subclass graph.
+
+### Changed
+- **The public/`do*` template method pattern is now uniform across every capability.**
+  The DAQ, lock-in and trigger capabilities used to declare their public method
+  itself as the `@abstractmethod`; they now follow the same rule as every other
+  family: `getXxx()` is concrete and calls `doGetXxx()`, and only the hook is
+  abstract. This keeps the public method free for the argument validation,
+  notifications and error handling to be added there. Affected:
+  `AnalogInputCapability`, `AnalogOutputCapability`, `AnalogIOCapability`,
+  `AnalogInputStreamCapability`, `PhaseLockedDetectionCapability`,
+  `TriggerCapability`, `DigitalInputCapability`, `DigitalOutputCapability`,
+  `DigitalIOCapability`.
+  - **Callers are unaffected**: every public name and signature is unchanged.
+  - **Driver authors must rename their implementations** to the `do*` hook, e.g.
+    `getAnalogVoltage` -> `doGetAnalogVoltage`, `setDigitalValue` ->
+    `doSetDigitalValue`, `configureStream` -> `doConfigureStream`,
+    `softwareTrigger` -> `doSoftwareTrigger`, `supportedSensitivities` ->
+    `doGetSupportedSensitivities`. A driver that misses one fails loudly at
+    instantiation with `TypeError`, naming the missing hook. `LabjackDevice` and
+    `SR830Device` (and their debug counterparts) were migrated.
+  - `configureStream(channels, sampleRate=None, **parameters)` forwards extra
+    keyword arguments to `doConfigureStream`, so instrument-specific options
+    (the SR830's `sampleClock`, the LabJack's deprecated `scanRate`) still reach
+    the driver through the shared public method.
+- **`Spectrometer` follows the same pattern**: `getSpectrum()` and
+  `getSerialNumber()` are now concrete and delegate to the abstract
+  `doGetSpectrum()` / `doGetSerialNumber()`, which is the last place in the
+  library where the public method was itself the hook. `getSpectrum(**parameters)`
+  forwards keywords to the driver, so `getSpectrum(maxRequests=2, maxWait=0.05)`
+  still reaches `OISpectrometer`. `OISpectrometer` was migrated; `DebugSpectro`
+  is unaffected because it does not subclass `Spectrometer`.
+  - **ACTION REQUIRED for the licenced StellarNet driver**, which is distributed
+    encrypted and is not in this repository: rename its `getSpectrum` and
+    `getSerialNumber` to `doGetSpectrum` and `doGetSerialNumber`. Until then
+    `StellarNet()` raises `TypeError` for the missing hooks.
+- `hardwarelibrary/tests/testCapabilities.py` now also asserts that no
+  `PhysicalDevice` subclass in the library declares an abstract method outside its
+  `do*` hooks, so the pattern is enforced for family base classes, not just mixins.
+  `HOPSInterface` (`sources/verdig.py`) is deliberately exempt: it is a transport
+  strategy behind `VerdiGDevice`, closer to `CommunicationPort` than to a device API.
+- README: the supported-hardware table now lists every driver in the tree. It was
+  missing `VerdiGDevice`, `FieldMasterDevice`, `SR830Device`, `PwrUSBDevice` and
+  `StellarNet`, and carried the Millennia without its USB identity
+  (`0x0483:0x5740`). Added a "Capabilities" section explaining the mixin pattern
+  from first principles, and refreshed the class-hierarchy diagram, which was
+  stale in the same way.
+
 ## [1.5.0] - 2026-07-22
 
 ### Added

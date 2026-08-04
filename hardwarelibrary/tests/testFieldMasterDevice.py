@@ -32,9 +32,9 @@ class TestDebugFieldMasterDevice(unittest.TestCase):
         def handler(notification):
             self.received = notification.user_info
 
-        NotificationCenter().add_observer(self, handler, PowerMeterNotification.didMeasure)
+        NotificationCenter().add_observer(self, handler, PowerMeterNotification.didGetAbsolutePower)
         power = self.device.measureAbsolutePower()
-        self.assertEqual(self.received, power)
+        self.assertEqual(self.received, {"result": power, "error": None})
 
     def testGetCalibrationWavelength(self):
         self.assertEqual(self.device.getCalibrationWavelength(), 1064.0)
