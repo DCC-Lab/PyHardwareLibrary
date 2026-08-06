@@ -82,6 +82,7 @@ class Request(ABC):
 
     @abstractmethod
     def encode(self, **arguments) -> bytes:
+        """Returns the bytes to write, built from the arguments named here."""
         ...
 
 
@@ -98,6 +99,7 @@ class TextRequest(Request):
     """
 
     def __init__(self, template: str):
+        """Describe a request as a format template, terminator included."""
         self.template = template
 
     @property
@@ -107,6 +109,11 @@ class TextRequest(Request):
                      if name)
 
     def encode(self, **arguments) -> bytes:
+        """Returns the request as bytes, with the arguments substituted.
+
+        Raises MissingArgument, naming the field, rather than letting a KeyError
+        out of str.format.
+        """
         try:
             text = self.template.format(**arguments)
         except KeyError as error:
@@ -123,6 +130,11 @@ class BinaryRequest(Request):
     """
 
     def __init__(self, format: str, fields: tuple = (), constants: dict = None):
+        """Describe a request as a struct format, one name per packed value.
+
+        The format must state its byte order, or the frame it builds is the one a
+        C compiler would want rather than the one the instrument expects.
+        """
         requireExplicitByteOrder(format)
         self.format = format
         self.fields = tuple(fields)
@@ -134,6 +146,11 @@ class BinaryRequest(Request):
         return tuple(name for name in self.fields if name not in self.constants)
 
     def encode(self, **arguments) -> bytes:
+        """Returns the packed request, constants and arguments in field order.
+
+        Raises MissingArgument for a field the caller left out, and ProtocolError
+        for a value struct cannot pack into its format.
+        """
         values = []
         for name in self.fields:
             if name in self.constants:
@@ -164,6 +181,7 @@ class Reply(ABC):
 
     @abstractmethod
     def decode(self, data: bytes) -> dict:
+        """Returns what the reply carried, as {field: value}."""
         ...
 
 
@@ -180,10 +198,17 @@ class TextReply(Reply):
     """
 
     def __init__(self, pattern: str, fields: dict = None):
+        """Describe a reply as a pattern, and a converter per capture group."""
         self.pattern = pattern
         self.fields = dict(fields or {})
 
     def decode(self, data) -> dict:
+        """Returns the captured values, converted and named.
+
+        Accepts bytes or str, since what a port hands back varies. Raises
+        ReplyDidNotMatch when the pattern does not match, quoting both sides, and
+        ProtocolError when the pattern and the field names disagree in number.
+        """
         text = data.decode("utf-8") if isinstance(data, (bytes, bytearray)) else data
         match = re.search(self.pattern, text)
         if match is None:
@@ -207,15 +232,22 @@ class BinaryReply(Reply):
     """
 
     def __init__(self, format: str, fields: tuple = ()):
+        """Describe a reply as a struct format, one name per unpacked value."""
         requireExplicitByteOrder(format)
         self.format = format
         self.fields = tuple(fields)
 
     @property
     def readLength(self) -> int:
+        """Returns how many bytes to read, taken from the format itself."""
         return calcsize(self.format)
 
     def decode(self, data) -> dict:
+        """Returns the unpacked values, named field by field.
+
+        Raises ReplyDidNotMatch when the frame is not the length the format
+        expects, and ProtocolError when the format and the names disagree.
+        """
         if len(data) != self.readLength:
             raise ReplyDidNotMatch("expected {0} bytes for {1}, got {2}".format(
                 self.readLength, self.format, len(data)))
@@ -241,18 +273,30 @@ class Command:
     """
 
     def __init__(self, name: str, request: Request, reply: Reply = None):
+        """Pair a request with the reply it expects, under the name a driver uses.
+
+        reply is None for a command the instrument does not answer.
+        """
         self.name = name
         self.request = request
         self.reply = reply
 
     @property
     def expectsReply(self) -> bool:
+        """True when the instrument answers this command, so a caller knows
+        whether to read at all."""
         return self.reply is not None
 
     def encode(self, **arguments) -> bytes:
+        """Returns the bytes to write for this command."""
         return self.request.encode(**arguments)
 
     def decode(self, data) -> dict:
+        """Returns what the reply carried, as {field: value}.
+
+        Raises ProtocolError if this command expects no reply, since decoding one
+        means the caller read something it should not have.
+        """
         if self.reply is None:
             raise ProtocolError("{0} expects no reply".format(self.name))
         return self.reply.decode(data)
@@ -302,6 +346,10 @@ class CommandDictionary:
     }
 
     def __init__(self, commands: dict, deviceName: str = None):
+        """Hold already-built commands by name. Use fromFile to read a description.
+
+        deviceName is carried only to name the instrument in error messages.
+        """
         self.commands = dict(commands)
         self.deviceName = deviceName
 
@@ -380,21 +428,26 @@ class CommandDictionary:
 
     @property
     def names(self) -> tuple:
+        """Returns every command name, in the order the description listed them."""
         return tuple(self.commands)
 
     def __getitem__(self, name: str) -> Command:
+        """Returns one command by name, or raises KeyError naming what does exist."""
         if name not in self.commands:
             raise KeyError("{0} has no command {1!r}; it has {2}".format(
                 self.deviceName or "this device", name, ", ".join(sorted(self.commands))))
         return self.commands[name]
 
     def __contains__(self, name) -> bool:
+        """True when the device understands a command of that name."""
         return name in self.commands
 
     def __iter__(self):
+        """Iterate over the command names, as a dict does."""
         return iter(self.commands)
 
     def __len__(self) -> int:
+        """Returns how many commands the device understands."""
         return len(self.commands)
 
 
