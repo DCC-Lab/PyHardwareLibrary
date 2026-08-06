@@ -525,6 +525,11 @@ class MoveFrame(LittleEndianStructure):
     """The MP-285 MOVE request: a header, three int32 microstep counts, a return."""
 
     _pack_ = 1
+    # Naming the layout is required alongside _pack_ from Python 3.14, where
+    # leaving it implicit warns and becomes an error in 3.19. With _pack_ = 1
+    # there is no padding for the two layouts to disagree about, so "ms" only
+    # states what was already happening. Ignored by Python 3.13 and earlier.
+    _layout_ = "ms"
     _fields_ = [("header", c_char), ("x", c_int32), ("y", c_int32),
                 ("z", c_int32), ("terminator", c_char)]
 
@@ -533,6 +538,7 @@ class PositionFrame(LittleEndianStructure):
     """Its GET_POSITION reply: three int32s and the carriage return that ends them."""
 
     _pack_ = 1
+    _layout_ = "ms"
     _fields_ = [("x", c_int32), ("y", c_int32), ("z", c_int32),
                 ("terminator", c_char)]
 
