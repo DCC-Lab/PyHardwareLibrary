@@ -16,8 +16,8 @@ Consequences worth noticing while reading:
 
   - a description is immutable and shareable; the result of an exchange is a plain
     dict returned to the caller, so two instruments cannot overwrite each other;
-  - a Reply says how it must be read (a fixed length, or up to a terminator), so
-    the caller knows what to ask the port for without the description doing it;
+  - a Reply parses whatever it is handed, and says how many bytes to read only
+    where nothing else could know: a fixed-size binary frame;
   - decoding failure raises, naming what did not match, instead of being recorded
     in an attribute nobody checks.
 
@@ -125,13 +125,14 @@ class BinaryRequest(Request):
 class Reply(ABC):
     """How to turn the bytes read back into named values.
 
-    A reply also says how it must be read: readLength for a fixed-size frame, or
-    terminator for a line. Exactly one of the two is set, so a caller can always
-    tell what to ask the port for.
+    Reading is the caller's business: a reply parses whatever it is handed. The
+    one thing it must say is readLength, and only when nothing else could know it
+    -- a fixed-size binary frame has no terminator to stop at, so the number of
+    bytes to ask for can come from nowhere but the description. A line needs no
+    such answer, since the port already reads up to its own terminator.
     """
 
     readLength = None
-    terminator = None
 
     @abstractmethod
     def decode(self, data: bytes) -> dict:
@@ -145,12 +146,14 @@ class TextReply(Reply):
     {"power": float} turns r"(\\d+\\.\\d+)" into {"power": 0.123}. A reply with no
     capture groups, such as an "OK" acknowledgement, decodes to an empty dict --
     it either matched or it raised.
+
+    It parses whatever it is handed and says nothing about how to read it: where
+    a line ends is the port's business, not the protocol's.
     """
 
-    def __init__(self, pattern: str, fields: dict = None, terminator: str = "\r\n"):
+    def __init__(self, pattern: str, fields: dict = None):
         self.pattern = pattern
         self.fields = dict(fields or {})
-        self.terminator = terminator
 
     def decode(self, data) -> dict:
         text = data.decode("utf-8") if isinstance(data, (bytes, bytearray)) else data
@@ -300,9 +303,12 @@ class TestTextReply(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             reply.decode("1 2")
 
-    def testItSaysHowItMustBeRead(self):
-        reply = TextReply("OK")
-        self.assertEqual(reply.terminator, "\r\n")
+    def testItParsesWhateverItIsHanded(self):
+        # Trailing bytes, or none, are the port's business: the same description
+        # reads a line however that line happened to arrive.
+        reply = TextReply(r"(\d+\.\d+)", fields={"power": float})
+        for arrival in (b"0.123\r\n", b"0.123\n", b"0.123\r", b"0.123", "0.123"):
+            self.assertEqual(reply.decode(arrival), {"power": 0.123})
         self.assertIsNone(reply.readLength)
 
 
@@ -327,10 +333,11 @@ class TestBinaryReply(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             reply.decode(pack("<ll", 1, 2))
 
-    def testItSaysHowItMustBeRead(self):
-        reply = BinaryReply("<c")
-        self.assertEqual(reply.readLength, 1)
-        self.assertIsNone(reply.terminator)
+    def testItSaysHowManyBytesToRead(self):
+        # The one thing a caller cannot work out for itself: a fixed-size frame
+        # has no terminator to stop at.
+        self.assertEqual(BinaryReply("<c").readLength, 1)
+        self.assertEqual(BinaryReply("<lllx", fields=("x", "y", "z")).readLength, 13)
 
 
 class TestExchange(unittest.TestCase):
