@@ -31,6 +31,7 @@ import re
 import string
 import unittest
 from abc import ABC, abstractmethod
+from ctypes import LittleEndianStructure, c_char, c_int32, sizeof
 from struct import calcsize, error as StructError, pack, unpack
 
 
@@ -190,6 +191,96 @@ class BinaryReply(Reply):
                 "{0} unpacks {1} value(s) but {2} field(s) were named".format(
                     self.format, len(values), len(self.fields)))
         return dict(zip(self.fields, values))
+
+
+# --- The same binary frames, declared as a ctypes layout instead -------------
+#
+# A second way to say the same thing, for comparison. Where BinaryRequest and
+# BinaryReply each carry a struct format and a tuple of names, a ctypes Structure
+# carries both in one declaration and works in both directions: bytes(instance)
+# writes the frame, from_buffer_copy() reads it back by name. sizeof() then gives
+# the read length, so it cannot drift from the layout.
+#
+# The cost is a trap, which is why layoutIsPacked exists below: without
+# _pack_ = 1, ctypes aligns each field to its natural boundary and a 14-byte
+# frame silently becomes 20. struct's "<" gets that right by default.
+
+
+def layoutIsPacked(layout) -> bool:
+    """True when a ctypes layout adds no alignment padding between its fields."""
+    declared = sum(sizeof(fieldType) for _, fieldType in layout._fields_)
+    return sizeof(layout) == declared
+
+
+def requirePackedLayout(layout):
+    """Refuse a layout that would put padding on the wire.
+
+    Loudly, at description time: the frame it produces is the right shape for a C
+    compiler and the wrong shape for the instrument, and nothing downstream would
+    notice.
+    """
+    if not layoutIsPacked(layout):
+        declared = sum(sizeof(fieldType) for _, fieldType in layout._fields_)
+        raise ProtocolError(
+            "{0} packs to {1} bytes but its fields are {2}: set _pack_ = 1, or "
+            "ctypes aligns them and the frame is wrong".format(
+                layout.__name__, sizeof(layout), declared))
+
+
+class FrameRequest(Request):
+    """A binary request declared as a ctypes Structure.
+
+    constants are the fields the caller never supplies, as with BinaryRequest --
+    a header byte, a trailing carriage return.
+    """
+
+    def __init__(self, layout, constants: dict = None):
+        requirePackedLayout(layout)
+        self.layout = layout
+        self.constants = dict(constants or {})
+
+    @property
+    def fields(self) -> tuple:
+        return tuple(name for name, _ in self.layout._fields_)
+
+    @property
+    def arguments(self) -> tuple:
+        return tuple(name for name in self.fields if name not in self.constants)
+
+    def encode(self, **arguments) -> bytes:
+        frame = self.layout()
+        for name in self.fields:
+            if name in self.constants:
+                setattr(frame, name, self.constants[name])
+            elif name in arguments:
+                setattr(frame, name, arguments[name])
+            else:
+                raise MissingArgument("{0} needs {1}, got {2}".format(
+                    self.layout.__name__, name, sorted(arguments)))
+        return bytes(frame)
+
+
+class FrameReply(Reply):
+    """A binary reply declared as the same kind of ctypes Structure.
+
+    Every field is named, including the terminator, so an acknowledgement byte can
+    be asserted rather than discarded as padding.
+    """
+
+    def __init__(self, layout):
+        requirePackedLayout(layout)
+        self.layout = layout
+
+    @property
+    def readLength(self) -> int:
+        return sizeof(self.layout)
+
+    def decode(self, data) -> dict:
+        if len(data) != self.readLength:
+            raise ReplyDidNotMatch("expected {0} bytes for {1}, got {2}".format(
+                self.readLength, self.layout.__name__, len(data)))
+        frame = self.layout.from_buffer_copy(bytes(data))
+        return {name: getattr(frame, name) for name, _ in self.layout._fields_}
 
 
 class Exchange:
@@ -428,6 +519,96 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
         self.assertEqual(snap.encode(), b"SNAP? 1,2,3,4\n")
         self.assertEqual(snap.decode(b"1.0e-3,-2.0e-3,2.236e-3,-63.4\r\n"),
                          {"x": 0.001, "y": -0.002, "magnitude": 0.002236, "phase": -63.4})
+
+
+class MoveFrame(LittleEndianStructure):
+    """The MP-285 MOVE request: a header, three int32 microstep counts, a return."""
+
+    _pack_ = 1
+    _fields_ = [("header", c_char), ("x", c_int32), ("y", c_int32),
+                ("z", c_int32), ("terminator", c_char)]
+
+
+class PositionFrame(LittleEndianStructure):
+    """Its GET_POSITION reply: three int32s and the carriage return that ends them."""
+
+    _pack_ = 1
+    _fields_ = [("x", c_int32), ("y", c_int32), ("z", c_int32),
+                ("terminator", c_char)]
+
+
+class AlignedFrame(LittleEndianStructure):
+    """The same MOVE fields with _pack_ forgotten, which is the trap."""
+
+    _fields_ = MoveFrame._fields_
+
+
+class TestTheCTypesVariant(unittest.TestCase):
+    def testItWritesTheSameBytesAsTheStructFormat(self):
+        byFormat = BinaryRequest(
+            "<clllc", fields=("header", "x", "y", "z", "terminator"),
+            constants={"header": b"M", "terminator": b"\r"})
+        byLayout = FrameRequest(MoveFrame,
+                                constants={"header": b"M", "terminator": b"\r"})
+        self.assertEqual(byLayout.encode(x=4000, y=5000, z=6000),
+                         byFormat.encode(x=4000, y=5000, z=6000))
+        self.assertEqual(byLayout.arguments, byFormat.arguments)
+
+    def testItReadsTheSameFrameBackByName(self):
+        frame = pack("<lllc", 1, 2, 3, b"\r")
+        byFormat = BinaryReply("<lllx", fields=("x", "y", "z"))
+        byLayout = FrameReply(PositionFrame)
+        self.assertEqual(byLayout.readLength, byFormat.readLength)
+        # The layout names the terminator instead of discarding it as padding.
+        self.assertEqual(byLayout.decode(frame),
+                         {"x": 1, "y": 2, "z": 3, "terminator": b"\r"})
+        self.assertEqual(byFormat.decode(frame), {"x": 1, "y": 2, "z": 3})
+
+    def testTheAcknowledgementCanBeAsserted(self):
+        # What the struct version cannot do: the terminator is a value, so a
+        # driver can check the stage actually acknowledged.
+        decoded = FrameReply(PositionFrame).decode(pack("<lllc", 0, 0, 0, b"\r"))
+        self.assertEqual(decoded["terminator"], b"\r")
+
+    def testOneDeclarationServesBothDirections(self):
+        # The point of the variant: encode and decode come from the same layout,
+        # so a format and its field names cannot drift apart.
+        request = FrameRequest(MoveFrame, constants={"header": b"M", "terminator": b"\r"})
+        echoed = FrameReply(MoveFrame).decode(request.encode(x=7, y=8, z=9))
+        self.assertEqual(echoed, {"header": b"M", "x": 7, "y": 8, "z": 9,
+                                  "terminator": b"\r"})
+
+    def testAMissingArgumentSaysWhichOne(self):
+        request = FrameRequest(MoveFrame, constants={"header": b"M", "terminator": b"\r"})
+        with self.assertRaises(MissingArgument) as raised:
+            request.encode(x=1, y=2)
+        self.assertIn("z", str(raised.exception))
+
+    def testAShortFrameSaysWhatWasExpected(self):
+        with self.assertRaises(ReplyDidNotMatch) as raised:
+            FrameReply(PositionFrame).decode(b"\x01\x02")
+        self.assertIn("13", str(raised.exception))
+
+    def testTheAlignmentTrapIsRefusedAtDescriptionTime(self):
+        # Without _pack_ = 1 this layout is 20 bytes, not 14, and every frame it
+        # writes is wrong. Better to refuse it than to send it.
+        self.assertFalse(layoutIsPacked(AlignedFrame))
+        self.assertEqual(sizeof(AlignedFrame), 20)
+        with self.assertRaises(ProtocolError) as raised:
+            FrameRequest(AlignedFrame)
+        message = str(raised.exception)
+        self.assertIn("_pack_", message)
+        self.assertIn("20", message)
+        self.assertIn("14", message)
+
+    def testItFitsAnExchangeLikeTheOtherKind(self):
+        move = Exchange("MOVE",
+                        FrameRequest(MoveFrame,
+                                     constants={"header": b"M", "terminator": b"\r"}),
+                        FrameReply(PositionFrame))
+        self.assertEqual(move.encode(x=1, y=2, z=3),
+                         pack("<clllc", b"M", 1, 2, 3, b"\r"))
+        self.assertEqual(move.reply.readLength, 13)
 
 
 if __name__ == "__main__":
