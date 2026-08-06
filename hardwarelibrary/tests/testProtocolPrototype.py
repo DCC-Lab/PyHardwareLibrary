@@ -5,7 +5,7 @@ a sketch of how an instrument protocol could be *described*, so the design can b
 judged before any driver depends on it.
 
 The idea is sans-I/O, the principle behind h11 and wsproto: the protocol is a pure
-transformation over bytes and never performs the exchange. A Request turns named
+transformation over bytes and never performs the transaction. A Request turns named
 arguments into the bytes to write; a Reply turns the bytes read back into named
 values; neither owns a port, and neither stores what happened. That is what
 separates this from the current Command, which describes the protocol, builds the
@@ -14,7 +14,7 @@ attribute shared by every instance of a driver.
 
 Consequences worth noticing while reading:
 
-  - a description is immutable and shareable; the result of an exchange is a plain
+  - a description is immutable and shareable; the result of an transaction is a plain
     dict returned to the caller, so two instruments cannot overwrite each other;
   - a Reply parses whatever it is handed, and says how many bytes to read only
     where nothing else could know: a fixed-size binary frame;
@@ -48,6 +48,26 @@ class MissingArgument(ProtocolError):
 
 class ReplyDidNotMatch(ProtocolError):
     """The bytes read back are not what this reply describes."""
+
+
+byteOrderPrefixes = ("<", ">", "!", "=")
+
+
+def requireExplicitByteOrder(format: str):
+    """Refuse a struct format that does not begin with a byte-order prefix.
+
+    Without one, struct uses native sizes and native alignment: "clllc" is 33
+    bytes on this machine rather than the 14 the instrument expects, an "l" is
+    whatever a C long happens to be, and padding appears between the fields. The
+    frame is then correct for the compiler and wrong for the wire, and nothing
+    downstream would notice -- the same failure the ctypes variant needed
+    _pack_ = 1 to avoid, at the price of one character here.
+    """
+    if not format.startswith(byteOrderPrefixes):
+        raise ProtocolError(
+            "{0!r} has no byte-order prefix, so struct would use native sizes and "
+            "alignment: {1} bytes instead of {2}. Write {3!r}.".format(
+                format, calcsize(format), calcsize("<" + format), "<" + format))
 
 
 class Request(ABC):
@@ -96,6 +116,7 @@ class BinaryRequest(Request):
     """
 
     def __init__(self, format: str, fields: tuple = (), constants: dict = None):
+        requireExplicitByteOrder(format)
         self.format = format
         self.fields = tuple(fields)
         self.constants = dict(constants or {})
@@ -179,6 +200,7 @@ class BinaryReply(Reply):
     """
 
     def __init__(self, format: str, fields: tuple = ()):
+        requireExplicitByteOrder(format)
         self.format = format
         self.fields = tuple(fields)
 
@@ -198,12 +220,15 @@ class BinaryReply(Reply):
         return dict(zip(self.fields, values))
 
 
-class Exchange:
+class Transaction:
     """One request and the reply it expects, named for a driver to call by name.
 
-    Called Exchange rather than Command because it describes the round trip and
-    performs none of it: encode() gives the caller the bytes to write, decode()
-    turns what came back into values, and the caller owns the port in between.
+    Called Transaction rather than Command because it describes the round trip
+    and performs none of it: encode() gives the caller the bytes to write,
+    decode() turns what came back into values, and the caller owns the port in
+    between. The word is already the library's for that pairing -- it is what
+    CommunicationPort.transactionLock guards, a write and its read kept together
+    against other threads.
     """
 
     def __init__(self, name: str, request: Request, reply: Reply = None):
@@ -340,54 +365,76 @@ class TestBinaryReply(unittest.TestCase):
         self.assertEqual(BinaryReply("<lllx", fields=("x", "y", "z")).readLength, 13)
 
 
-class TestExchange(unittest.TestCase):
-    def testCarriesARequestAndItsReply(self):
-        exchange = Exchange("GET_POWER", TextRequest("pa?\r"),
-                            TextReply(r"(\d+\.\d+)", fields={"power": float}))
-        self.assertEqual(exchange.encode(), b"pa?\r")
-        self.assertEqual(exchange.decode(b"0.250\r\n"), {"power": 0.25})
-        self.assertTrue(exchange.expectsReply)
+class TestByteOrderMustBeExplicit(unittest.TestCase):
+    def testAFormatWithoutAPrefixIsRefused(self):
+        with self.assertRaises(ProtocolError) as raised:
+            BinaryRequest("clllc", fields=("header", "x", "y", "z", "terminator"))
+        message = str(raised.exception)
+        self.assertIn("14", message)          # what the instrument expects
+        self.assertIn("<clllc", message)      # and how to say it
 
-    def testAnExchangeMayExpectNothingBack(self):
-        exchange = Exchange("SET_WAVELENGTH", TextRequest("*PWC{wavelength:05d}"))
-        self.assertFalse(exchange.expectsReply)
-        self.assertEqual(exchange.encode(wavelength=532), b"*PWC00532")
+    def testTheReplySideIsGuardedToo(self):
         with self.assertRaises(ProtocolError):
-            exchange.decode(b"anything")
+            BinaryReply("lllx", fields=("x", "y", "z"))
+
+    def testEveryExplicitPrefixIsAccepted(self):
+        for prefix in ("<", ">", "!", "="):
+            self.assertEqual(BinaryReply(prefix + "l", fields=("value",)).readLength, 4)
+
+    def testWithoutTheGuardTheLengthWouldBeWrong(self):
+        # What is actually being prevented: not a crash, a wrong frame.
+        self.assertEqual(calcsize("<clllc"), 14)
+        self.assertNotEqual(calcsize("clllc"), 14)
+
+
+class TestTransaction(unittest.TestCase):
+    def testCarriesARequestAndItsReply(self):
+        transaction = Transaction("GET_POWER", TextRequest("pa?\r"),
+                            TextReply(r"(\d+\.\d+)", fields={"power": float}))
+        self.assertEqual(transaction.encode(), b"pa?\r")
+        self.assertEqual(transaction.decode(b"0.250\r\n"), {"power": 0.25})
+        self.assertTrue(transaction.expectsReply)
+
+    def testATransactionMayExpectNothingBack(self):
+        transaction = Transaction("SET_WAVELENGTH", TextRequest("*PWC{wavelength:05d}"))
+        self.assertFalse(transaction.expectsReply)
+        self.assertEqual(transaction.encode(wavelength=532), b"*PWC00532")
+        with self.assertRaises(ProtocolError):
+            transaction.decode(b"anything")
 
     def testTheDescriptionIsSharedButTheResultIsNot(self):
         # The point of the whole exercise: two callers of one description cannot
         # overwrite each other, because nothing is stored on it.
-        exchange = Exchange("GET_POWER", TextRequest("pa?\r"),
+        transaction = Transaction("GET_POWER", TextRequest("pa?\r"),
                             TextReply(r"(\d+\.\d+)", fields={"power": float}))
-        first = exchange.decode(b"0.100\r\n")
-        second = exchange.decode(b"0.900\r\n")
+        first = transaction.decode(b"0.100\r\n")
+        second = transaction.decode(b"0.900\r\n")
         self.assertEqual(first, {"power": 0.1})
         self.assertEqual(second, {"power": 0.9})
-        self.assertEqual(vars(exchange).keys(), {"name", "request", "reply"})
+        self.assertEqual(vars(transaction).keys(), {"name", "request", "reply"})
 
 
 class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
     """The real test of the design: say what the drivers in this repo actually speak."""
 
     def testCoboltSetAndReadPower(self):
-        setPower = Exchange("SET_POWER", TextRequest("p {power:0.3f}\r"), TextReply("OK"))
+        setPower = Transaction("SET_POWER", TextRequest("p {power:0.3f}\r"), TextReply("OK"))
         self.assertEqual(setPower.encode(power=0.05), b"p 0.050\r")
         self.assertEqual(setPower.decode(b"OK\r\n"), {})
 
-        getPower = Exchange("GET_POWER", TextRequest("pa?\r"),
+        getPower = Transaction("GET_POWER", TextRequest("pa?\r"),
                             TextReply(r"(\d+\.\d+)", fields={"power": float}))
         self.assertEqual(getPower.encode(), b"pa?\r")
         self.assertEqual(getPower.decode(b"0.0499\r\n"), {"power": 0.0499})
 
     def testCoboltOnOffStateAsABoolean(self):
-        getOnOff = Exchange("GET_ON_OFF", TextRequest("l?\r"),
+        getOnOff = Transaction("GET_ON_OFF", TextRequest("l?\r"),
                             TextReply(r"(0|1)", fields={"isOn": lambda text: text == "1"}))
         self.assertEqual(getOnOff.decode(b"1\r\n"), {"isOn": True})
         self.assertEqual(getOnOff.decode(b"0\r\n"), {"isOn": False})
 
     def testSutterMoveAndPosition(self):
-        move = Exchange(
+        move = Transaction(
             "MOVE",
             BinaryRequest("<clllc", fields=("header", "x", "y", "z", "terminator"),
                           constants={"header": b"M", "terminator": b"\r"}),
@@ -396,7 +443,7 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
                          pack("<clllc", b"M", 4000, 5000, 6000, b"\r"))
         self.assertEqual(move.decode(b"\r"), {"acknowledgement": b"\r"})
 
-        position = Exchange(
+        position = Transaction(
             "GET_POSITION",
             BinaryRequest("<cc", fields=("header", "terminator"),
                           constants={"header": b"C", "terminator": b"\r"}),
@@ -407,23 +454,23 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
                          {"x": 1, "y": 2, "z": 3})
 
     def testIntegraWavelengthBothWays(self):
-        getWavelength = Exchange(
+        getWavelength = Transaction(
             "GETWAVELENGTH", TextRequest("*GWL"),
             TextReply(r"PWC\s*:\s*(.+?)\r\n", fields={"wavelength": float}))
         self.assertEqual(getWavelength.encode(), b"*GWL")
         self.assertEqual(getWavelength.decode(b"PWC : 532.0\r\n"), {"wavelength": 532.0})
 
-        setWavelength = Exchange("SETWAVELENGTH",
+        setWavelength = Transaction("SETWAVELENGTH",
                                  TextRequest("*PWC{wavelength:05d}"))
         self.assertEqual(setWavelength.encode(wavelength=1064), b"*PWC01064")
 
     def testIntellidriveRegisters(self):
-        setRegister = Exchange("SET_REGISTER",
+        setRegister = Transaction("SET_REGISTER",
                                TextRequest("s r{register} {value}\r"), TextReply("ok"))
         self.assertEqual(setRegister.encode(register="0x24", value=31), b"s r0x24 31\r")
         self.assertEqual(setRegister.decode(b"ok\r"), {})
 
-        getRegister = Exchange("GET_REGISTER", TextRequest("g r{register}\n"),
+        getRegister = Transaction("GET_REGISTER", TextRequest("g r{register}\n"),
                                TextReply(r"v\s(-?\d+)", fields={"value": int}))
         self.assertEqual(getRegister.encode(register="0xc9"), b"g r0xc9\n")
         self.assertEqual(getRegister.decode(b"v -1234\r"), {"value": -1234})
@@ -431,7 +478,7 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
     def testTheSR830SnapReplyThatHasNoDescriptionToday(self):
         # SNAP? returns several comma-separated floats at one instant; the current
         # Command cannot say that at all, so SR830Device parses it by hand.
-        snap = Exchange("SNAP", TextRequest("SNAP? 1,2,3,4\n"),
+        snap = Transaction("SNAP", TextRequest("SNAP? 1,2,3,4\n"),
                         TextReply(r"([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+)",
                                   fields={"x": float, "y": float,
                                           "magnitude": float, "phase": float}))
