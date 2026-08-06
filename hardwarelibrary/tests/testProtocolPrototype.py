@@ -27,8 +27,11 @@ table-driven mock needs -- is deliberately left out.
 """
 
 import env
+import json
+import os
 import re
 import string
+import tempfile
 import unittest
 from abc import ABC, abstractmethod
 from struct import calcsize, error as StructError, pack, unpack
@@ -48,6 +51,10 @@ class MissingArgument(ProtocolError):
 
 class ReplyDidNotMatch(ProtocolError):
     """The bytes read back are not what this reply describes."""
+
+
+class BadDescription(ProtocolError):
+    """A command description, usually read from a file, does not make sense."""
 
 
 byteOrderPrefixes = ("<", ">", "!", "=")
@@ -249,6 +256,126 @@ class Command:
         if self.reply is None:
             raise ProtocolError("{0} expects no reply".format(self.name))
         return self.reply.decode(data)
+
+
+# --- The commands of one device, as data ------------------------------------
+#
+# A driver's protocol is a table, and a table is data: this reads one from JSON
+# and builds the same objects the tests above build by hand. JSON rather than
+# TOML or YAML because it is in the standard library of every Python the package
+# supports, where tomllib arrives only in 3.11 and YAML is a dependency.
+#
+# The one thing a file cannot carry is a callable, so a text field names its
+# converter and the name is looked up here. That list is deliberately short: a
+# protocol file describes a protocol, and anything needing real code belongs in
+# the driver.
+
+converters = {
+    "float": float,
+    "integer": int,
+    "text": str,
+    "boolean01": lambda text: text == "1",
+    "hexInteger": lambda text: int(text, 16),
+}
+
+
+def convertersFor(fields: dict, where: str) -> dict:
+    """Turn {"power": "float"} from a file into {"power": float}."""
+    resolved = {}
+    for name, converterName in fields.items():
+        if converterName not in converters:
+            raise BadDescription("{0}: {1} names the converter {2!r}, which is not one of {3}".format(
+                where, name, converterName, ", ".join(sorted(converters))))
+        resolved[name] = converters[converterName]
+    return resolved
+
+
+def bytesFrom(text: str) -> bytes:
+    """A constant byte from a file, latin-1 so that \xfe stays one byte."""
+    return text.encode("latin-1")
+
+
+def requestFrom(description: dict, where: str) -> Request:
+    """Build the Request half of a command from its description."""
+    if "template" in description:
+        return TextRequest(description["template"])
+    if "format" in description:
+        return BinaryRequest(
+            description["format"],
+            fields=tuple(description.get("fields", ())),
+            constants={name: bytesFrom(value)
+                       for name, value in description.get("constants", {}).items()})
+    raise BadDescription(
+        "{0}: a request needs a template, for text, or a format, for binary".format(where))
+
+
+def replyFrom(description: dict, where: str) -> Reply:
+    """Build the Reply half, when there is one."""
+    if "pattern" in description:
+        return TextReply(description["pattern"],
+                         fields=convertersFor(description.get("fields", {}), where))
+    if "format" in description:
+        return BinaryReply(description["format"], fields=tuple(description.get("fields", ())))
+    raise BadDescription(
+        "{0}: a reply needs a pattern, for text, or a format, for binary".format(where))
+
+
+def commandFrom(name: str, description: dict) -> Command:
+    """Build one named command from its description."""
+    where = "command {0!r}".format(name)
+    if "request" not in description:
+        raise BadDescription("{0}: no request".format(where))
+    reply = description.get("reply")
+    return Command(name, requestFrom(description["request"], where),
+                   replyFrom(reply, where) if reply is not None else None)
+
+
+class CommandDictionary:
+    """Every command one device understands, by name.
+
+    Reads like a dict and is built from a file, so a protocol can be read,
+    reviewed and corrected without touching the driver that speaks it.
+    """
+
+    def __init__(self, commands: dict, deviceName: str = None):
+        self.commands = dict(commands)
+        self.deviceName = deviceName
+
+    @classmethod
+    def fromDescription(cls, description: dict) -> "CommandDictionary":
+        if "commands" not in description:
+            raise BadDescription("no commands: expected {'device': ..., 'commands': {...}}")
+        return cls({name: commandFrom(name, one)
+                    for name, one in description["commands"].items()},
+                   deviceName=description.get("device"))
+
+    @classmethod
+    def fromJSON(cls, text: str) -> "CommandDictionary":
+        return cls.fromDescription(json.loads(text))
+
+    @classmethod
+    def fromFile(cls, path: str) -> "CommandDictionary":
+        with open(path, "r") as file:
+            return cls.fromDescription(json.load(file))
+
+    @property
+    def names(self) -> tuple:
+        return tuple(self.commands)
+
+    def __getitem__(self, name: str) -> Command:
+        if name not in self.commands:
+            raise KeyError("{0} has no command {1!r}; it has {2}".format(
+                self.deviceName or "this device", name, ", ".join(sorted(self.commands))))
+        return self.commands[name]
+
+    def __contains__(self, name) -> bool:
+        return name in self.commands
+
+    def __iter__(self):
+        return iter(self.commands)
+
+    def __len__(self) -> int:
+        return len(self.commands)
 
 
 # ---------------------------------------------------------------------------
@@ -487,6 +614,150 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
         self.assertEqual(snap.encode(), b"SNAP? 1,2,3,4\n")
         self.assertEqual(snap.decode(b"1.0e-3,-2.0e-3,2.236e-3,-63.4\r\n"),
                          {"x": 0.001, "y": -0.002, "magnitude": 0.002236, "phase": -63.4})
+
+
+COBOLT = """
+{
+  "device": "Cobolt laser",
+  "commands": {
+    "GET_POWER": {
+      "request": {"template": "pa?\\r"},
+      "reply":   {"pattern": "(\\\\d+\\\\.\\\\d+)", "fields": {"power": "float"}}
+    },
+    "SET_POWER": {
+      "request": {"template": "p {power:0.3f}\\r"},
+      "reply":   {"pattern": "OK"}
+    },
+    "GET_ON_OFF": {
+      "request": {"template": "l?\\r"},
+      "reply":   {"pattern": "(0|1)", "fields": {"isOn": "boolean01"}}
+    },
+    "TURN_ON": {
+      "request": {"template": "l1\\r"},
+      "reply":   {"pattern": "OK"}
+    }
+  }
+}
+"""
+
+SUTTER = """
+{
+  "device": "Sutter MP-285",
+  "commands": {
+    "MOVE": {
+      "request": {"format": "<clllc",
+                  "fields": ["header", "x", "y", "z", "terminator"],
+                  "constants": {"header": "M", "terminator": "\\r"}},
+      "reply":   {"format": "<c", "fields": ["acknowledgement"]}
+    },
+    "GET_POSITION": {
+      "request": {"format": "<cc", "fields": ["header", "terminator"],
+                  "constants": {"header": "C", "terminator": "\\r"}},
+      "reply":   {"format": "<lllx", "fields": ["x", "y", "z"]}
+    }
+  }
+}
+"""
+
+
+class TestCommandDictionary(unittest.TestCase):
+    def setUp(self):
+        self.cobolt = CommandDictionary.fromJSON(COBOLT)
+        self.sutter = CommandDictionary.fromJSON(SUTTER)
+
+    def testItReadsLikeADictionaryOfCommands(self):
+        self.assertEqual(len(self.cobolt), 4)
+        self.assertIn("GET_POWER", self.cobolt)
+        self.assertEqual(sorted(self.cobolt.names),
+                         ["GET_ON_OFF", "GET_POWER", "SET_POWER", "TURN_ON"])
+        self.assertIsInstance(self.cobolt["GET_POWER"], Command)
+        self.assertEqual(self.cobolt.deviceName, "Cobolt laser")
+
+    def testATextCommandFromAFileBehavesLikeOneWrittenByHand(self):
+        fromFile = self.cobolt["SET_POWER"]
+        byHand = Command("SET_POWER", TextRequest("p {power:0.3f}\r"), TextReply("OK"))
+        self.assertEqual(fromFile.encode(power=0.05), byHand.encode(power=0.05))
+        self.assertEqual(fromFile.decode(b"OK\r\n"), byHand.decode(b"OK\r\n"))
+
+    def testABinaryCommandFromAFileBehavesLikeOneWrittenByHand(self):
+        # The point of the whole layer: JSON adds notation, not behaviour.
+        fromFile = self.sutter["MOVE"]
+        byHand = Command(
+            "MOVE",
+            BinaryRequest("<clllc", fields=("header", "x", "y", "z", "terminator"),
+                          constants={"header": b"M", "terminator": b"\r"}),
+            BinaryReply("<c", fields=("acknowledgement",)))
+        self.assertEqual(fromFile.encode(x=4000, y=5000, z=6000),
+                         byHand.encode(x=4000, y=5000, z=6000))
+        self.assertEqual(fromFile.encode(x=4000, y=5000, z=6000),
+                         pack("<clllc", b"M", 4000, 5000, 6000, b"\r"))
+
+    def testConvertersAreNamedInTheFileAndResolvedHere(self):
+        self.assertEqual(self.cobolt["GET_POWER"].decode(b"0.0499\r\n"), {"power": 0.0499})
+        self.assertEqual(self.cobolt["GET_ON_OFF"].decode(b"1\r\n"), {"isOn": True})
+        self.assertEqual(self.cobolt["GET_ON_OFF"].decode(b"0\r\n"), {"isOn": False})
+
+    def testABinaryReplyStillReportsItsLength(self):
+        self.assertEqual(self.sutter["GET_POSITION"].reply.readLength, 13)
+        self.assertEqual(self.sutter["GET_POSITION"].decode(pack("<lllc", 1, 2, 3, b"\r")),
+                         {"x": 1, "y": 2, "z": 3})
+
+    def testAConstantByteSurvivesTheFile(self):
+        self.assertEqual(self.sutter["GET_POSITION"].encode(), b"C\r")
+
+    def testAnUnknownCommandSaysWhatTheDeviceDoesHave(self):
+        with self.assertRaises(KeyError) as raised:
+            self.cobolt["GETPOWR"]
+        message = str(raised.exception)
+        self.assertIn("Cobolt laser", message)
+        self.assertIn("GET_POWER", message)
+
+    def testItLoadsFromAFileOnDisk(self):
+        handle, path = tempfile.mkstemp(suffix=".json")
+        os.close(handle)
+        try:
+            with open(path, "w") as file:
+                file.write(COBOLT)
+            fromDisk = CommandDictionary.fromFile(path)
+            self.assertEqual(sorted(fromDisk.names), sorted(self.cobolt.names))
+            self.assertEqual(fromDisk["TURN_ON"].encode(), b"l1\r")
+        finally:
+            os.remove(path)
+
+
+class TestADescriptionThatDoesNotMakeSense(unittest.TestCase):
+    def buildFrom(self, commands):
+        return CommandDictionary.fromDescription({"device": "test", "commands": commands})
+
+    def testACommandWithoutARequest(self):
+        with self.assertRaises(BadDescription) as raised:
+            self.buildFrom({"NOWHERE": {"reply": {"pattern": "OK"}}})
+        self.assertIn("NOWHERE", str(raised.exception))
+
+    def testARequestThatIsNeitherTextNorBinary(self):
+        with self.assertRaises(BadDescription) as raised:
+            self.buildFrom({"ODD": {"request": {"bytes": "M"}}})
+        self.assertIn("template", str(raised.exception))
+        self.assertIn("format", str(raised.exception))
+
+    def testAConverterThatDoesNotExist(self):
+        with self.assertRaises(BadDescription) as raised:
+            self.buildFrom({"READ": {"request": {"template": "r?\r"},
+                                     "reply": {"pattern": "(.+)", "fields": {"value": "decimal"}}}})
+        message = str(raised.exception)
+        self.assertIn("decimal", message)
+        self.assertIn("float", message)      # names the ones that do exist
+
+    def testTheByteOrderGuardStillFiresThroughTheFile(self):
+        # A description is not a way around the checks the objects make.
+        with self.assertRaises(ProtocolError) as raised:
+            self.buildFrom({"MOVE": {"request": {"format": "clllc",
+                                                 "fields": ["header", "x", "y", "z", "terminator"]}}})
+        self.assertIn("<clllc", str(raised.exception))
+
+    def testADescriptionWithNoCommandsAtAll(self):
+        with self.assertRaises(BadDescription):
+            CommandDictionary.fromDescription({"device": "test"})
 
 
 if __name__ == "__main__":
