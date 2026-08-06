@@ -62,13 +62,16 @@ class TextRequest(Request):
     """An ASCII request built from a format template.
 
     The template uses named fields, so a caller writes setPower(power=0.5) and
-    never counts positional arguments: "p {power:0.3f}" with the terminator the
-    instrument expects appended.
+    never counts positional arguments: "p {power:0.3f}\r".
+
+    Whatever ends the line is written into the template, where it can be seen,
+    rather than passed alongside it: on the way out a terminator is simply more
+    literal text, and instruments disagree about it enough -- \r, \n, \r\n, or
+    nothing at all for the Integra -- that no default would serve.
     """
 
-    def __init__(self, template: str, terminator: str = "\r"):
+    def __init__(self, template: str):
         self.template = template
-        self.terminator = terminator
 
     @property
     def fields(self) -> tuple:
@@ -82,7 +85,7 @@ class TextRequest(Request):
         except KeyError as error:
             raise MissingArgument("{0} needs {1}, got {2}".format(
                 self.template, error, sorted(arguments))) from None
-        return (text + self.terminator).encode("utf-8")
+        return text.encode("utf-8")
 
 
 class BinaryRequest(Request):
@@ -224,23 +227,24 @@ class Exchange:
 
 class TestTextRequest(unittest.TestCase):
     def testBuildsAConstantRequest(self):
-        self.assertEqual(TextRequest("pa?").encode(), b"pa?\r")
+        self.assertEqual(TextRequest("pa?\r").encode(), b"pa?\r")
 
     def testSubstitutesNamedArguments(self):
-        request = TextRequest("p {power:0.3f}")
+        request = TextRequest("p {power:0.3f}\r")
         self.assertEqual(request.encode(power=0.5), b"p 0.500\r")
 
-    def testTerminatorIsPartOfTheDescription(self):
-        self.assertEqual(TextRequest("*GWL", terminator="").encode(), b"*GWL")
-        self.assertEqual(TextRequest("g r0xc9", terminator="\n").encode(), b"g r0xc9\n")
+    def testWhateverEndsTheLineIsVisibleInTheTemplate(self):
+        self.assertEqual(TextRequest("*GWL").encode(), b"*GWL")
+        self.assertEqual(TextRequest("g r0xc9\n").encode(), b"g r0xc9\n")
+        self.assertEqual(TextRequest("SYST:ERR?\r\n").encode(), b"SYST:ERR?\r\n")
 
     def testNamesTheFieldsItNeeds(self):
-        self.assertEqual(TextRequest("s r{register} {value}").fields,
+        self.assertEqual(TextRequest("s r{register} {value}\r").fields,
                          ("register", "value"))
 
     def testAMissingArgumentSaysWhichOne(self):
         with self.assertRaises(MissingArgument) as raised:
-            TextRequest("p {power:0.3f}").encode()
+            TextRequest("p {power:0.3f}\r").encode()
         self.assertIn("power", str(raised.exception))
 
 
@@ -331,15 +335,14 @@ class TestBinaryReply(unittest.TestCase):
 
 class TestExchange(unittest.TestCase):
     def testCarriesARequestAndItsReply(self):
-        exchange = Exchange("GET_POWER", TextRequest("pa?"),
+        exchange = Exchange("GET_POWER", TextRequest("pa?\r"),
                             TextReply(r"(\d+\.\d+)", fields={"power": float}))
         self.assertEqual(exchange.encode(), b"pa?\r")
         self.assertEqual(exchange.decode(b"0.250\r\n"), {"power": 0.25})
         self.assertTrue(exchange.expectsReply)
 
     def testAnExchangeMayExpectNothingBack(self):
-        exchange = Exchange("SET_WAVELENGTH", TextRequest("*PWC{wavelength:05d}",
-                                                          terminator=""))
+        exchange = Exchange("SET_WAVELENGTH", TextRequest("*PWC{wavelength:05d}"))
         self.assertFalse(exchange.expectsReply)
         self.assertEqual(exchange.encode(wavelength=532), b"*PWC00532")
         with self.assertRaises(ProtocolError):
@@ -348,7 +351,7 @@ class TestExchange(unittest.TestCase):
     def testTheDescriptionIsSharedButTheResultIsNot(self):
         # The point of the whole exercise: two callers of one description cannot
         # overwrite each other, because nothing is stored on it.
-        exchange = Exchange("GET_POWER", TextRequest("pa?"),
+        exchange = Exchange("GET_POWER", TextRequest("pa?\r"),
                             TextReply(r"(\d+\.\d+)", fields={"power": float}))
         first = exchange.decode(b"0.100\r\n")
         second = exchange.decode(b"0.900\r\n")
@@ -361,17 +364,17 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
     """The real test of the design: say what the drivers in this repo actually speak."""
 
     def testCoboltSetAndReadPower(self):
-        setPower = Exchange("SET_POWER", TextRequest("p {power:0.3f}"), TextReply("OK"))
+        setPower = Exchange("SET_POWER", TextRequest("p {power:0.3f}\r"), TextReply("OK"))
         self.assertEqual(setPower.encode(power=0.05), b"p 0.050\r")
         self.assertEqual(setPower.decode(b"OK\r\n"), {})
 
-        getPower = Exchange("GET_POWER", TextRequest("pa?"),
+        getPower = Exchange("GET_POWER", TextRequest("pa?\r"),
                             TextReply(r"(\d+\.\d+)", fields={"power": float}))
         self.assertEqual(getPower.encode(), b"pa?\r")
         self.assertEqual(getPower.decode(b"0.0499\r\n"), {"power": 0.0499})
 
     def testCoboltOnOffStateAsABoolean(self):
-        getOnOff = Exchange("GET_ON_OFF", TextRequest("l?"),
+        getOnOff = Exchange("GET_ON_OFF", TextRequest("l?\r"),
                             TextReply(r"(0|1)", fields={"isOn": lambda text: text == "1"}))
         self.assertEqual(getOnOff.decode(b"1\r\n"), {"isOn": True})
         self.assertEqual(getOnOff.decode(b"0\r\n"), {"isOn": False})
@@ -398,22 +401,22 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
 
     def testIntegraWavelengthBothWays(self):
         getWavelength = Exchange(
-            "GETWAVELENGTH", TextRequest("*GWL", terminator=""),
+            "GETWAVELENGTH", TextRequest("*GWL"),
             TextReply(r"PWC\s*:\s*(.+?)\r\n", fields={"wavelength": float}))
         self.assertEqual(getWavelength.encode(), b"*GWL")
         self.assertEqual(getWavelength.decode(b"PWC : 532.0\r\n"), {"wavelength": 532.0})
 
         setWavelength = Exchange("SETWAVELENGTH",
-                                 TextRequest("*PWC{wavelength:05d}", terminator=""))
+                                 TextRequest("*PWC{wavelength:05d}"))
         self.assertEqual(setWavelength.encode(wavelength=1064), b"*PWC01064")
 
     def testIntellidriveRegisters(self):
         setRegister = Exchange("SET_REGISTER",
-                               TextRequest("s r{register} {value}"), TextReply("ok"))
+                               TextRequest("s r{register} {value}\r"), TextReply("ok"))
         self.assertEqual(setRegister.encode(register="0x24", value=31), b"s r0x24 31\r")
         self.assertEqual(setRegister.decode(b"ok\r"), {})
 
-        getRegister = Exchange("GET_REGISTER", TextRequest("g r{register}", terminator="\n"),
+        getRegister = Exchange("GET_REGISTER", TextRequest("g r{register}\n"),
                                TextReply(r"v\s(-?\d+)", fields={"value": int}))
         self.assertEqual(getRegister.encode(register="0xc9"), b"g r0xc9\n")
         self.assertEqual(getRegister.decode(b"v -1234\r"), {"value": -1234})
@@ -421,7 +424,7 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
     def testTheSR830SnapReplyThatHasNoDescriptionToday(self):
         # SNAP? returns several comma-separated floats at one instant; the current
         # Command cannot say that at all, so SR830Device parses it by hand.
-        snap = Exchange("SNAP", TextRequest("SNAP? 1,2,3,4", terminator="\n"),
+        snap = Exchange("SNAP", TextRequest("SNAP? 1,2,3,4\n"),
                         TextReply(r"([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+)",
                                   fields={"x": float, "y": float,
                                           "magnitude": float, "phase": float}))
