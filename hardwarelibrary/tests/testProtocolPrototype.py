@@ -258,105 +258,125 @@ class Command:
         return self.reply.decode(data)
 
 
-# --- The commands of one device, as data ------------------------------------
-#
-# A driver's protocol is a table, and a table is data: this reads one from JSON
-# and builds the same objects the tests above build by hand. JSON rather than
-# TOML or YAML because it is in the standard library of every Python the package
-# supports, where tomllib arrives only in 3.11 and YAML is a dependency.
-#
-# The one thing a file cannot carry is a callable, so a text field names its
-# converter and the name is looked up here. That list is deliberately short: a
-# protocol file describes a protocol, and anything needing real code belongs in
-# the driver.
-
-converters = {
-    "float": float,
-    "integer": int,
-    "text": str,
-    "boolean01": lambda text: text == "1",
-    "hexInteger": lambda text: int(text, 16),
-}
-
-
-def convertersFor(fields: dict, where: str) -> dict:
-    """Turn {"power": "float"} from a file into {"power": float}."""
-    resolved = {}
-    for name, converterName in fields.items():
-        if converterName not in converters:
-            raise BadDescription("{0}: {1} names the converter {2!r}, which is not one of {3}".format(
-                where, name, converterName, ", ".join(sorted(converters))))
-        resolved[name] = converters[converterName]
-    return resolved
-
-
-def bytesFrom(text: str) -> bytes:
-    """A constant byte from a file, latin-1 so that \xfe stays one byte."""
-    return text.encode("latin-1")
-
-
-def requestFrom(description: dict, where: str) -> Request:
-    """Build the Request half of a command from its description."""
-    if "template" in description:
-        return TextRequest(description["template"])
-    if "format" in description:
-        return BinaryRequest(
-            description["format"],
-            fields=tuple(description.get("fields", ())),
-            constants={name: bytesFrom(value)
-                       for name, value in description.get("constants", {}).items()})
-    raise BadDescription(
-        "{0}: a request needs a template, for text, or a format, for binary".format(where))
-
-
-def replyFrom(description: dict, where: str) -> Reply:
-    """Build the Reply half, when there is one."""
-    if "pattern" in description:
-        return TextReply(description["pattern"],
-                         fields=convertersFor(description.get("fields", {}), where))
-    if "format" in description:
-        return BinaryReply(description["format"], fields=tuple(description.get("fields", ())))
-    raise BadDescription(
-        "{0}: a reply needs a pattern, for text, or a format, for binary".format(where))
-
-
-def commandFrom(name: str, description: dict) -> Command:
-    """Build one named command from its description."""
-    where = "command {0!r}".format(name)
-    if "request" not in description:
-        raise BadDescription("{0}: no request".format(where))
-    reply = description.get("reply")
-    return Command(name, requestFrom(description["request"], where),
-                   replyFrom(reply, where) if reply is not None else None)
-
-
 class CommandDictionary:
-    """Every command one device understands, by name.
+    """Every command one device understands, by name, read from a file.
 
-    Reads like a dict and is built from a file, so a protocol can be read,
-    reviewed and corrected without touching the driver that speaks it.
+    A driver's protocol is a table, and a table is data: a description read from
+    JSON builds the same objects a driver would write by hand, so a protocol can
+    be read, reviewed and corrected without touching the code that speaks it.
+
+    JSON rather than TOML or YAML because it is in the standard library of every
+    Python the package supports; tomllib arrives only in 3.11, and YAML would be a
+    dependency for a file nobody edits at runtime.
+
+    A command is described by a request and, when there is one, a reply. Which key
+    is present says which kind it is, so nothing declares a type twice:
+
+        "GET_POWER": {
+          "request": {"template": "pa?\r"},
+          "reply":   {"pattern": "(\\d+\\.\\d+)", "fields": {"power": "float"}}
+        },
+        "MOVE": {
+          "request": {"format": "<clllc",
+                      "fields": ["header", "x", "y", "z", "terminator"],
+                      "constants": {"header": "M", "terminator": "\r"}},
+          "reply":   {"format": "<c", "fields": ["acknowledgement"]}
+        }
+
+    Reads like a dict. The methods that turn a description into objects are here
+    rather than beside it, so a device whose protocol needs something this does
+    not cover subclasses and overrides one of them -- adding a converter, or a
+    third kind of request -- instead of the module growing another function.
     """
+
+    # The one thing a file cannot carry is a callable, so a text field names its
+    # converter and the name is looked up here. Deliberately short: a protocol
+    # file describes a protocol, and anything wanting real code belongs in the
+    # driver. A subclass may add to it.
+    converters = {
+        "float": float,
+        "integer": int,
+        "text": str,
+        "boolean01": lambda text: text == "1",
+        "hexInteger": lambda text: int(text, 16),
+    }
 
     def __init__(self, commands: dict, deviceName: str = None):
         self.commands = dict(commands)
         self.deviceName = deviceName
 
     @classmethod
+    def fromFile(cls, path: str) -> "CommandDictionary":
+        """Read one device's commands from a JSON file."""
+        with open(path, "r") as file:
+            return cls.fromDescription(json.load(file))
+
+    @classmethod
+    def fromJSON(cls, text: str) -> "CommandDictionary":
+        """Read them from JSON already in hand."""
+        return cls.fromDescription(json.loads(text))
+
+    @classmethod
     def fromDescription(cls, description: dict) -> "CommandDictionary":
+        """Build from the description itself, however it was obtained."""
         if "commands" not in description:
             raise BadDescription("no commands: expected {'device': ..., 'commands': {...}}")
-        return cls({name: commandFrom(name, one)
+        return cls({name: cls.commandFrom(name, one)
                     for name, one in description["commands"].items()},
                    deviceName=description.get("device"))
 
     @classmethod
-    def fromJSON(cls, text: str) -> "CommandDictionary":
-        return cls.fromDescription(json.loads(text))
+    def commandFrom(cls, name: str, description: dict) -> Command:
+        """Build one named command from its description."""
+        where = "command {0!r}".format(name)
+        if "request" not in description:
+            raise BadDescription("{0}: no request".format(where))
+        reply = description.get("reply")
+        return Command(name, cls.requestFrom(description["request"], where),
+                       cls.replyFrom(reply, where) if reply is not None else None)
 
     @classmethod
-    def fromFile(cls, path: str) -> "CommandDictionary":
-        with open(path, "r") as file:
-            return cls.fromDescription(json.load(file))
+    def requestFrom(cls, description: dict, where: str) -> Request:
+        """Build the request half: a template for text, a format for binary."""
+        if "template" in description:
+            return TextRequest(description["template"])
+        if "format" in description:
+            return BinaryRequest(
+                description["format"],
+                fields=tuple(description.get("fields", ())),
+                constants={name: cls.bytesFrom(value)
+                           for name, value in description.get("constants", {}).items()})
+        raise BadDescription(
+            "{0}: a request needs a template, for text, or a format, for binary".format(where))
+
+    @classmethod
+    def replyFrom(cls, description: dict, where: str) -> Reply:
+        """Build the reply half: a pattern for text, a format for binary."""
+        if "pattern" in description:
+            return TextReply(description["pattern"],
+                             fields=cls.convertersFor(description.get("fields", {}), where))
+        if "format" in description:
+            return BinaryReply(description["format"],
+                               fields=tuple(description.get("fields", ())))
+        raise BadDescription(
+            "{0}: a reply needs a pattern, for text, or a format, for binary".format(where))
+
+    @classmethod
+    def convertersFor(cls, fields: dict, where: str) -> dict:
+        """Turn {"power": "float"} from a file into {"power": float}."""
+        resolved = {}
+        for name, converterName in fields.items():
+            if converterName not in cls.converters:
+                raise BadDescription(
+                    "{0}: {1} names the converter {2!r}, which is not one of {3}".format(
+                        where, name, converterName, ", ".join(sorted(cls.converters))))
+            resolved[name] = cls.converters[converterName]
+        return resolved
+
+    @staticmethod
+    def bytesFrom(text: str) -> bytes:
+        """A constant byte from a file, latin-1 so that \xfe stays one byte."""
+        return text.encode("latin-1")
 
     @property
     def names(self) -> tuple:
