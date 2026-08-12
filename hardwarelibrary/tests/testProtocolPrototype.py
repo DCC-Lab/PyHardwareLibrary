@@ -480,15 +480,22 @@ class BinaryFrame(Frame):
             struct: a struct format, byte-order prefix included -- the prefix is
                 skipped, not treated as a code
 
+        Unlike typeNameOf, which also serves nothing but the usage text, this is
+        not a guess: the struct codes are a closed, documented set, so it can be
+        read exactly and is expected to be.
+
         Returns:
             One code per packed value, repeat counts expanded, so that the codes
             line up with the field names one for one. Padding yields no value and
-            so no code. A count on "s" means one string that long, not that many
-            strings, which is the one place the rule is not repetition.
+            so no code, and whitespace is skipped as struct itself skips it. A
+            count on "s" means one string that long, not that many strings, which
+            is the one place the rule is not repetition.
         """
         codes = []
         count = ""
         for character in struct[1:]:
+            if character.isspace():
+                continue
             if character.isdigit():
                 count += character
                 continue
@@ -1832,6 +1839,16 @@ class TestItExplainsItself(unittest.TestCase):
         self.assertEqual(codesOf("<lllx"), ("l", "l", "l"))
         self.assertEqual(codesOf("<3l"), ("l", "l", "l"))
         self.assertEqual(codesOf("<10s"), ("s",))
+
+    def testWhitespaceIsSkippedAsStructItselfSkipsIt(self):
+        # struct allows spaces between codes, and a space taken for a code would
+        # shift every name after it against its type.
+        self.assertEqual(calcsize("<l l"), calcsize("<ll"))
+        self.assertEqual(BinaryFrame.structCodes("<l l"), ("l", "l"))
+        spaced = BinaryFrame("<c lll c", fields=("header", "x", "y", "z", "terminator"),
+                             constants={"header": b"M", "terminator": b"\r"})
+        self.assertEqual(spaced.parameters,
+                         (("x", "int32"), ("y", "int32"), ("z", "int32")))
 
 
 class TestTheFileAndTheObjectsSpeakOneVocabulary(unittest.TestCase):
