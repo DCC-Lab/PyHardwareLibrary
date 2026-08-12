@@ -5,19 +5,22 @@ a sketch of how an instrument protocol could be *described*, so the design can b
 judged before any driver depends on it.
 
 The idea is sans-I/O, the principle behind h11 and wsproto: the protocol is a pure
-transformation over bytes and never performs the exchange. A Request turns named
-arguments into the bytes to write; a Reply turns the bytes read back into named
-values; neither owns a port, and neither stores what happened. That is what
-separates this from the Command it would replace, which describes the protocol,
-builds the bytes, performs the I/O, and then keeps the reply on itself -- on a
-class attribute shared by every instance of a driver.
+transformation over bytes and never performs the exchange. A Frame turns named
+values into the bytes to write and the bytes read back into named values; it owns
+no port and stores nothing of what happened. That is what separates this from the
+Command it would replace, which describes the protocol, builds the bytes, performs
+the I/O, and then keeps the reply on itself -- on a class attribute shared by every
+instance of a driver.
 
 Consequences worth noticing while reading:
 
   - a description is immutable and shareable; the result of a command is a plain
     dict returned to the caller, so two instruments cannot overwrite each other;
-  - a Reply parses whatever it is handed, and says how many bytes to read only
+  - a frame parses whatever it is handed, and says how many bytes to read only
     where nothing else could know: a fixed-size binary frame;
+  - there is no request class and no reply class: a frame becomes one or the
+    other by the slot of the Command it sits in, which is also the only place
+    that knows enough to name what failed to match;
   - a constant is stated once and serves both directions -- written on the way
     out, required on the way in -- which is what lets a mock tell one command
     from another, and a driver notice an acknowledgement that is not its own;
@@ -103,86 +106,12 @@ def requireExplicitByteOrder(struct: str):
                 struct, calcsize(struct), calcsize("<" + struct), "<" + struct))
 
 
-structTypeNames = {
-    "c": "byte", "?": "bool", "b": "int8", "B": "uint8",
-    "h": "int16", "H": "uint16", "i": "int32", "I": "uint32",
-    "l": "int32", "L": "uint32", "q": "int64", "Q": "uint64",
-    "e": "float16", "f": "float", "d": "double", "s": "bytes", "p": "bytes",
-}
-
-
-def structCodes(struct: str) -> tuple:
-    """The type code of each value a struct format packs, repeat counts expanded.
-
-    Padding yields no value and so no code, which keeps the codes lined up with the
-    field names one for one. A count on 's' means one string that long, not that
-    many strings, which is the one place the rule is not simply repetition.
-    """
-    codes = []
-    count = ""
-    for character in struct[1:]:
-        if character.isdigit():
-            count += character
-            continue
-        repeats = int(count) if count else 1
-        count = ""
-        if character == "x":
-            continue
-        codes.extend([character] if character in "sp" else [character] * repeats)
-    return tuple(codes)
-
-
-def typeNameOf(converter) -> str:
-    """The name to show for a converter when explaining a command.
-
-    A converter is often a type, and then its own name is the answer. When it is a
-    function, what a reader wants is what it returns, which its annotation already
-    says -- so a "0" or "1" field is announced as a bool rather than by the name of
-    the function that makes one.
-    """
-    returned = getattr(converter, "__annotations__", {}).get("return")
-    if returned is not None:
-        return getattr(returned, "__name__", str(returned))
-    return getattr(converter, "__name__", None) or str(converter)
-
-
-def encodeTemplate(template: str, arguments: dict) -> bytes:
-    """Returns a str.format template as bytes, with the arguments substituted.
-
-    Raises MissingArgument, naming the field, rather than letting a KeyError out
-    of str.format.
-    """
-    try:
-        return template.format(**arguments).encode("utf-8")
-    except KeyError as error:
-        raise MissingArgument("{0} needs {1}, got {2}".format(
-            template, error, sorted(arguments))) from None
-
-
-def matchAndConvert(regex: str, converters: dict, data, mismatch) -> dict:
-    """Returns the capture groups of regex, converted and named.
-
-    Accepts bytes or str, since what a port hands over varies. Raises mismatch --
-    which half is being read decides which -- when the expression does not match,
-    quoting both sides, and ProtocolError when it and the field names disagree in
-    number.
-    """
-    text = data.decode("utf-8") if isinstance(data, (bytes, bytearray)) else data
-    match = re.search(regex, text)
-    if match is None:
-        raise mismatch("expected {0!r}, got {1!r}".format(regex, text))
-
-    groups = match.groups()
-    if len(groups) != len(converters):
-        raise ProtocolError(
-            "{0!r} captured {1} group(s) but {2} field(s) were named".format(
-                regex, len(groups), len(converters)))
-    return {name: converter(value)
-            for (name, converter), value in zip(converters.items(), groups)}
-
-
 class Frame(ABC):
     """One half of a command: how to write it, and how to read it back.
+
+    This is not "the command and its reply", it is the command and the
+    reverse operation to read the command (and confirm proper formatting) so 
+    we can create a DebugPort easily.
 
     Both halves are needed in both directions, which is the whole reason a
     description is worth having. A driver writes the request and reads the reply;
@@ -194,9 +123,13 @@ class Frame(ABC):
     fixed-size binary frame has no terminator to stop at, so the number of bytes to
     ask for can come from nowhere but the description. A line needs no such answer,
     since the port already reads up to its own terminator.
+
+    A frame does not know whether it is a request or a reply, and there is no class
+    for either. Which one it is depends only on the slot of the Command it sits in,
+    and that is where the two are told apart -- a frame that failed to match says
+    only that, and the Command says which half of which command was being read.
     """
 
-    mismatch = DidNotMatch
     readLength = None
 
     @abstractmethod
@@ -221,64 +154,99 @@ class Frame(ABC):
         ...
 
 
-class Request(Frame):
-    """The half a driver writes and a mock reads."""
-
-    mismatch = RequestDidNotMatch
-
-
-class Reply(Frame):
-    """The half a driver reads and a mock writes."""
-
-    mismatch = ReplyDidNotMatch
-
-
-class TextRequest(Request):
-    """An ASCII request built from a str.format template.
+class TextFrame(Frame):
+    """A line of ASCII, stated as the template that writes it and the expression
+    that reads it.
 
     The template uses named fields, so a caller writes setPower(power=0.5) and
-    never counts positional arguments: "p {power:0.3f}\r".
+    never counts positional arguments: "p {power:0.3f}\r". Whatever ends the line is
+    written into it, where it can be seen, rather than passed alongside: a
+    terminator is simply more literal text, and instruments disagree about it enough
+    -- \r, \n, \r\n, or nothing at all for the Integra -- that no default would
+    serve.
 
-    Whatever ends the line is written into the template, where it can be seen,
-    rather than passed alongside it: on the way out a terminator is simply more
-    literal text, and instruments disagree about it enough -- \r, \n, \r\n, or
-    nothing at all for the Integra -- that no default would serve.
+    fields maps a name to the converter for its capture group, in group order:
+    {"power": float} turns r"(\\d+\\.\\d+)" into {"power": 0.123}. A line with no
+    capture groups, such as an "OK" acknowledgement, decodes to an empty dict -- it
+    either matched or it raised.
 
-    regex is how a mock recognises the request and reads its arguments back, and it
-    is written out rather than worked out from the template. A template could be
-    turned into an expression by guessing a pattern per format spec, and the guess
-    would be right often enough to be trusted and wrong quietly: a field with no
-    spec would come back as text, and nothing would say so. This module already
-    refuses to let struct guess a byte order; guessing an expression is not of a
-    different kind.
+    Neither notation is worked out from the other. A template could be turned into
+    an expression by guessing a pattern per format spec, and the guess would be
+    right often enough to be trusted and wrong quietly: a field with no spec would
+    come back as text and nothing would say so. An expression cannot be turned back
+    into a line at all. This module already refuses to let struct guess a byte
+    order; guessing here is not of a different kind.
+
+    One class serves both halves of a command. The template is what a driver sends
+    when the frame is a request and what a mock answers when it is a reply; the
+    expression is read by whichever of the two is listening.
     """
 
     def __init__(self, template: str, regex: str, fields: dict = None):
-        """Describe a request as the template that writes it and the expression
-        that reads it back, with a converter per capture group."""
+        """Describe a line as the template that writes it, the expression that
+        reads it, and a converter per capture group."""
         self.template = template
         self.regex = regex
         self.fields = dict(fields or {})
 
     @property
     def arguments(self) -> tuple:
-        """The argument names this request needs, in the order they appear."""
+        """The names this line carries, in the order the template lays them out."""
         return tuple(name for _, name, _, _ in string.Formatter().parse(self.template)
                      if name)
 
     @property
     def parameters(self) -> tuple:
-        """Each argument with its type, taken from the converter named for it."""
-        return tuple((name, typeNameOf(self.fields[name]) if name in self.fields else "text")
+        """Each name with its type, taken from the converter named for it."""
+        return tuple((name, self.typeNameOf(self.fields[name])
+                      if name in self.fields else "text")
                      for name in self.arguments)
 
-    def encode(self, **arguments) -> bytes:
-        """Returns the request as bytes, with the arguments substituted."""
-        return encodeTemplate(self.template, arguments)
+    @staticmethod
+    def typeNameOf(converter) -> str:
+        """The name to show for a converter when explaining a command.
+
+        A converter is often a type, and then its own name is the answer. When it is
+        a function, what a reader wants is what it returns, which its annotation
+        already says -- so a "0" or "1" field is announced as a bool rather than by
+        the name of the function that makes one.
+        """
+        returned = getattr(converter, "__annotations__", {}).get("return")
+        if returned is not None:
+            return getattr(returned, "__name__", str(returned))
+        return getattr(converter, "__name__", None) or str(converter)
+
+    def encode(self, **values) -> bytes:
+        """Returns the line as bytes, with the values substituted.
+
+        Raises MissingArgument, naming the field, rather than letting a KeyError out
+        of str.format.
+        """
+        try:
+            return self.template.format(**values).encode("utf-8")
+        except KeyError as error:
+            raise MissingArgument("{0} needs {1}, got {2}".format(
+                self.template, error, sorted(values))) from None
 
     def decode(self, data) -> dict:
-        """Returns the arguments the request carried -- what a mock reads."""
-        return matchAndConvert(self.regex, self.fields, data, self.mismatch)
+        """Returns the captured values, converted and named.
+
+        Accepts bytes or str, since what a port hands over varies. Raises
+        DidNotMatch when the expression does not match, quoting both sides, and
+        ProtocolError when it and the field names disagree in number.
+        """
+        text = data.decode("utf-8") if isinstance(data, (bytes, bytearray)) else data
+        match = re.search(self.regex, text)
+        if match is None:
+            raise DidNotMatch("expected {0!r}, got {1!r}".format(self.regex, text))
+
+        groups = match.groups()
+        if len(groups) != len(self.fields):
+            raise ProtocolError(
+                "{0!r} captured {1} group(s) but {2} field(s) were named".format(
+                    self.regex, len(groups), len(self.fields)))
+        return {name: converter(value)
+                for (name, converter), value in zip(self.fields.items(), groups)}
 
 
 class BinaryFrame(Frame):
@@ -296,6 +264,17 @@ class BinaryFrame(Frame):
     direction would need a second format for the same bytes. Name the byte and make
     it a constant instead.
     """
+
+    # What each struct code is called when a command explains itself. A class
+    # attribute rather than a module one, so a frame for an instrument that reads
+    # its own kind of value can add to it, the way CommandDictionary does with
+    # converters.
+    typeNames = {
+        "c": "byte", "?": "bool", "b": "int8", "B": "uint8",
+        "h": "int16", "H": "uint16", "i": "int32", "I": "uint32",
+        "l": "int32", "L": "uint32", "q": "int64", "Q": "uint64",
+        "e": "float16", "f": "float", "d": "double", "s": "bytes", "p": "bytes",
+    }
 
     def __init__(self, struct: str, fields: tuple = (), constants: dict = None):
         """Describe a frame as a struct format, one name per packed value.
@@ -326,9 +305,30 @@ class BinaryFrame(Frame):
     @property
     def parameters(self) -> tuple:
         """Each non-constant field with the type its format packs it as."""
-        codeOf = dict(zip(self.fields, structCodes(self.struct)))
-        return tuple((name, structTypeNames.get(codeOf.get(name), "unknown"))
+        codeOf = dict(zip(self.fields, self.structCodes(self.struct)))
+        return tuple((name, self.typeNames.get(codeOf.get(name), "unknown"))
                      for name in self.arguments)
+
+    @staticmethod
+    def structCodes(struct: str) -> tuple:
+        """The type code of each value a struct format packs, repeats expanded.
+
+        Padding yields no value and so no code, which keeps the codes lined up with
+        the field names one for one. A count on 's' means one string that long, not
+        that many strings, which is the one place the rule is not repetition.
+        """
+        codes = []
+        count = ""
+        for character in struct[1:]:
+            if character.isdigit():
+                count += character
+                continue
+            repeats = int(count) if count else 1
+            count = ""
+            if character == "x":
+                continue
+            codes.extend([character] if character in "sp" else [character] * repeats)
+        return tuple(codes)
 
     def encode(self, **arguments) -> bytes:
         """Returns the packed frame, constants and arguments in field order.
@@ -355,12 +355,12 @@ class BinaryFrame(Frame):
         """Returns the values the frame carried, named, constants left out.
 
         A constant is checked rather than returned: it carries no information, and
-        a frame whose header is wrong is not this frame at all. Raises mismatch
+        a frame whose header is wrong is not this frame at all. Raises DidNotMatch
         when the length or a constant is wrong, and ProtocolError when the format
         and the names disagree.
         """
         if len(data) != self.readLength:
-            raise self.mismatch("expected {0} bytes for {1}, got {2}".format(
+            raise DidNotMatch("expected {0} bytes for {1}, got {2}".format(
                 self.readLength, self.struct, len(data)))
         values = unpack(self.struct, bytes(data))
         if len(values) != len(self.fields):
@@ -371,63 +371,10 @@ class BinaryFrame(Frame):
         named = dict(zip(self.fields, values))
         for name, constant in self.constants.items():
             if named[name] != constant:
-                raise self.mismatch("{0} expects {1}={2!r}, got {3!r}".format(
+                raise DidNotMatch("{0} expects {1}={2!r}, got {3!r}".format(
                     self.struct, name, constant, named[name]))
         return {name: value for name, value in named.items()
                 if name not in self.constants}
-
-
-class BinaryRequest(BinaryFrame, Request):
-    """The binary half a driver writes and a mock recognises."""
-
-
-class TextReply(Reply):
-    """A line matched by a regular expression.
-
-    fields maps a name to the converter for its capture group, in group order:
-    {"power": float} turns r"(\\d+\\.\\d+)" into {"power": 0.123}. A reply with no
-    capture groups, such as an "OK" acknowledgement, decodes to an empty dict --
-    it either matched or it raised.
-
-    It parses whatever it is handed and says nothing about how to read it: where
-    a line ends is the port's business, not the protocol's.
-
-    template is what a mock writes to play the instrument, and it is required for
-    the same reason the request's regex is: nothing here guesses. A reply that
-    cannot be written is a reply that cannot be tested, and every device in this
-    library is meant to ship a debug twin.
-
-    It also carries what the regex deliberately leaves out. "OK" matches b"OK\r\n"
-    because re.search ignores what follows, but a mock has to send the terminator,
-    so the template is where the line the instrument really sends is finally
-    written down -- exactly as a request writes its own terminator into its
-    template rather than passing it alongside.
-    """
-
-    def __init__(self, regex: str, template: str, fields: dict = None):
-        """Describe a reply as the expression that reads it and the template that
-        writes it, with a converter per capture group."""
-        self.regex = regex
-        self.template = template
-        self.fields = dict(fields or {})
-
-    @property
-    def parameters(self) -> tuple:
-        """Each value the reply carries, with the type it is converted to."""
-        return tuple((name, typeNameOf(converter))
-                     for name, converter in self.fields.items())
-
-    def decode(self, data) -> dict:
-        """Returns the captured values, converted and named."""
-        return matchAndConvert(self.regex, self.fields, data, self.mismatch)
-
-    def encode(self, **values) -> bytes:
-        """Returns the line the instrument would answer -- what a mock writes."""
-        return encodeTemplate(self.template, values)
-
-
-class BinaryReply(BinaryFrame, Reply):
-    """The binary half a driver reads and a mock answers with."""
 
 
 class Command:
@@ -447,9 +394,15 @@ class Command:
     That is the whole difference from the Command this replaces, which described
     the protocol, built the bytes, performed the exchange, and then kept the
     reply on itself.
+
+    A command is also where the two halves are told apart. A Frame is neither a
+    request nor a reply -- it becomes one by being put in one of these two slots --
+    so a frame that fails to match says only that, and a command turns it into a
+    RequestDidNotMatch or a ReplyDidNotMatch naming itself. Which is more than
+    either half could say: a frame does not know what command it belongs to.
     """
 
-    def __init__(self, name: str, request: Request, reply: Reply = None):
+    def __init__(self, name: str, request: Frame, reply: Frame = None):
         """Pair a request with the reply it expects, under the name a driver uses.
 
         reply is None for a command the instrument does not answer.
@@ -472,11 +425,12 @@ class Command:
         """Returns what the reply carried, as {field: value}.
 
         Raises ProtocolError if this command expects no reply, since decoding one
-        means the caller read something it should not have.
+        means the caller read something it should not have, and ReplyDidNotMatch
+        naming this command when the instrument answered something else.
         """
         if self.reply is None:
             raise ProtocolError("{0} expects no reply".format(self.name))
-        return self.reply.decode(data)
+        return self.decodeHalf(self.reply, data, ReplyDidNotMatch)
 
     def decodeRequest(self, data) -> dict:
         """Returns the arguments a request carried -- the mock's half of encode.
@@ -484,7 +438,19 @@ class Command:
         Raises RequestDidNotMatch when the bytes are some other command's request,
         which is how a mock picks the right one out of a dictionary.
         """
-        return self.request.decode(data)
+        return self.decodeHalf(self.request, data, RequestDidNotMatch)
+
+    def decodeHalf(self, half: Frame, data, mismatch) -> dict:
+        """Decode one half, saying which half of which command failed to match.
+
+        A frame knows only that the bytes are not the ones it describes. Naming the
+        command, and which end of it was being read, is something only a command can
+        do -- so it is done here rather than passed down.
+        """
+        try:
+            return half.decode(data)
+        except DidNotMatch as error:
+            raise mismatch("{0}: {1}".format(self.name, error)) from None
 
     def encodeReply(self, **values) -> bytes:
         """Returns the bytes the instrument would answer -- the mock's half of decode.
@@ -600,24 +566,24 @@ class CommandDictionary:
                        cls.replyFrom(reply, where) if reply is not None else None)
 
     @classmethod
-    def requestFrom(cls, description: dict, where: str) -> Request:
+    def requestFrom(cls, description: dict, where: str) -> Frame:
         """Build the request half: a template for text, a struct for binary."""
         if "template" in description:
             if "regex" not in description:
                 raise BadDescription(
                     "{0}: a text request needs a regex as well as its template, "
                     "so that a mock can read what the driver writes".format(where))
-            return TextRequest(description["template"], description["regex"],
+            return TextFrame(description["template"], description["regex"],
                                fields=cls.convertersFor(description.get("fields", {}), where))
         if "struct" in description:
-            return BinaryRequest(description["struct"],
+            return BinaryFrame(description["struct"],
                                  fields=tuple(description.get("fields", ())),
                                  constants=cls.constantsFrom(description))
         raise BadDescription(
             "{0}: a request needs a template, for text, or a struct, for binary".format(where))
 
     @classmethod
-    def replyFrom(cls, description: dict, where: str) -> Reply:
+    def replyFrom(cls, description: dict, where: str) -> Frame:
         """Build the reply half: a regex for text, a struct for binary.
 
         A text reply states both notations, like a text request; a binary one needs
@@ -628,10 +594,10 @@ class CommandDictionary:
                 raise BadDescription(
                     "{0}: a text reply needs a template as well as its regex, "
                     "so that a mock can write what the driver reads".format(where))
-            return TextReply(description["regex"], description["template"],
+            return TextFrame(description["template"], description["regex"],
                              fields=cls.convertersFor(description.get("fields", {}), where))
         if "struct" in description:
-            return BinaryReply(description["struct"],
+            return BinaryFrame(description["struct"],
                                fields=tuple(description.get("fields", ())),
                                constants=cls.constantsFrom(description))
         raise BadDescription(
@@ -743,41 +709,41 @@ class CommandDictionary:
 # Tests
 # ---------------------------------------------------------------------------
 
-class TestTextRequest(unittest.TestCase):
+class TestTextFrameWritingALine(unittest.TestCase):
     def testBuildsAConstantRequest(self):
-        self.assertEqual(TextRequest("pa?\r", r"pa\?\r").encode(), b"pa?\r")
+        self.assertEqual(TextFrame("pa?\r", r"pa\?\r").encode(), b"pa?\r")
 
     def testSubstitutesNamedArguments(self):
-        request = TextRequest("p {power:0.3f}\r", r"p ([0-9.]+)\r",
+        request = TextFrame("p {power:0.3f}\r", r"p ([0-9.]+)\r",
                               fields={"power": float})
         self.assertEqual(request.encode(power=0.5), b"p 0.500\r")
 
     def testWhateverEndsTheLineIsVisibleInTheTemplate(self):
-        self.assertEqual(TextRequest("*GWL", r"\*GWL").encode(), b"*GWL")
-        self.assertEqual(TextRequest("g r0xc9\n", "g r0xc9\n").encode(), b"g r0xc9\n")
-        self.assertEqual(TextRequest("SYST:ERR?\r\n", r"SYST:ERR\?\r\n").encode(),
+        self.assertEqual(TextFrame("*GWL", r"\*GWL").encode(), b"*GWL")
+        self.assertEqual(TextFrame("g r0xc9\n", "g r0xc9\n").encode(), b"g r0xc9\n")
+        self.assertEqual(TextFrame("SYST:ERR?\r\n", r"SYST:ERR\?\r\n").encode(),
                          b"SYST:ERR?\r\n")
 
     def testNamesTheArgumentsItNeeds(self):
-        request = TextRequest("s r{register} {value}\r", r"s r(\S+) (-?\d+)\r",
+        request = TextFrame("s r{register} {value}\r", r"s r(\S+) (-?\d+)\r",
                               fields={"register": str, "value": int})
         self.assertEqual(request.arguments, ("register", "value"))
 
     def testAMissingArgumentSaysWhichOne(self):
         with self.assertRaises(MissingArgument) as raised:
-            TextRequest("p {power:0.3f}\r", r"p ([0-9.]+)\r").encode()
+            TextFrame("p {power:0.3f}\r", r"p ([0-9.]+)\r").encode()
         self.assertIn("power", str(raised.exception))
 
 
-class TestBinaryRequest(unittest.TestCase):
+class TestBinaryFrameWritingAFrame(unittest.TestCase):
     def testPacksConstantsOnly(self):
-        request = BinaryRequest("<cc", fields=("header", "terminator"),
+        request = BinaryFrame("<cc", fields=("header", "terminator"),
                                 constants={"header": b"C", "terminator": b"\r"})
         self.assertEqual(request.encode(), b"C\r")
         self.assertEqual(request.arguments, ())
 
     def testPacksNamedValuesBetweenConstants(self):
-        request = BinaryRequest(
+        request = BinaryFrame(
             "<clllc", fields=("header", "x", "y", "z", "terminator"),
             constants={"header": b"M", "terminator": b"\r"})
         self.assertEqual(request.arguments, ("x", "y", "z"))
@@ -785,47 +751,47 @@ class TestBinaryRequest(unittest.TestCase):
                          pack("<clllc", b"M", 1, 2, 3, b"\r"))
 
     def testAMissingArgumentSaysWhichOne(self):
-        request = BinaryRequest("<clllc", fields=("header", "x", "y", "z", "terminator"),
+        request = BinaryFrame("<clllc", fields=("header", "x", "y", "z", "terminator"),
                                 constants={"header": b"M", "terminator": b"\r"})
         with self.assertRaises(MissingArgument) as raised:
             request.encode(x=1, y=2)
         self.assertIn("z", str(raised.exception))
 
     def testAValueOfTheWrongKindIsRefusedWithItsFormat(self):
-        request = BinaryRequest("<l", fields=("steps",))
+        request = BinaryFrame("<l", fields=("steps",))
         with self.assertRaises(ProtocolError) as raised:
             request.encode(steps="far")
         self.assertIn("<l", str(raised.exception))
 
 
-class TestTextReply(unittest.TestCase):
+class TestTextFrameReadingALine(unittest.TestCase):
     def testDecodesNamedGroupsThroughTheirConverters(self):
-        reply = TextReply(r"(\d+\.\d+)", "{power:0.3f}\r\n", fields={"power": float})
+        reply = TextFrame("{power:0.3f}\r\n", r"(\d+\.\d+)", fields={"power": float})
         self.assertEqual(reply.decode(b"0.123\r\n"), {"power": 0.123})
 
     def testDecodesSeveralFieldsInGroupOrder(self):
-        reply = TextReply(r"v\s(-?\d+)\s(\d+)", "v {position} {status}\r",
+        reply = TextFrame("v {position} {status}\r", r"v\s(-?\d+)\s(\d+)",
                           fields={"position": int, "status": int})
         self.assertEqual(reply.decode("v -42 3"), {"position": -42, "status": 3})
 
     def testAnAcknowledgementCarriesNoValues(self):
-        self.assertEqual(TextReply("OK", "OK\r\n").decode(b"OK\r\n"), {})
+        self.assertEqual(TextFrame("OK\r\n", "OK").decode(b"OK\r\n"), {})
 
     def testAReplyThatDoesNotMatchRaisesWithBothSides(self):
-        reply = TextReply(r"(\d+\.\d+)", "{power:0.3f}\r\n", fields={"power": float})
-        with self.assertRaises(ReplyDidNotMatch) as raised:
+        reply = TextFrame("{power:0.3f}\r\n", r"(\d+\.\d+)", fields={"power": float})
+        with self.assertRaises(DidNotMatch) as raised:
             reply.decode(b"syntax error\r\n")
         self.assertIn("syntax error", str(raised.exception))
 
     def testNamingTheWrongNumberOfFieldsIsCaught(self):
-        reply = TextReply(r"(\d+)\s(\d+)", "{only}\r", fields={"only": int})
+        reply = TextFrame("{only}\r", r"(\d+)\s(\d+)", fields={"only": int})
         with self.assertRaises(ProtocolError):
             reply.decode("1 2")
 
     def testItParsesWhateverItIsHanded(self):
         # Trailing bytes, or none, are the port's business: the same description
         # reads a line however that line happened to arrive.
-        reply = TextReply(r"(\d+\.\d+)", "{power:0.3f}\r\n", fields={"power": float})
+        reply = TextFrame("{power:0.3f}\r\n", r"(\d+\.\d+)", fields={"power": float})
         for arrival in (b"0.123\r\n", b"0.123\n", b"0.123\r", b"0.123", "0.123"):
             self.assertEqual(reply.decode(arrival), {"power": 0.123})
         self.assertIsNone(reply.readLength)
@@ -834,54 +800,54 @@ class TestTextReply(unittest.TestCase):
         # The regex matches with or without the terminator, because re.search does
         # not care what follows. The template has to be exact: it is what a mock
         # actually puts on the wire.
-        reply = TextReply("OK", "OK\r\n")
+        reply = TextFrame("OK\r\n", "OK")
         self.assertEqual(reply.encode(), b"OK\r\n")
         self.assertEqual(reply.decode(reply.encode()), {})
 
 
-class TestBinaryReply(unittest.TestCase):
+class TestBinaryFrameReadingAFrame(unittest.TestCase):
     def testLengthComesFromTheFormat(self):
-        self.assertEqual(BinaryReply("<lllx", fields=("x", "y", "z")).readLength, 13)
-        self.assertEqual(BinaryReply("<c").readLength, 1)
+        self.assertEqual(BinaryFrame("<lllx", fields=("x", "y", "z")).readLength, 13)
+        self.assertEqual(BinaryFrame("<c").readLength, 1)
 
     def testDecodesEachFieldByName(self):
-        reply = BinaryReply("<lllx", fields=("x", "y", "z"))
+        reply = BinaryFrame("<lllx", fields=("x", "y", "z"))
         self.assertEqual(reply.decode(pack("<lllc", 100, 200, 300, b"\r")),
                          {"x": 100, "y": 200, "z": 300})
 
     def testAShortFrameSaysWhatWasExpected(self):
-        reply = BinaryReply("<lllx", fields=("x", "y", "z"))
-        with self.assertRaises(ReplyDidNotMatch) as raised:
+        reply = BinaryFrame("<lllx", fields=("x", "y", "z"))
+        with self.assertRaises(DidNotMatch) as raised:
             reply.decode(b"\x01\x02")
         self.assertIn("13", str(raised.exception))
 
     def testNamingTheWrongNumberOfFieldsIsCaught(self):
-        reply = BinaryReply("<ll", fields=("only",))
+        reply = BinaryFrame("<ll", fields=("only",))
         with self.assertRaises(ProtocolError):
             reply.decode(pack("<ll", 1, 2))
 
     def testItSaysHowManyBytesToRead(self):
         # The one thing a caller cannot work out for itself: a fixed-size frame
         # has no terminator to stop at.
-        self.assertEqual(BinaryReply("<c").readLength, 1)
-        self.assertEqual(BinaryReply("<lllx", fields=("x", "y", "z")).readLength, 13)
+        self.assertEqual(BinaryFrame("<c").readLength, 1)
+        self.assertEqual(BinaryFrame("<lllx", fields=("x", "y", "z")).readLength, 13)
 
 
 class TestByteOrderMustBeExplicit(unittest.TestCase):
     def testAFormatWithoutAPrefixIsRefused(self):
         with self.assertRaises(ProtocolError) as raised:
-            BinaryRequest("clllc", fields=("header", "x", "y", "z", "terminator"))
+            BinaryFrame("clllc", fields=("header", "x", "y", "z", "terminator"))
         message = str(raised.exception)
         self.assertIn("14", message)          # what the instrument expects
         self.assertIn("<clllc", message)      # and how to say it
 
     def testTheReplySideIsGuardedToo(self):
         with self.assertRaises(ProtocolError):
-            BinaryReply("lllx", fields=("x", "y", "z"))
+            BinaryFrame("lllx", fields=("x", "y", "z"))
 
     def testEveryExplicitPrefixIsAccepted(self):
         for prefix in ("<", ">", "!", "="):
-            self.assertEqual(BinaryReply(prefix + "l", fields=("value",)).readLength, 4)
+            self.assertEqual(BinaryFrame(prefix + "l", fields=("value",)).readLength, 4)
 
     def testWithoutTheGuardTheLengthWouldBeWrong(self):
         # What is actually being prevented: not a crash, a wrong frame.
@@ -892,8 +858,8 @@ class TestByteOrderMustBeExplicit(unittest.TestCase):
 def getPowerCommand() -> Command:
     """The Cobolt power query, stated in full: both halves, both directions."""
     return Command("GET_POWER",
-                   TextRequest("pa?\r", r"pa\?\r"),
-                   TextReply(r"(\d+\.\d+)", "{power:0.4f}\r\n", fields={"power": float}))
+                   TextFrame("pa?\r", r"pa\?\r"),
+                   TextFrame("{power:0.4f}\r\n", r"(\d+\.\d+)", fields={"power": float}))
 
 
 class TestCommand(unittest.TestCase):
@@ -905,7 +871,7 @@ class TestCommand(unittest.TestCase):
 
     def testACommandMayExpectNothingBack(self):
         command = Command("SET_WAVELENGTH",
-                          TextRequest("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
+                          TextFrame("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
                                       fields={"wavelength": int}))
         self.assertFalse(command.expectsReply)
         self.assertEqual(command.encode(wavelength=532), b"*PWC00532")
@@ -922,6 +888,28 @@ class TestCommand(unittest.TestCase):
         self.assertEqual(second, {"power": 0.9})
         self.assertEqual(vars(command).keys(), {"name", "request", "reply"})
 
+    def testAFrameSaysOnlyThatItDidNotMatchAndTheCommandSaysWhichHalf(self):
+        # A frame has no idea which command it belongs to, or which end of it, so
+        # naming both is the command's job -- and it is the reason there is no
+        # request class and no reply class to carry that name instead.
+        command = getPowerCommand()
+        with self.assertRaises(ReplyDidNotMatch) as raised:
+            command.decode(b"syntax error\r\n")
+        self.assertIn("GET_POWER", str(raised.exception))
+        self.assertIn("syntax error", str(raised.exception))
+
+        with self.assertRaises(RequestDidNotMatch) as raised:
+            command.decodeRequest(b"l?\r")
+        self.assertIn("GET_POWER", str(raised.exception))
+
+    def testOneFrameCanServeEitherHalf(self):
+        # Nothing marks a frame as a request or a reply: an instrument that echoes
+        # its own line back is described once and put in both slots.
+        line = TextFrame("OK\r\n", "OK")
+        echo = Command("ECHO", line, line)
+        self.assertEqual(echo.encode(), echo.encodeReply())
+        self.assertEqual(echo.decodeRequest(b"OK\r\n"), echo.decode(b"OK\r\n"))
+
 
 class TestTheMirrorDirection(unittest.TestCase):
     """Reading a request and writing a reply: the same descriptions, other way round."""
@@ -929,7 +917,7 @@ class TestTheMirrorDirection(unittest.TestCase):
     def testWhatATemplateWroteItsRegexReadsBack(self):
         # The two notations are written separately and have to agree. Nothing
         # enforces that but a round trip, which is why every command here has one.
-        request = TextRequest("p {power:0.3f}\r", r"p ([0-9.]+)\r",
+        request = TextFrame("p {power:0.3f}\r", r"p ([0-9.]+)\r",
                               fields={"power": float})
         self.assertEqual(request.decode(request.encode(power=0.5)), {"power": 0.5})
 
@@ -937,46 +925,46 @@ class TestTheMirrorDirection(unittest.TestCase):
         # A converter is named, not guessed from "05d" or "x". The description says
         # what comes back, so "0x24" stays text and 31 comes back an int because
         # each was asked for.
-        wavelength = TextRequest("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
+        wavelength = TextFrame("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
                                  fields={"wavelength": int})
         self.assertEqual(wavelength.decode(b"*PWC00532"), {"wavelength": 532})
 
-        register = TextRequest("s r{register} {value}\r", r"s r(\S+) (-?\d+)\r",
+        register = TextFrame("s r{register} {value}\r", r"s r(\S+) (-?\d+)\r",
                                fields={"register": str, "value": int})
         self.assertEqual(register.decode(register.encode(register="0x24", value=31)),
                          {"register": "0x24", "value": 31})
 
     def testARequestThatBelongsToAnotherCommandIsDeclined(self):
-        with self.assertRaises(RequestDidNotMatch):
-            TextRequest("pa?\r", r"pa\?\r").decode(b"l?\r")
+        with self.assertRaises(DidNotMatch):
+            TextFrame("pa?\r", r"pa\?\r").decode(b"l?\r")
 
     def testABinaryRequestGivesBackOnlyWhatWasNotConstant(self):
-        request = BinaryRequest("<clllc", fields=("header", "x", "y", "z", "terminator"),
+        request = BinaryFrame("<clllc", fields=("header", "x", "y", "z", "terminator"),
                                 constants={"header": b"M", "terminator": b"\r"})
         self.assertEqual(request.decode(request.encode(x=1, y=2, z=3)),
                          {"x": 1, "y": 2, "z": 3})
 
     def testABinaryConstantIsRequiredOnTheWayIn(self):
-        request = BinaryRequest("<cc", fields=("header", "terminator"),
+        request = BinaryFrame("<cc", fields=("header", "terminator"),
                                 constants={"header": b"C", "terminator": b"\r"})
-        with self.assertRaises(RequestDidNotMatch) as raised:
+        with self.assertRaises(DidNotMatch) as raised:
             request.decode(b"H\r")
         self.assertIn("header", str(raised.exception))
 
     def testAConstantMustNameAFieldThatExists(self):
         with self.assertRaises(BadDescription) as raised:
-            BinaryRequest("<cc", fields=("header", "terminator"),
+            BinaryFrame("<cc", fields=("header", "terminator"),
                           constants={"heder": b"C"})
         self.assertIn("heder", str(raised.exception))
 
     def testATextReplyWritesTheLineItMatches(self):
-        reply = TextReply(r"(\d+\.\d+)", "{power:0.4f}\r\n", fields={"power": float})
+        reply = TextFrame("{power:0.4f}\r\n", r"(\d+\.\d+)", fields={"power": float})
         self.assertEqual(reply.encode(power=0.0499), b"0.0499\r\n")
         self.assertEqual(reply.decode(reply.encode(power=0.0499)), {"power": 0.0499})
 
     def testACommandWithNoReplyHasNothingToAnswer(self):
         command = Command("SET_WAVELENGTH",
-                          TextRequest("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
+                          TextFrame("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
                                       fields={"wavelength": int}))
         with self.assertRaises(ProtocolError):
             command.encodeReply()
@@ -1014,23 +1002,23 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
 
     def testCoboltSetAndReadPower(self):
         setPower = Command("SET_POWER",
-                           TextRequest("p {power:0.3f}\r", r"p ([0-9.]+)\r",
+                           TextFrame("p {power:0.3f}\r", r"p ([0-9.]+)\r",
                                        fields={"power": float}),
-                           TextReply("OK", "OK\r\n"))
+                           TextFrame("OK\r\n", "OK"))
         self.assertEqual(setPower.encode(power=0.05), b"p 0.050\r")
         self.assertEqual(setPower.decode(b"OK\r\n"), {})
         self.assertEqual(setPower.decodeRequest(b"p 0.050\r"), {"power": 0.05})
 
-        getPower = Command("GET_POWER", TextRequest("pa?\r", r"pa\?\r"),
-                           TextReply(r"(\d+\.\d+)", "{power:0.4f}\r\n",
+        getPower = Command("GET_POWER", TextFrame("pa?\r", r"pa\?\r"),
+                           TextFrame("{power:0.4f}\r\n", r"(\d+\.\d+)",
                                      fields={"power": float}))
         self.assertEqual(getPower.encode(), b"pa?\r")
         self.assertEqual(getPower.decode(b"0.0499\r\n"), {"power": 0.0499})
         self.assertEqual(getPower.encodeReply(power=0.0499), b"0.0499\r\n")
 
     def testCoboltOnOffStateAsABoolean(self):
-        getOnOff = Command("GET_ON_OFF", TextRequest("l?\r", r"l\?\r"),
-                           TextReply(r"(0|1)", "{isOn:d}\r\n",
+        getOnOff = Command("GET_ON_OFF", TextFrame("l?\r", r"l\?\r"),
+                           TextFrame("{isOn:d}\r\n", r"(0|1)",
                                      fields={"isOn": lambda text: text == "1"}))
         self.assertEqual(getOnOff.decode(b"1\r\n"), {"isOn": True})
         self.assertEqual(getOnOff.decode(b"0\r\n"), {"isOn": False})
@@ -1040,18 +1028,18 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
     def testSutterMoveAndPosition(self):
         move = Command(
             "MOVE",
-            BinaryRequest("<clllc", fields=("header", "x", "y", "z", "terminator"),
+            BinaryFrame("<clllc", fields=("header", "x", "y", "z", "terminator"),
                           constants={"header": b"M", "terminator": b"\r"}),
-            BinaryReply("<c", fields=("acknowledgement",)))
+            BinaryFrame("<c", fields=("acknowledgement",)))
         self.assertEqual(move.encode(x=4000, y=5000, z=6000),
                          pack("<clllc", b"M", 4000, 5000, 6000, b"\r"))
         self.assertEqual(move.decode(b"\r"), {"acknowledgement": b"\r"})
 
         position = Command(
             "GET_POSITION",
-            BinaryRequest("<cc", fields=("header", "terminator"),
+            BinaryFrame("<cc", fields=("header", "terminator"),
                           constants={"header": b"C", "terminator": b"\r"}),
-            BinaryReply("<lllx", fields=("x", "y", "z")))
+            BinaryFrame("<lllx", fields=("x", "y", "z")))
         self.assertEqual(position.encode(), b"C\r")
         self.assertEqual(position.reply.readLength, 13)
         self.assertEqual(position.decode(pack("<lllc", 1, 2, 3, b"\r")),
@@ -1059,8 +1047,8 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
 
     def testIntegraWavelengthBothWays(self):
         getWavelength = Command(
-            "GETWAVELENGTH", TextRequest("*GWL", r"\*GWL"),
-            TextReply(r"PWC\s*:\s*(.+?)\r\n", "PWC : {wavelength}\r\n",
+            "GETWAVELENGTH", TextFrame("*GWL", r"\*GWL"),
+            TextFrame("PWC : {wavelength}\r\n", r"PWC\s*:\s*(.+?)\r\n",
                       fields={"wavelength": float}))
         self.assertEqual(getWavelength.encode(), b"*GWL")
         self.assertEqual(getWavelength.decode(b"PWC : 532.0\r\n"), {"wavelength": 532.0})
@@ -1068,7 +1056,7 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
 
         setWavelength = Command(
             "SETWAVELENGTH",
-            TextRequest("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
+            TextFrame("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
                         fields={"wavelength": int}))
         self.assertEqual(setWavelength.encode(wavelength=1064), b"*PWC01064")
         self.assertEqual(setWavelength.decodeRequest(b"*PWC01064"), {"wavelength": 1064})
@@ -1076,9 +1064,9 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
     def testIntellidriveRegisters(self):
         setRegister = Command(
             "SET_REGISTER",
-            TextRequest("s r{register} {value}\r", r"s r(\S+) (-?\d+)\r",
+            TextFrame("s r{register} {value}\r", r"s r(\S+) (-?\d+)\r",
                         fields={"register": str, "value": int}),
-            TextReply("ok", "ok\r"))
+            TextFrame("ok\r", "ok"))
         self.assertEqual(setRegister.encode(register="0x24", value=31), b"s r0x24 31\r")
         self.assertEqual(setRegister.decode(b"ok\r"), {})
         self.assertEqual(setRegister.decodeRequest(b"s r0x24 31\r"),
@@ -1086,8 +1074,8 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
 
         getRegister = Command(
             "GET_REGISTER",
-            TextRequest("g r{register}\n", r"g r(\S+)\n", fields={"register": str}),
-            TextReply(r"v\s(-?\d+)", "v {value}\r", fields={"value": int}))
+            TextFrame("g r{register}\n", r"g r(\S+)\n", fields={"register": str}),
+            TextFrame("v {value}\r", r"v\s(-?\d+)", fields={"value": int}))
         self.assertEqual(getRegister.encode(register="0xc9"), b"g r0xc9\n")
         self.assertEqual(getRegister.decode(b"v -1234\r"), {"value": -1234})
         self.assertEqual(getRegister.encodeReply(value=-1234), b"v -1234\r")
@@ -1096,9 +1084,9 @@ class TestItCanExpressTheProtocolsWeAlreadyHave(unittest.TestCase):
         # SNAP? returns several comma-separated floats at one instant; the current
         # Command cannot say that at all, so SR830Device parses it by hand.
         snap = Command(
-            "SNAP", TextRequest("SNAP? 1,2,3,4\n", r"SNAP\? 1,2,3,4\n"),
-            TextReply(r"([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+)",
-                      "{x:.4g},{y:.4g},{magnitude:.4g},{phase:.4g}\r\n",
+            "SNAP", TextFrame("SNAP? 1,2,3,4\n", r"SNAP\? 1,2,3,4\n"),
+            TextFrame("{x:.4g},{y:.4g},{magnitude:.4g},{phase:.4g}\r\n",
+                      r"([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+),([-\d.eE+]+)",
                       fields={"x": float, "y": float,
                               "magnitude": float, "phase": float}))
         self.assertEqual(snap.encode(), b"SNAP? 1,2,3,4\n")
@@ -1184,9 +1172,9 @@ class TestCommandDictionary(unittest.TestCase):
     def testATextCommandFromAFileBehavesLikeOneWrittenByHand(self):
         fromFile = self.cobolt["SET_POWER"]
         byHand = Command("SET_POWER",
-                         TextRequest("p {power:0.3f}\r", r"p ([0-9.]+)\r",
+                         TextFrame("p {power:0.3f}\r", r"p ([0-9.]+)\r",
                                      fields={"power": float}),
-                         TextReply("OK", "OK\r\n"))
+                         TextFrame("OK\r\n", "OK"))
         self.assertEqual(fromFile.encode(power=0.05), byHand.encode(power=0.05))
         self.assertEqual(fromFile.decode(b"OK\r\n"), byHand.decode(b"OK\r\n"))
         self.assertEqual(fromFile.decodeRequest(b"p 0.050\r"),
@@ -1198,9 +1186,9 @@ class TestCommandDictionary(unittest.TestCase):
         fromFile = self.sutter["MOVE"]
         byHand = Command(
             "MOVE",
-            BinaryRequest("<clllc", fields=("header", "x", "y", "z", "terminator"),
+            BinaryFrame("<clllc", fields=("header", "x", "y", "z", "terminator"),
                           constants={"header": b"M", "terminator": b"\r"}),
-            BinaryReply("<c", fields=("acknowledgement",)))
+            BinaryFrame("<c", fields=("acknowledgement",)))
         self.assertEqual(fromFile.encode(x=4000, y=5000, z=6000),
                          byHand.encode(x=4000, y=5000, z=6000))
         self.assertEqual(fromFile.encode(x=4000, y=5000, z=6000),
@@ -1349,7 +1337,7 @@ class TestItExplainsItself(unittest.TestCase):
         integra = CommandDictionary(
             {"SETWAVELENGTH": Command(
                 "SETWAVELENGTH",
-                TextRequest("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
+                TextFrame("*PWC{wavelength:05d}", r"\*PWC(\d{5})",
                             fields={"wavelength": int}))},
             deviceName="Integra")
         self.assertIn("SETWAVELENGTH(wavelength: int)", integra.usage())
@@ -1360,10 +1348,11 @@ class TestItExplainsItself(unittest.TestCase):
         self.assertEqual(str(cobolt), cobolt.usage())
 
     def testPaddingAndRepeatsDoNotThrowTheTypesOutOfLine(self):
-        self.assertEqual(structCodes("<clllc"), ("c", "l", "l", "l", "c"))
-        self.assertEqual(structCodes("<lllx"), ("l", "l", "l"))
-        self.assertEqual(structCodes("<3l"), ("l", "l", "l"))
-        self.assertEqual(structCodes("<10s"), ("s",))
+        codesOf = BinaryFrame.structCodes
+        self.assertEqual(codesOf("<clllc"), ("c", "l", "l", "l", "c"))
+        self.assertEqual(codesOf("<lllx"), ("l", "l", "l"))
+        self.assertEqual(codesOf("<3l"), ("l", "l", "l"))
+        self.assertEqual(codesOf("<10s"), ("s",))
 
 
 class TestTheFileAndTheObjectsSpeakOneVocabulary(unittest.TestCase):
