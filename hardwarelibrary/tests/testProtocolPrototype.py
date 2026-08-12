@@ -38,7 +38,7 @@ for a second format there is how the old description ended up with '<lllx' to re
 a position and '<lllc' to write one, two formats for the same thirteen bytes, one
 of which had quietly lost the terminator. Text has no such luck: a template cannot
 be turned into a regular expression without guessing a pattern per format spec, and
-a regular expression cannot be turned back into a line at all. So a text half
+a regular expression cannot be turned back into a line at all. So a text frame
 states both, and nothing anywhere is inferred -- the same refusal to guess that
 makes the byte-order prefix mandatory.
 """
@@ -52,6 +52,7 @@ import tempfile
 import unittest
 from abc import ABC, abstractmethod
 from struct import calcsize, error as StructError, pack, unpack
+from typing import Callable, Iterator, Optional, Tuple, Type, Union
 
 
 # ---------------------------------------------------------------------------
@@ -86,26 +87,6 @@ class BadDescription(ProtocolError):
     """A command description, usually read from a file, does not make sense."""
 
 
-byteOrderPrefixes = ("<", ">", "!", "=")
-
-
-def requireExplicitByteOrder(struct: str):
-    """Refuse a struct format that does not begin with a byte-order prefix.
-
-    Without one, struct uses native sizes and native alignment: "clllc" is 33
-    bytes on this machine rather than the 14 the instrument expects, an "l" is
-    whatever a C long happens to be, and padding appears between the fields. The
-    frame is then correct for the compiler and wrong for the wire, and nothing
-    downstream would notice -- the same failure the ctypes variant needed
-    _pack_ = 1 to avoid, at the price of one character here.
-    """
-    if not struct.startswith(byteOrderPrefixes):
-        raise ProtocolError(
-            "{0!r} has no byte-order prefix, so struct would use native sizes and "
-            "alignment: {1} bytes instead of {2}. Write {3!r}.".format(
-                struct, calcsize(struct), calcsize("<" + struct), "<" + struct))
-
-
 class Frame(ABC):
     """One half of a command: how to write it, and how to read it back.
 
@@ -124,6 +105,20 @@ class Frame(ABC):
     ask for can come from nowhere but the description. A line needs no such answer,
     since the port already reads up to its own terminator.
 
+    Three properties say what a frame carries, and they are easy to confuse:
+
+      - fields is the raw list, in whichever shape the notation needs -- a
+        converter per capture group for text, every packed name including the
+        constants for binary;
+      - arguments is the names a caller supplies, so the constants are gone;
+      - parameters is those same names with their types, read off the converter
+        for text and off the struct code for binary.
+
+    parameters is built from arguments, so arguments is always the names half of
+    parameters, and it is parameters alone that the contract below requires --
+    arguments is a convenience the two concrete frames happen to offer. Neither is
+    "arguments" in the ordinary Python sense: both are names, never values.
+
     A frame does not know whether it is a request or a reply, and there is no class
     for either. Which one it is depends only on the slot of the Command it sits in,
     and that is where the two are told apart -- a frame that failed to match says
@@ -133,23 +128,54 @@ class Frame(ABC):
     readLength = None
 
     @abstractmethod
-    def encode(self, **values) -> bytes:
-        """Returns the bytes to write, built from the values named here."""
+    def encode(self, **values: object) -> bytes:
+        """Build the bytes this frame puts on the wire.
+
+        Args:
+            **values: the values to write, passed by name, one per entry of
+                parameters -- encode(power=0.5) for a frame that carries a power.
+                Anything the description fixes is supplied by the description
+                and must not be passed. The annotation is object because the
+                type each value must have is not a property of this method but
+                of the field it goes into, which only the description knows:
+                parameters reports it, one name at a time.
+
+        Returns:
+            The bytes to write, terminator included, ready to hand to a port.
+        """
         ...
 
     @abstractmethod
-    def decode(self, data) -> dict:
-        """Returns what the bytes carried, as {field: value}."""
+    def decode(self, data: Union[bytes, str]) -> dict:
+        """Read bytes this frame describes and name what they carried.
+
+        Args:
+            data: the bytes read, or a str -- what a port hands over varies.
+
+        Returns:
+            A dict of {field name: value}, empty when the frame carries nothing
+            but its own literal text or its own fixed bytes.
+
+        Raises:
+            DidNotMatch: when the bytes are not the ones this frame describes.
+        """
         ...
 
     @property
     @abstractmethod
     def parameters(self) -> tuple:
-        """Every value this half carries, as (name, type name) in order.
+        """The names to pass this frame, and the names it hands back, with types.
 
-        Not used to encode or decode anything: it is what lets a dictionary explain
-        itself, so that the names a caller passes and the names it gets back are
-        read off the description rather than out of a comment.
+        The two are the same list, since a frame is written and read from one
+        description: encode takes these names as keywords and decode returns them
+        as keys. Not used to encode or decode anything, though -- it exists so
+        that a dictionary can explain itself out of the description rather than
+        out of a comment.
+
+        Returns:
+            A (name, type name) pair per value, in the order the frame lays them
+            out, such as (("x", "int32"), ("y", "int32"), ("z", "int32")). Empty
+            when the frame is nothing but fixed text or fixed bytes.
         """
         ...
 
@@ -182,45 +208,107 @@ class TextFrame(Frame):
     expression is read by whichever of the two is listening.
     """
 
-    def __init__(self, template: str, regex: str, fields: dict = None):
-        """Describe a line as the template that writes it, the expression that
-        reads it, and a converter per capture group."""
+    def __init__(self, template: str, regex: str,
+                 fields: Optional[dict] = None):
+        """Describe a line by its two notations.
+
+        The three arguments describe one line three ways, and they have to agree:
+        "p {power:0.3f}\r" is written with r"p ([0-9.]+)\r" and {"power": float}.
+        One placeholder, one capture group, one converter, all called power.
+
+        Args:
+            template: the str.format template that writes the line, terminator
+                included, with a {name} where each value goes
+            regex: the expression that reads the line back, with one capture
+                group per value, in the same order the template writes them
+            fields: the converter to run on each capture group, keyed by the
+                name the template uses -- float for a power, int for a count.
+                None or empty for a line with no values at all, such as an "OK".
+        """
         self.template = template
         self.regex = regex
         self.fields = dict(fields or {})
 
     @property
     def arguments(self) -> tuple:
-        """The names this line carries, in the order the template lays them out."""
+        """The names a caller must supply.
+
+        They are the {name} placeholders of the template, and they are found by
+        handing the template to string.Formatter().parse, which splits it into
+        literal text and field names so that nothing has to be scanned by hand.
+
+        Returns:
+            Every placeholder name, in the order the template lays them out:
+            ("power",) for "p {power:0.3f}\r", and ("register", "value") for
+            "s r{register} {value}\r". Empty for a template of literal text
+            only, such as "pa?\r", which is a request that takes no arguments.
+        """
         return tuple(name for _, name, _, _ in string.Formatter().parse(self.template)
                      if name)
 
     @property
     def parameters(self) -> tuple:
-        """Each name with its type, taken from the converter named for it."""
+        """Those same names, each with the type it is read back as.
+
+        The names come from the template and the types from the converters, which
+        are two independent lists: a name the converters do not mention is
+        reported as text, since nothing says otherwise.
+
+        Returns:
+            A (name, type name) pair per placeholder, in template order:
+            (("power", "float"),) for "p {power:0.3f}\r" described with
+            {"power": float}.
+        """
         return tuple((name, self.typeNameOf(self.fields[name])
                       if name in self.fields else "text")
                      for name in self.arguments)
 
     @staticmethod
-    def typeNameOf(converter) -> str:
-        """The name to show for a converter when explaining a command.
+    def typeNameOf(converter: Callable[[str], object]) -> str:
+        """Name a converter for the benefit of someone reading a usage line.
 
         A converter is often a type, and then its own name is the answer. When it is
         a function, what a reader wants is what it returns, which its annotation
         already says -- so a "0" or "1" field is announced as a bool rather than by
         the name of the function that makes one.
+
+        This is a guess, and it is allowed to be one because nothing it returns
+        ever reaches the wire: parameters is its only caller and usage() is the
+        only thing that reads parameters. The rule that nothing here is inferred
+        governs the protocol, not the sentence that explains it. Its worst answer
+        is an ugly one -- "<lambda>" -- never a wrong frame.
+
+        Args:
+            converter: anything callable on a captured string -- a type such as
+                float, or a function such as booleanFromZeroOrOne
+
+        Returns:
+            The name of what the converter returns when it is annotated, its own
+            name otherwise, and its repr as a last resort for a lambda.
         """
         returned = getattr(converter, "__annotations__", {}).get("return")
         if returned is not None:
             return getattr(returned, "__name__", str(returned))
         return getattr(converter, "__name__", None) or str(converter)
 
-    def encode(self, **values) -> bytes:
-        """Returns the line as bytes, with the values substituted.
+    def encode(self, **values: object) -> bytes:
+        """Write the line, substituting the values into the template.
 
-        Raises MissingArgument, naming the field, rather than letting a KeyError out
-        of str.format.
+        Args:
+            **values: the values to substitute, passed by name, one per
+                {name} in the template. A value the template never mentions is
+                ignored, as str.format ignores it. Any object will do, since
+                a format spec is applied to whatever it is handed -- a float for
+                "{power:0.3f}", but equally a datetime for "{when:%H:%M}".
+
+        Returns:
+            The line as UTF-8 bytes, terminator included since the template
+            carries it.
+
+        Raises:
+            MissingArgument: when a {name} of the template was not supplied,
+                naming the field and listing what was given, rather than letting
+                a bare KeyError out of str.format.
         """
         try:
             return self.template.format(**values).encode("utf-8")
@@ -228,12 +316,22 @@ class TextFrame(Frame):
             raise MissingArgument("{0} needs {1}, got {2}".format(
                 self.template, error, sorted(values))) from None
 
-    def decode(self, data) -> dict:
-        """Returns the captured values, converted and named.
+    def decode(self, data: Union[bytes, str]) -> dict:
+        """Read the line back and convert each captured group.
 
-        Accepts bytes or str, since what a port hands over varies. Raises
-        DidNotMatch when the expression does not match, quoting both sides, and
-        ProtocolError when it and the field names disagree in number.
+        Args:
+            data: the line as read, bytes or str -- what a port hands over
+                varies. Anything around the match is ignored, since re.search is
+                used: where a line ends is the port's business.
+
+        Returns:
+            A dict of {field name: converted value}, empty when the expression
+            has no capture groups.
+
+        Raises:
+            DidNotMatch: when the expression does not match, quoting both sides.
+            ProtocolError: when the expression and the fields disagree on how
+                many values the line carries.
         """
         text = data.decode("utf-8") if isinstance(data, (bytes, bytearray)) else data
         match = re.search(self.regex, text)
@@ -265,6 +363,8 @@ class BinaryFrame(Frame):
     it a constant instead.
     """
 
+    byteOrderPrefixes = ("<", ">", "!", "=")
+
     # What each struct code is called when a command explains itself. A class
     # attribute rather than a module one, so a frame for an instrument that reads
     # its own kind of value can add to it, the way CommandDictionary does with
@@ -276,13 +376,26 @@ class BinaryFrame(Frame):
         "e": "float16", "f": "float", "d": "double", "s": "bytes", "p": "bytes",
     }
 
-    def __init__(self, struct: str, fields: tuple = (), constants: dict = None):
+    def __init__(self, struct: str, fields: tuple = (),
+                 constants: Optional[dict] = None):
         """Describe a frame as a struct format, one name per packed value.
 
-        The format must state its byte order, or the frame it builds is the one a
-        C compiler would want rather than the one the instrument expects.
+        Args:
+            struct: a struct format, byte order included, or the frame it builds
+                is the one a C compiler would want rather than the one the
+                instrument expects
+            fields: one name per value the format packs, in order, padding
+                excluded since padding packs no value
+            constants: the values nobody supplies, keyed by field name -- a
+                header byte, a terminator, a fixed acknowledgement. Written on
+                the way out, required on the way in.
+
+        Raises:
+            ProtocolError: when the format states no byte order.
+            BadDescription: when constants fixes a name fields does not list,
+                which would otherwise fail much later and much less clearly.
         """
-        requireExplicitByteOrder(struct)
+        self.requireExplicitByteOrder(struct)
         self.struct = struct
         self.fields = tuple(fields)
         self.constants = dict(constants or {})
@@ -294,28 +407,84 @@ class BinaryFrame(Frame):
 
     @property
     def readLength(self) -> int:
-        """Returns how many bytes the frame occupies, taken from the format itself."""
+        """How many bytes to read before this frame can be decoded.
+
+        Returns:
+            The size of the format, so it never has to be kept in step by hand.
+            This is the one thing a caller could not work out for itself: a
+            fixed-size frame has no terminator to stop at.
+        """
         return calcsize(self.struct)
 
     @property
     def arguments(self) -> tuple:
-        """The names a caller must supply: every field that is not a constant."""
+        """The names a caller must supply.
+
+        Returns:
+            A tuple of every field that is not a constant, in format order. A
+            frame made only of constants returns an empty tuple.
+        """
         return tuple(name for name in self.fields if name not in self.constants)
 
     @property
     def parameters(self) -> tuple:
-        """Each non-constant field with the type its format packs it as."""
+        """Each non-constant field with the type its format packs it as.
+
+        Returns:
+            A tuple of (name, type name) pairs, in format order, the type being
+            read off the struct code -- "l" is reported as int32. A code this
+            class does not name is reported as "unknown" rather than hidden.
+        """
         codeOf = dict(zip(self.fields, self.structCodes(self.struct)))
         return tuple((name, self.typeNames.get(codeOf.get(name), "unknown"))
                      for name in self.arguments)
 
+    @classmethod
+    def requireExplicitByteOrder(cls, struct: str) -> None:
+        """Refuse a struct format that does not begin with a byte-order prefix.
+
+        Without one, struct uses native sizes and native alignment: "clllc" is 33
+        bytes on this machine rather than the 14 the instrument expects, an "l" is
+        whatever a C long happens to be, and padding appears between the fields.
+        The frame is then correct for the compiler and wrong for the wire, and
+        nothing downstream would notice -- the same failure the ctypes variant
+        needed _pack_ = 1 to avoid, at the price of one character here.
+
+        A classmethod, and the prefixes a class attribute, so that a frame for a
+        machine whose formats are spelled differently overrides the pair rather
+        than working around a module function it cannot reach.
+
+        Args:
+            struct: a struct format, expected to start with one of the prefixes
+                byteOrderPrefixes lists
+
+        Returns:
+            Nothing. It is a guard, called for its refusal.
+
+        Raises:
+            ProtocolError: when the prefix is missing, giving both the length the
+                format would really produce and the one that was meant, and the
+                corrected format to write instead.
+        """
+        if not struct.startswith(cls.byteOrderPrefixes):
+            raise ProtocolError(
+                "{0!r} has no byte-order prefix, so struct would use native sizes "
+                "and alignment: {1} bytes instead of {2}. Write {3!r}.".format(
+                    struct, calcsize(struct), calcsize("<" + struct), "<" + struct))
+
     @staticmethod
     def structCodes(struct: str) -> tuple:
-        """The type code of each value a struct format packs, repeats expanded.
+        """Split a struct format into the type code of each value it packs.
 
-        Padding yields no value and so no code, which keeps the codes lined up with
-        the field names one for one. A count on 's' means one string that long, not
-        that many strings, which is the one place the rule is not repetition.
+        Args:
+            struct: a struct format, byte-order prefix included -- the prefix is
+                skipped, not treated as a code
+
+        Returns:
+            One code per packed value, repeat counts expanded, so that the codes
+            line up with the field names one for one. Padding yields no value and
+            so no code. A count on "s" means one string that long, not that many
+            strings, which is the one place the rule is not repetition.
         """
         codes = []
         count = ""
@@ -330,11 +499,25 @@ class BinaryFrame(Frame):
             codes.extend([character] if character in "sp" else [character] * repeats)
         return tuple(codes)
 
-    def encode(self, **arguments) -> bytes:
-        """Returns the packed frame, constants and arguments in field order.
+    def encode(self, **arguments: object) -> bytes:
+        """Pack the frame, constants and arguments interleaved in field order.
 
-        Raises MissingArgument for a field nobody supplied, and ProtocolError for a
-        value struct cannot pack into its format.
+        Args:
+            **arguments: the values to pack, passed by name, one per entry of
+                arguments. A constant must not be passed: the description
+                supplies it. What each value must be is decided by its struct
+                code and by nothing here -- an int for "l", bytes for "c" -- so
+                it is parameters that answers, and a wrong kind is refused by
+                pack rather than by the signature.
+
+        Returns:
+            The packed frame, exactly readLength bytes long.
+
+        Raises:
+            MissingArgument: for a field nobody supplied, naming it and listing
+                what was given.
+            ProtocolError: for a value struct cannot pack into its format, such
+                as a string where a long was expected.
         """
         values = []
         for name in self.fields:
@@ -351,13 +534,26 @@ class BinaryFrame(Frame):
             raise ProtocolError("cannot pack {0} into {1}: {2}".format(
                 values, self.struct, error)) from None
 
-    def decode(self, data) -> dict:
-        """Returns the values the frame carried, named, constants left out.
+    def decode(self, data: bytes) -> dict:
+        """Unpack the frame and name what it carried, constants left out.
 
         A constant is checked rather than returned: it carries no information, and
-        a frame whose header is wrong is not this frame at all. Raises DidNotMatch
-        when the length or a constant is wrong, and ProtocolError when the format
-        and the names disagree.
+        a frame whose header is wrong is not this frame at all.
+
+        Args:
+            data: exactly readLength bytes. Unlike a line, a frame cannot be
+                surrounded by anything, since its length is its only boundary.
+
+        Returns:
+            A dict of {field name: value} for the non-constant fields only, so a
+            frame made of constants alone decodes to an empty dict.
+
+        Raises:
+            DidNotMatch: when the length is wrong, or when a constant is not the
+                value the description fixed -- which is how a mock tells one
+                command from another.
+            ProtocolError: when the format and the field names disagree on how
+                many values the frame carries.
         """
         if len(data) != self.readLength:
             raise DidNotMatch("expected {0} bytes for {1}, got {2}".format(
@@ -399,13 +595,19 @@ class Command:
     request nor a reply -- it becomes one by being put in one of these two slots --
     so a frame that fails to match says only that, and a command turns it into a
     RequestDidNotMatch or a ReplyDidNotMatch naming itself. Which is more than
-    either half could say: a frame does not know what command it belongs to.
+    either one could say on its own: a frame does not know what command it
+    belongs to.
     """
 
-    def __init__(self, name: str, request: Frame, reply: Frame = None):
+    def __init__(self, name: str, request: Frame, reply: Optional[Frame] = None):
         """Pair a request with the reply it expects, under the name a driver uses.
 
-        reply is None for a command the instrument does not answer.
+        Args:
+            name: how a driver asks for this command, and how it names itself in
+                an error
+            request: the frame the driver writes and a mock reads
+            reply: the frame the driver reads and a mock writes, or None for a
+                command the instrument does not answer
         """
         self.name = name
         self.request = request
@@ -413,50 +615,106 @@ class Command:
 
     @property
     def expectsReply(self) -> bool:
-        """True when the instrument answers this command, so a caller knows
-        whether to read at all."""
+        """Whether the instrument answers this command at all.
+
+        Returns:
+            True when a reply was described, so a caller knows whether to read.
+        """
         return self.reply is not None
 
-    def encode(self, **arguments) -> bytes:
-        """Returns the bytes to write for this command."""
+    def encode(self, **arguments: object) -> bytes:
+        """Build the bytes to send -- the driver's half of the exchange.
+
+        Args:
+            **arguments: the values the request carries, passed by name --
+                one per entry of request.parameters.
+
+        Returns:
+            The bytes to write. What happens to them is the caller's business:
+            nothing here touches a port.
+        """
         return self.request.encode(**arguments)
 
-    def decode(self, data) -> dict:
-        """Returns what the reply carried, as {field: value}.
+    def decode(self, data: Union[bytes, str]) -> dict:
+        """Read what the instrument answered -- the driver's other half.
 
-        Raises ProtocolError if this command expects no reply, since decoding one
-        means the caller read something it should not have, and ReplyDidNotMatch
-        naming this command when the instrument answered something else.
+        Args:
+            data: the bytes read back. How many to read is reply.readLength when
+                the reply is binary, and the port's own terminator when it is a
+                line.
+
+        Returns:
+            A dict of {field name: value}, returned to the caller and stored
+            nowhere, so two callers of one description cannot overwrite each
+            other.
+
+        Raises:
+            ProtocolError: when this command expects no reply, since decoding one
+                means the caller read something it should not have.
+            ReplyDidNotMatch: when the instrument answered something else, naming
+                this command.
         """
         if self.reply is None:
             raise ProtocolError("{0} expects no reply".format(self.name))
         return self.decodeHalf(self.reply, data, ReplyDidNotMatch)
 
-    def decodeRequest(self, data) -> dict:
-        """Returns the arguments a request carried -- the mock's half of encode.
+    def decodeRequest(self, data: Union[bytes, str]) -> dict:
+        """Read a request addressed to us -- the mock's half of encode.
 
-        Raises RequestDidNotMatch when the bytes are some other command's request,
-        which is how a mock picks the right one out of a dictionary.
+        Args:
+            data: one complete request as received.
+
+        Returns:
+            A dict of the arguments it carried, empty for a command that takes
+            none.
+
+        Raises:
+            RequestDidNotMatch: when the bytes are some other command's request,
+                which is how a mock picks the right one out of a dictionary
+                rather than an error a driver would ever see.
         """
         return self.decodeHalf(self.request, data, RequestDidNotMatch)
 
-    def decodeHalf(self, half: Frame, data, mismatch) -> dict:
+    def decodeHalf(self, half: Frame, data: Union[bytes, str],
+                   mismatch: Type[DidNotMatch]) -> dict:
         """Decode one half, saying which half of which command failed to match.
 
         A frame knows only that the bytes are not the ones it describes. Naming the
         command, and which end of it was being read, is something only a command can
         do -- so it is done here rather than passed down.
+
+        Args:
+            half: the frame to decode with, this command's request or its reply
+            data: the bytes to read
+            mismatch: the exception class to raise on failure, which is what
+                records the role -- RequestDidNotMatch or ReplyDidNotMatch
+
+        Returns:
+            Whatever the frame decoded, untouched.
+
+        Raises:
+            The mismatch given, with this command's name prefixed to the frame's
+            own account of what did not match.
         """
         try:
             return half.decode(data)
         except DidNotMatch as error:
             raise mismatch("{0}: {1}".format(self.name, error)) from None
 
-    def encodeReply(self, **values) -> bytes:
-        """Returns the bytes the instrument would answer -- the mock's half of decode.
+    def encodeReply(self, **values: object) -> bytes:
+        """Build the answer the instrument would give -- the mock's half of decode.
 
-        Raises ProtocolError if this command expects no reply, since a mock that
-        answers one would be answering a command the instrument leaves silent.
+        Args:
+            **values: the values the reply carries, passed by name -- one per
+                entry of reply.parameters.
+
+        Returns:
+            The bytes a mock writes back, terminator included.
+
+        Raises:
+            ProtocolError: when this command expects no reply, since a mock that
+                answered would be answering a command the instrument leaves
+                silent.
         """
         if self.reply is None:
             raise ProtocolError("{0} expects no reply".format(self.name))
@@ -464,12 +722,32 @@ class Command:
 
 
 def booleanFromZeroOrOne(text: str) -> bool:
-    """A reply of "0" or "1" as a boolean."""
+    """Read a "0" or "1" field as a boolean.
+
+    Args:
+        text: one capture group, expected to be "0" or "1"
+
+    Returns:
+        True for "1", False for anything else -- an instrument that answers
+        neither is refused by the expression, not here.
+    """
     return text == "1"
 
 
 def integerFromHexadecimal(text: str) -> int:
-    """A reply written in hexadecimal as an integer."""
+    """Read a field written in hexadecimal as an integer.
+
+    Args:
+        text: one capture group of hexadecimal digits, with or without a 0x
+            prefix, which int accepts either way
+
+    Returns:
+        The value the digits spell.
+
+    Raises:
+        ValueError: when the group is not hexadecimal, which means the
+            expression captured something it should not have.
+    """
     return int(text, 16)
 
 
@@ -490,6 +768,12 @@ class CommandDictionary:
     out, a regular expression on the way in, a struct format for bytes in either
     direction.
 
+        "SET_POWER": {
+          "request": {"template": "p {power:0.3f}\r",
+                      "regex": "p ([0-9.]+)\r",
+                      "fields": {"power": "float"}},
+          "reply":   {"regex": "OK", "template": "OK\r\n"}
+        },
         "GET_POWER": {
           "request": {"template": "pa?\r", "regex": "pa\\?\r"},
           "reply":   {"regex": "(\\d+\\.\\d+)", "template": "{power:0.4f}\r\n",
@@ -503,11 +787,31 @@ class CommandDictionary:
                       "constants": {"acknowledgement": "\r"}}
         }
 
-    A text half states both of its notations and a binary half states one, because
+    A text frame states both of its notations and a binary one states a single
+    format, because
     a struct already reads both ways and a template and a regex do not. Both are
     required: a request nobody can read and a reply nobody can write are half
     descriptions, and the mock they are meant to serve would only find that out at
     the moment it failed.
+
+    Either frame may carry values and either may carry none, in any
+    combination. SET_POWER above takes an argument and is answered by a bare
+    acknowledgement; GET_POWER takes none and is answered by a value; MOVE takes
+    three and is answered by a fixed byte. What a frame carries is written in
+    fields, and what fields means follows the notation:
+
+      - on a text frame, one entry per capture group of the regex, in group
+        order,
+        naming the converter to run on it. Those names are also the {names} of
+        the template, since a value written and the same value read back are not
+        two different things;
+      - on a binary frame, one name per value the struct packs, in order, and
+        constants picks out the ones nobody supplies -- a header byte, a
+        terminator, a fixed acknowledgement.
+
+    Nothing checks that a template and its regex agree about what they carry; only
+    sending a command and reading it back does, which is why every command in the
+    tests below is put through that round trip.
 
     Reads like a dict. The methods that turn a description into objects are here
     rather than beside it, so a device whose protocol needs something this does
@@ -527,28 +831,64 @@ class CommandDictionary:
         "hexInteger": integerFromHexadecimal,
     }
 
-    def __init__(self, commands: dict, deviceName: str = None):
+    def __init__(self, commands: dict, deviceName: Optional[str] = None):
         """Hold already-built commands by name. Use fromFile to read a description.
 
-        deviceName is carried only to name the instrument in error messages.
+        Args:
+            commands: {name: Command}, copied so that the dictionary cannot be
+                changed behind its back
+            deviceName: the instrument's name, carried only so that an error can
+                say whose protocol was being read
         """
         self.commands = dict(commands)
         self.deviceName = deviceName
 
     @classmethod
     def fromFile(cls, path: str) -> "CommandDictionary":
-        """Read one device's commands from a JSON file."""
+        """Read one device's commands from a JSON file.
+
+        Args:
+            path: the file to read
+
+        Returns:
+            A dictionary of the commands it describes.
+
+        Raises:
+            OSError: when the file cannot be read.
+            json.JSONDecodeError: when it is not JSON.
+            BadDescription: when it is JSON but not a protocol.
+        """
         with open(path, "r") as file:
             return cls.fromDescription(json.load(file))
 
     @classmethod
     def fromJSON(cls, text: str) -> "CommandDictionary":
-        """Read them from JSON already in hand."""
+        """Read them from JSON already in hand.
+
+        Args:
+            text: the description as JSON, from wherever it came
+
+        Returns:
+            A dictionary of the commands it describes.
+        """
         return cls.fromDescription(json.loads(text))
 
     @classmethod
     def fromDescription(cls, description: dict) -> "CommandDictionary":
-        """Build from the description itself, however it was obtained."""
+        """Build from the description itself, however it was obtained.
+
+        Args:
+            description: {"device": name, "commands": {name: {...}}}. The device
+                name is optional; the commands are not.
+
+        Returns:
+            A dictionary whose command order is the description's order, since
+            that is usually the order whoever wrote the file thought in.
+
+        Raises:
+            BadDescription: when there are no commands at all, or when any one of
+                them does not make sense.
+        """
         if "commands" not in description:
             raise BadDescription("no commands: expected {'device': ..., 'commands': {...}}")
         return cls({name: cls.commandFrom(name, one)
@@ -557,7 +897,21 @@ class CommandDictionary:
 
     @classmethod
     def commandFrom(cls, name: str, description: dict) -> Command:
-        """Build one named command from its description."""
+        """Build one named command from its description.
+
+        Args:
+            name: the command's name, used both for the Command and to say which
+                command an error is about
+            description: {"request": {...}} and, when the instrument answers,
+                {"reply": {...}}
+
+        Returns:
+            The command, its reply None when none was described.
+
+        Raises:
+            BadDescription: when there is no request, or when either half does
+                not make sense.
+        """
         where = "command {0!r}".format(name)
         if "request" not in description:
             raise BadDescription("{0}: no request".format(where))
@@ -567,18 +921,33 @@ class CommandDictionary:
 
     @classmethod
     def requestFrom(cls, description: dict, where: str) -> Frame:
-        """Build the request half: a template for text, a struct for binary."""
+        """Build the request half: a template for text, a struct for binary.
+
+        Args:
+            description: the "request" object. Which key is present says which
+                notation it is written in.
+            where: how to name this command in an error
+
+        Returns:
+            A TextFrame or a BinaryFrame, according to the key found.
+
+        Raises:
+            BadDescription: when neither notation is present, or when a text
+                request states a template without the expression that reads it
+                back.
+            ProtocolError: when a struct format states no byte order.
+        """
         if "template" in description:
             if "regex" not in description:
                 raise BadDescription(
                     "{0}: a text request needs a regex as well as its template, "
                     "so that a mock can read what the driver writes".format(where))
             return TextFrame(description["template"], description["regex"],
-                               fields=cls.convertersFor(description.get("fields", {}), where))
+                             fields=cls.convertersFor(description.get("fields", {}), where))
         if "struct" in description:
             return BinaryFrame(description["struct"],
-                                 fields=tuple(description.get("fields", ())),
-                                 constants=cls.constantsFrom(description))
+                               fields=tuple(description.get("fields", ())),
+                               constants=cls.constantsFrom(description))
         raise BadDescription(
             "{0}: a request needs a template, for text, or a struct, for binary".format(where))
 
@@ -588,6 +957,18 @@ class CommandDictionary:
 
         A text reply states both notations, like a text request; a binary one needs
         only its struct, since pack and unpack are already each other's inverse.
+
+        Args:
+            description: the "reply" object
+            where: how to name this command in an error
+
+        Returns:
+            A TextFrame or a BinaryFrame, according to the key found.
+
+        Raises:
+            BadDescription: when neither notation is present, or when a text
+                reply states an expression without the template that writes it.
+            ProtocolError: when a struct format states no byte order.
         """
         if "regex" in description:
             if "template" not in description:
@@ -605,13 +986,33 @@ class CommandDictionary:
 
     @classmethod
     def constantsFrom(cls, description: dict) -> dict:
-        """Turn the constants of a binary frame from text in a file into bytes."""
+        """Turn the constants of a binary frame from text in a file into bytes.
+
+        Args:
+            description: a "request" or "reply" object, whose "constants" is read
+                if present
+
+        Returns:
+            {field name: bytes}, empty when the frame fixes nothing.
+        """
         return {name: cls.bytesFrom(value)
                 for name, value in description.get("constants", {}).items()}
 
     @classmethod
     def convertersFor(cls, fields: dict, where: str) -> dict:
-        """Turn {"power": "float"} from a file into {"power": float}."""
+        """Turn {"power": "float"} from a file into {"power": float}.
+
+        Args:
+            fields: {field name: converter name}, as a file writes it
+            where: how to name this command in an error
+
+        Returns:
+            {field name: callable}, in the same order, ready for a TextFrame.
+
+        Raises:
+            BadDescription: when a converter name is not one this class knows,
+                listing the ones that do exist.
+        """
         resolved = {}
         for name, converterName in fields.items():
             if converterName not in cls.converters:
@@ -623,30 +1024,62 @@ class CommandDictionary:
 
     @staticmethod
     def bytesFrom(text: str) -> bytes:
-        """A constant byte from a file, latin-1 so that \xfe stays one byte."""
+        """Turn a constant written in a file into the byte it stands for.
+
+        Args:
+            text: one character of a JSON string, such as "M" or "\r"
+
+        Returns:
+            The bytes, encoded latin-1 so that \xfe stays one byte rather than
+            becoming the two UTF-8 would spell it with.
+        """
         return text.encode("latin-1")
 
     @property
     def names(self) -> tuple:
-        """Returns every command name, in the order the description listed them."""
+        """Every command this device understands.
+
+        Returns:
+            The names, in the order the description listed them.
+        """
         return tuple(self.commands)
 
     def __getitem__(self, name: str) -> Command:
-        """Returns one command by name, or raises KeyError naming what does exist."""
+        """Look one command up by name.
+
+        Args:
+            name: the command's name, as the description spells it
+
+        Returns:
+            The command.
+
+        Raises:
+            KeyError: naming the device and listing the commands it does have,
+                since a typo is the likeliest reason to be here.
+        """
         if name not in self.commands:
             raise KeyError("{0} has no command {1!r}; it has {2}".format(
                 self.deviceName or "this device", name, ", ".join(sorted(self.commands))))
         return self.commands[name]
 
-    def recognize(self, data) -> tuple:
-        """Returns the command a request belongs to, and the arguments it carried.
+    def recognize(self, data: Union[bytes, str]) -> Tuple[Command, dict]:
+        """Work out which command a request belongs to, and what it carried.
 
         Every command is asked in turn whether the bytes are its request, and the
         first that says yes wins -- so a mock dispatches on the same descriptions
         the driver sends with, and no prefix table is written twice.
 
-        It is handed one complete request. Deciding where a request ends in a
-        stream is the port's business, exactly as it is on the reply side.
+        Args:
+            data: one complete request. Deciding where a request ends in a stream
+                is the port's business, exactly as it is on the reply side.
+
+        Returns:
+            A (command, arguments) pair: the command that recognised the bytes,
+            and the dict its request decoded to.
+
+        Raises:
+            RequestDidNotMatch: when no command recognises the bytes, naming the
+                device and quoting them.
         """
         for command in self.commands.values():
             try:
@@ -665,6 +1098,9 @@ class CommandDictionary:
 
         Commands appear in the order the description listed them, since that order
         is usually the one whoever wrote the file thought in.
+
+        Returns:
+            The whole text, one paragraph per command, ready to print.
         """
         lines = ["{0}: {1} commands".format(self.deviceName or "This device", len(self))]
         for name in self.names:
@@ -672,7 +1108,17 @@ class CommandDictionary:
         return "\n".join(lines)
 
     def usageFor(self, command: Command) -> list:
-        """The lines explaining one command: how to call it, what comes back."""
+        """Explain one command: how to call it, and what comes back.
+
+        Args:
+            command: the command to describe
+
+        Returns:
+            Its lines, starting with a blank one so that paragraphs separate when
+            they are joined. A command is shown as a call with its arguments,
+            then one line for the answer: the values it carries, or that it
+            carries none, or that the instrument does not answer at all.
+        """
         lines = ["", "  {0}({1})".format(command.name, self.listed(command.request))]
         if not command.expectsReply:
             lines.append("      the instrument does not answer")
@@ -684,24 +1130,52 @@ class CommandDictionary:
 
     @staticmethod
     def listed(frame: Frame) -> str:
-        """One half's values as "name: type, name: type", for a usage line."""
+        """Set out one frame's values for a usage line.
+
+        Args:
+            frame: a command's request or its reply
+
+        Returns:
+            "name: type, name: type" in the order the frame carries them, and
+            an empty string for a frame that carries none -- which is what makes an
+            argumentless command print as NAME().
+        """
         return ", ".join("{0}: {1}".format(name, typeName)
                          for name, typeName in frame.parameters)
 
     def __str__(self) -> str:
-        """The usage text, so that printing a dictionary explains it."""
+        """Explain the whole protocol, so that printing a dictionary is enough.
+
+        Returns:
+            What usage() returns.
+        """
         return self.usage()
 
-    def __contains__(self, name) -> bool:
-        """True when the device understands a command of that name."""
+    def __contains__(self, name: str) -> bool:
+        """Whether the device understands a command of that name.
+
+        Args:
+            name: a command name to look for
+
+        Returns:
+            True when it is one of this device's commands.
+        """
         return name in self.commands
 
-    def __iter__(self):
-        """Iterate over the command names, as a dict does."""
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over the command names, as a dict does.
+
+        Returns:
+            An iterator over the names, in description order.
+        """
         return iter(self.commands)
 
     def __len__(self) -> int:
-        """Returns how many commands the device understands."""
+        """How many commands the device understands.
+
+        Returns:
+            The count, which is also what usage() announces.
+        """
         return len(self.commands)
 
 
@@ -856,7 +1330,12 @@ class TestByteOrderMustBeExplicit(unittest.TestCase):
 
 
 def getPowerCommand() -> Command:
-    """The Cobolt power query, stated in full: both halves, both directions."""
+    """Build the Cobolt power query, stated in full: both halves, both directions.
+
+    Returns:
+        A fresh command each call, so that a test cannot be affected by what
+        another did to it.
+    """
     return Command("GET_POWER",
                    TextFrame("pa?\r", r"pa\?\r"),
                    TextFrame("{power:0.4f}\r\n", r"(\d+\.\d+)", fields={"power": float}))
