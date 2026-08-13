@@ -1,46 +1,72 @@
-from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.communication.communicationport import *
-from hardwarelibrary.communication.serialport import *
-from hardwarelibrary.communication.commands import DataCommand, DataDecoder, TextCommand
-from hardwarelibrary.communication.debugport import TableDrivenDebugPort
+from hardwarelibrary.communication.debugport import ProtocolDebugPort
+from hardwarelibrary.communication.protocol import CommandDictionary
+from hardwarelibrary.communication.serialport import SerialPort
+from hardwarelibrary.physicaldevice import PhysicalDevice
 
-import re
-import time
-from struct import *
+
+# An echo sends its payload back verbatim, with nothing around it. There is no
+# terminator to read up to, so a reply is a fixed-size frame -- and since the
+# whole content is known in advance, every byte of it is a constant. That is what
+# turns "we received something" into "we received exactly what we sent": a
+# constant is required on the way in, so a reply that differs is refused.
+echoProtocol = {
+    "device": "FTDI echo device",
+    "commands": {
+        "ECHO1": {
+            "request": {"struct": "<8s", "fields": ["text"],
+                        "constants": {"text": "someText"}},
+            "reply": {"struct": "<8s", "fields": ["text"],
+                      "constants": {"text": "someText"}},
+        },
+        "ECHO2": {
+            "request": {"struct": "<13s", "fields": ["text"],
+                        "constants": {"text": "someOtherText"}},
+            "reply": {"struct": "<13s", "fields": ["text"],
+                      "constants": {"text": "someOtherText"}},
+        },
+        "ECHO3": {
+            "request": {"struct": "<8s", "fields": ["data"],
+                        "constants": {"data": "someData"}},
+            "reply": {"struct": "<8s", "fields": ["data"],
+                      "constants": {"data": "someData"}},
+        },
+    },
+}
 
 
 class EchoDevice(PhysicalDevice):
+    """A device that sends back whatever it is given, over an FTDI cable.
+
+    It exists to exercise the machinery rather than to measure anything, so its
+    protocol is three payloads that must come back unchanged.
+    """
+
     classIdProduct = 0x6001
     classIdVendor = 0x0403
     usesGenericSerialConverter = True
-    commands = {
-        "ECHO1": TextCommand(name="ECHO1", requestEncoder="someText", replyDecoder="someText"),
-        "ECHO2": TextCommand(name="ECHO2", requestEncoder="someOtherText", replyDecoder="someOtherText"),
-        "ECHO3": DataCommand(name="ECHO3", data=b"someData",
-                             replyDecoder=DataDecoder(length=len(b"someData"))),
-    }
 
-    def __init__(self, serialNumber='ftDXIKC4', idProduct=classIdProduct, idVendor=classIdVendor):
-        PhysicalDevice.__init__(self, serialNumber=serialNumber, idProduct=idProduct, idVendor=idVendor)
+    protocol = CommandDictionary.fromDescription(echoProtocol)
+
+    def __init__(self, serialNumber='ftDXIKC4', idProduct=classIdProduct,
+                 idVendor=classIdVendor):
+        """Bind to one FTDI cable, or to "debug" for a port that echoes in memory.
+
+        Args:
+            serialNumber: the cable's serial number, or "debug"
+            idProduct: USB product id, defaulting to the class attribute
+            idVendor: USB vendor id, defaulting to the class attribute
+        """
+        PhysicalDevice.__init__(self, serialNumber=serialNumber,
+                                idProduct=idProduct, idVendor=idVendor)
 
     def doInitializeDevice(self):
+        """Open the cable, or stand one up out of the description."""
         if self.serialNumber == "debug":
-            self.port = self.DebugSerialPort()
+            self.port = ProtocolDebugPort(self.protocol)
         else:
             self.port = SerialPort(idVendor=self.idVendor, idProduct=self.idProduct)
         self.port.open()
 
     def doShutdownDevice(self):
+        """Close the port."""
         self.port.close()
-
-    class DebugSerialPort(TableDrivenDebugPort):
-        def __init__(self):
-            super().__init__(commands=EchoDevice.commands)
-
-        def process_command(self, name, params, endPointIndex):
-            if name == 'ECHO1':
-                return 'someText'
-            elif name == 'ECHO2':
-                return 'someOtherText'
-            elif name == 'ECHO3':
-                return b'someData'
