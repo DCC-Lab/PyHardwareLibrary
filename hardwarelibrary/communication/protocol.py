@@ -1,11 +1,13 @@
 """Describing an instrument protocol, without performing it.
 
-The idea is sans-I/O, the principle behind h11 and wsproto: a protocol is a pure
-transformation over bytes and never performs the exchange. A Frame turns named
-values into the bytes to write and the bytes read back into named values; it owns
-no port and stores nothing of what happened. A driver keeps the port and calls the
-primitives of CommunicationPort itself, so the same description serves a driver
-speaking to hardware and a debug port standing in for it.
+The idea is simple: describe the protocol of a device in a way general enough
+to create a debug port to test it without hardware and minimize the details
+of sending the commands. A protocol manipulates the bytes and formats them,
+but never performs the send or the read. A Frame turns named values into
+the bytes to write and the bytes read back into named values; it owns no port
+and stores nothing of what happened. A driver keeps the port and calls the
+primitives of CommunicationPort itself, so the same description serves a
+driver speaking to hardware and a debug port standing in for it.
 
 Consequences worth noticing while reading:
 
