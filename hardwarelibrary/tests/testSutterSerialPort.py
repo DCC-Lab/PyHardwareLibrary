@@ -3,6 +3,7 @@ import unittest
 from struct import *
 
 from hardwarelibrary.communication.serialport import *
+from hardwarelibrary.communication.debugport import ProtocolDebugPort
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 
@@ -38,8 +39,12 @@ class BaseTestCases:
                 self.port.readString()
 
         def testMove(self):
+            # The MP-285 spells MOVE with a capital M and ends it with a carriage
+            # return. The old debug port accepted 'm' and a request with no
+            # terminator, which the stage itself would not, so these two tests
+            # used to pass against bytes that could never have worked on a bench.
             self.assertIsNotNone(self.port)
-            payload = bytearray('m',encoding='utf-8')
+            payload = bytearray('M',encoding='utf-8')
             payload.extend(pack("<lll",1,2,3))
             payload.extend(bytearray('\r',encoding='utf-8'))
             self.port.writeData(payload)
@@ -48,13 +53,13 @@ class BaseTestCases:
 
         def testMoveGet(self):
             self.assertIsNotNone(self.port)
-            payload = bytearray('m',encoding='utf-8')
+            payload = bytearray('M',encoding='utf-8')
             payload.extend(pack("<lll",1,2,3))
             payload.extend(bytearray('\r',encoding='utf-8'))
             self.port.writeData(payload)
             self.assertTrue(self.port.readData(length=1) == b'\r')
 
-            payload = bytearray('c',encoding='utf-8')
+            payload = bytearray('C\r',encoding='utf-8')
             self.port.writeData(payload)
             data = self.port.readData(length=4*3 + 1)
             (x,y,z) = unpack("<lllx", data)
@@ -65,7 +70,7 @@ class BaseTestCases:
 class TestSutterDebugSerialPort(BaseTestCases.TestSutterSerialPortBase):
 
     def setUp(self):
-        self.port = SutterDevice.DebugSerialPort()
+        self.port = ProtocolDebugPort(SutterDevice.protocol)
         self.assertIsNotNone(self.port)
         self.port.open()
 

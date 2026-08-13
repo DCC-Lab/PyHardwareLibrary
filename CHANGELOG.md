@@ -6,6 +6,45 @@ API changes can land even when the minor version is unchanged.
 
 ## [Unreleased]
 
+### Added
+- **A protocol is described, not performed** (`communication/protocol.py`). A
+  `Frame` turns named values into the bytes to write and the bytes read back into
+  named values; it owns no port and stores nothing of what happened. `TextFrame`
+  states a `str.format` template and the regular expression that reads it back;
+  `BinaryFrame` states one struct format, whose constants are written on the way
+  out and *required* on the way in. A `Command` pairs two frames, a
+  `CommandDictionary` holds a device's commands and reads them from JSON. Nothing
+  is inferred anywhere: a byte order must be explicit, and so must both notations
+  of a text line.
+  - Both directions come out of the same objects. A driver writes the request and
+    reads the reply; a debug port reads the request and writes the reply. That is
+    what the old `DataCommand` needed a second encoder and decoder for, and those
+    could -- and did -- drift apart.
+  - `CommandDictionary.usage()` prints every command, its arguments and what it
+    answers, with types read off the description rather than a comment.
+  - `CommandDictionary.validate()` refuses a description that is wrong about
+    itself: a template and an expression that describe different lines, a struct
+    that packs a different number of values than it names, a command whose request
+    another command answers to first. It writes each command out with specimen
+    values made from the declared types and reads it straight back.
+- **`ProtocolDebugPort`** (`communication/debugport.py`), a debug port with no code
+  of its own: hand it a `CommandDictionary` and it stands in for the instrument.
+  Whatever a request carries is remembered by name and whatever a reply carries is
+  answered from that memory. A command may add a `"sets"` clause for a state change
+  its bytes cannot express -- `HOME` carries nothing and still moves a stage.
+- **`PhysicalDevice.protocol`** (default `None`) and **`PhysicalDevice.performTransaction()`**,
+  which performs one command of that protocol under the port's `transactionLock`,
+  reading by `readLength` for a binary reply and up to the terminator for a line.
+  A driver that sets `protocol` needs no send-and-receive code of its own.
+
+### Changed
+- **`SutterDevice` speaks through a description.** Its protocol is data, it sends
+  through `performTransaction`, and it no longer checks acknowledgements by hand:
+  the description says `MOVE`, `HOME` and `WORK` answer `b"\r"`. Its nested
+  `DebugSerialPort` is gone; `serialNumber="debug"` now gets a `ProtocolDebugPort`.
+  Callers building the debug port themselves should use
+  `ProtocolDebugPort(SutterDevice.protocol)`.
+
 ## [2.1.0] - 2026-08-04
 
 ### Added

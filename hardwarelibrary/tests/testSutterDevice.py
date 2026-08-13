@@ -4,6 +4,17 @@ import unittest
 from hardwarelibrary.motion.sutterdevice import SutterDevice
 
 usingDebug = False
+
+
+class TestSutterProtocol(unittest.TestCase):
+    def testTheShippedDescriptionIsConsistentWithItself(self):
+        # Nothing here talks to a stage. It writes every command out with
+        # specimen values, reads it straight back, and checks each request is
+        # recognised as its own -- the mistakes that a driver, which only ever
+        # writes, would never notice.
+        SutterDevice.protocol.validate()
+
+
 class TestSutterDevice(unittest.TestCase):
     def setUp(self):
         try: 

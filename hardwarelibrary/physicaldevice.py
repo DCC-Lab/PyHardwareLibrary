@@ -84,6 +84,11 @@ class PhysicalDevice(ABC):
     classIdProduct = None
     commands = None
 
+    # The CommandDictionary this driver speaks, for performTransaction below.
+    # None until a driver sets it, which is every driver still using the older
+    # commands dict above. SutterDevice is the first to set it.
+    protocol = None
+
     # True when classIdVendor/classIdProduct are those of a generic, off-the-shelf
     # USB/RS-232 converter (a stock FTDI/Prolific/CP210x/CH34x cable) rather than
     # the instrument's own identity. Such a device shares its VID/PID with every
@@ -392,6 +397,61 @@ class PhysicalDevice(ABC):
         command = self.commands[name]
         command.send(port=self.port, **params)
         return command
+
+    def performTransaction(self, name, **arguments) -> dict:
+        """Perform one command of self.protocol once, and return what came back.
+
+        A Command says what an exchange is; this carries it out. The description
+        supplies the bytes to write and says how to read the answer, so a driver
+        that sets protocol needs no send-and-receive code of its own: it calls
+        this by name and gets a dict.
+
+        How much to read is the reply's own business. A binary reply gives its
+        readLength, since a fixed-size frame has no terminator to stop at; a text
+        reply gives None, and the port reads up to its own terminator instead.
+        Both go through the primitives of CommunicationPort and nothing else.
+
+        The write and the read are held together under the port's
+        transactionLock, so a concurrent caller cannot slip a command in between
+        and be handed this one's reply. Both locks are reentrant, so the port
+        taking portLock inside each primitive costs nothing here.
+
+        This does not require the device to be Ready. A driver needs it inside
+        doInitializeDevice, to confirm the instrument answers before the state can
+        become Ready, and readiness is in any case the business of the public
+        methods that validateReady guards -- not of the wire. The sendCommand this
+        replaces did check, which is exactly why SutterDevice had to reach around
+        it during initialization.
+
+        Args:
+            name: the command to perform, one of the names in self.protocol
+            **arguments: the values the command carries, passed by name
+
+        Returns:
+            What the reply carried, as {field name: value}. Empty for a command
+            the instrument does not answer, and for one whose whole answer is a
+            fixed acknowledgement the description already states.
+
+        Raises:
+            NotImplementedError: when this driver has no protocol, which means it
+                either still uses the commands dict or has nothing to speak with.
+            KeyError: when no command goes by that name, listing the ones that do.
+            ReplyDidNotMatch: when the instrument answers something the
+                description does not allow, naming the command.
+        """
+        if self.protocol is None:
+            raise NotImplementedError(
+                "{0} has no protocol to perform {1!r} with".format(
+                    type(self).__name__, name))
+
+        command = self.protocol[name]
+        with self.port.transactionLock:
+            self.port.writeData(command.encode(**arguments))
+            if not command.expectsReply:
+                return {}
+            if command.reply.readLength is None:
+                return command.decode(self.port.readString())
+            return command.decode(self.port.readData(command.reply.readLength))
 
     @classmethod
     def any(cls):

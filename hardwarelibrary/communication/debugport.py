@@ -161,3 +161,83 @@ class TableDrivenDebugPort(DebugPort):
             - None: no response is sent
         """
         raise NotImplementedError("Subclasses must implement process_command")
+
+class ProtocolDebugPort(DebugPort):
+    """An instrument stood in for entirely by its own protocol description.
+
+    Where TableDrivenDebugPort needs a subclass with a process_command full of
+    branches, this needs nothing at all: hand it a CommandDictionary and it
+    answers every command that dictionary describes. Two rules do the whole job,
+    and both fall out of the fact that a command's two halves name their values
+    the same way.
+
+      - whatever a request carries is remembered, by name. MOVE arrives with x, y
+        and z, so x, y and z are what the instrument now holds.
+      - whatever a reply carries is answered from that memory. GET_POSITION asks
+        for x, y and z, and gets back what MOVE left there.
+
+    A value never set reads as 0, which is the state of an instrument that has
+    just been switched on. A reply that cannot pack a 0 -- one carrying text, say
+    -- will say so rather than invent something.
+
+    The one thing no description of bytes can express is a command that changes
+    the instrument without carrying anything: HOME takes no arguments and yet
+    moves the stage to its origin. A command may therefore state a "sets" clause,
+    which is applied on arrival exactly as a request's own values are. That
+    clause is the only part of a description that talks about the instrument
+    rather than the wire, and a driver never reads it.
+
+    Recognising a request is the dictionary's work, not this class's: recognize()
+    asks each command in turn, and the header constants settle it. So there is no
+    second table of prefixes to keep in step with the driver.
+    """
+
+    def __init__(self, protocol, delay=0, numberOfEndPoints=1):
+        """Stand in for the instrument a description describes.
+
+        Args:
+            protocol: the CommandDictionary to answer from
+            delay: seconds of jitter to add to a read, as DebugPort applies it
+            numberOfEndPoints: how many endpoints to pretend to have
+        """
+        super().__init__(delay=delay, numberOfEndPoints=numberOfEndPoints)
+        self.protocol = protocol
+        self.values = {}
+
+    def processInputBuffers(self, endPointIndex):
+        """Answer whatever complete request has arrived.
+
+        Args:
+            endPointIndex: which endpoint was written to
+
+        Raises:
+            RequestDidNotMatch: when the bytes are no command of this protocol,
+                which means whatever wrote them is at fault -- a debug port that
+                quietly dropped them would hide the bug it exists to find.
+        """
+        received = bytes(self.inputBuffers[endPointIndex])
+        if len(received) == 0:
+            return
+
+        command, arguments = self.protocol.recognize(received)
+        self.inputBuffers[endPointIndex] = bytearray()
+
+        self.values.update(arguments)
+        self.values.update(command.sets)
+        if command.expectsReply:
+            self.writeToOutputBuffer(command.encodeReply(**self.answerFor(command)),
+                                     endPointIndex)
+
+    def answerFor(self, command) -> dict:
+        """The values to answer one command with, taken from what is remembered.
+
+        Args:
+            command: the command that was recognized
+
+        Returns:
+            {field name: value} for every value its reply carries, 0 for one that
+            was never set. Empty for a reply that is nothing but a fixed
+            acknowledgement, which the description supplies on its own.
+        """
+        return {name: self.values.get(name, 0)
+                for name, _ in command.reply.parameters}

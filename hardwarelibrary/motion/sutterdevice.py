@@ -1,44 +1,78 @@
-from hardwarelibrary.physicaldevice import *
-from hardwarelibrary.motion.linearmotiondevice import *
-from hardwarelibrary.communication.communicationport import *
-from hardwarelibrary.communication.usbport import USBPort
+from hardwarelibrary.communication.debugport import ProtocolDebugPort
+from hardwarelibrary.communication.protocol import CommandDictionary
 from hardwarelibrary.communication.serialport import SerialPort
-from hardwarelibrary.communication.commands import DataCommand, DataEncoder, DataDecoder
-from hardwarelibrary.communication.debugport import TableDrivenDebugPort
+from hardwarelibrary.motion.linearmotiondevice import Direction, LinearMotionDevice
+from hardwarelibrary.physicaldevice import PhysicalDevice
 
-import re
-import time
-from struct import *
+
+# The whole protocol of the MP-285, as data. Every frame is binary and
+# fixed-size: a header byte, the values, a carriage return. Naming the header and
+# the terminator as constants rather than padding them over is what lets the same
+# description serve both directions -- a constant is written on the way out and
+# required on the way in, so a ProtocolDebugPort recognises a request by the very
+# bytes the driver sends, and the driver is told when an acknowledgement is not
+# the b"\r" it expected.
+
+sutterProtocol = {
+    "device": "Sutter MP-285",
+    "commands": {
+        "MOVE": {
+            "request": {"struct": "<clllc",
+                        "fields": ["header", "x", "y", "z", "terminator"],
+                        "constants": {"header": "M", "terminator": "\r"}},
+            "reply": {"struct": "<c", "fields": ["acknowledgement"],
+                      "constants": {"acknowledgement": "\r"}},
+        },
+        "GET_POSITION": {
+            "request": {"struct": "<cc", "fields": ["header", "terminator"],
+                        "constants": {"header": "C", "terminator": "\r"}},
+            "reply": {"struct": "<lllc", "fields": ["x", "y", "z", "terminator"],
+                      "constants": {"terminator": "\r"}},
+        },
+        "HOME": {
+            "request": {"struct": "<cc", "fields": ["header", "terminator"],
+                        "constants": {"header": "H", "terminator": "\r"}},
+            "reply": {"struct": "<c", "fields": ["acknowledgement"],
+                      "constants": {"acknowledgement": "\r"}},
+            # The one thing the bytes cannot say: HOME carries nothing and yet
+            # moves the stage to the origin. Only a debug port reads this.
+            "sets": {"x": 0, "y": 0, "z": 0},
+        },
+        "WORK": {
+            "request": {"struct": "<cc", "fields": ["header", "terminator"],
+                        "constants": {"header": "Y", "terminator": "\r"}},
+            "reply": {"struct": "<c", "fields": ["acknowledgement"],
+                      "constants": {"acknowledgement": "\r"}},
+        },
+    },
+}
+
 
 class SutterDevice(LinearMotionDevice):
+    """A Sutter Instruments MP-285 translation stage, in native microsteps.
+
+    The protocol is described once, in sutterProtocol above, and this class only
+    moves bytes between that description and a port. Nothing here builds a frame
+    by hand, and nothing here checks an acknowledgement by hand either: the
+    description says the answer to MOVE, HOME and WORK is a carriage return, so a
+    stage that answers anything else raises before this class sees it.
+    """
+
     classIdVendor = 4930
     classIdProduct = 1
 
-    commands = {
-        "MOVE": DataCommand(name="MOVE",
-            requestEncoder=DataEncoder('<clllc',
-                                       ('header', 'x', 'y', 'z', 'terminator'),
-                                       {'header': b'M', 'terminator': b'\r'}),
-            requestDecoder=DataDecoder('<xlllx', ('x', 'y', 'z'), prefix=b'M'),
-            replyDecoder=DataDecoder('<c', length=1),
-        ),
-        "GET_POSITION": DataCommand(name="GET_POSITION",
-            data=pack('<cc', b'C', b'\r'),
-            replyDecoder=DataDecoder('<lllx', length=13),
-            replyEncoder=DataEncoder('<lllc', ('x', 'y', 'z', 'terminator')),
-        ),
-        "HOME": DataCommand(name="HOME",
-            data=pack('<cc', b'H', b'\r'),
-            replyDecoder=DataDecoder('<c', length=1),
-        ),
-        "WORK": DataCommand(name="WORK",
-            data=pack('<cc', b'Y', b'\r'),
-            replyDecoder=DataDecoder('<c', length=1),
-        ),
-    }
+    protocol = CommandDictionary.fromDescription(sutterProtocol)
 
     def __init__(self, serialNumber: str = None):
-        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor, idProduct=self.classIdProduct)
+        """Prepare a stage, without opening anything yet.
+
+        Args:
+            serialNumber: the serial number of the stage to match, or "debug" to
+                talk to a ProtocolDebugPort instead of hardware. None takes
+                any Sutter that is connected.
+        """
+        super().__init__(serialNumber=serialNumber, idVendor=self.classIdVendor,
+                         idProduct=self.classIdProduct)
         self.port = None
         self.nativeStepsPerMicrons = 16
 
@@ -51,18 +85,29 @@ class SutterDevice(LinearMotionDevice):
         self.zMaxLimit = 25000*16
 
     def __del__(self):
+        """Close the port if it is still open, and say nothing if it is not."""
         try:
             self.port.close()
         except:
             # ignore if already closed
             return
 
-    def doInitializeDevice(self): 
+    def doInitializeDevice(self):
+        """Open the port and confirm the stage answers.
+
+        Raises:
+            PhysicalDevice.UnableToInitialize: when no stage matches, when the
+                port cannot be opened, or when the first command goes unanswered.
+                The port is closed again before the exception leaves.
+        """
         try:
             if self.serialNumber == "debug":
-                self.port = self.DebugSerialPort()
+                self.port = ProtocolDebugPort(self.protocol)
+                self.port.open()
             else:
-                portPath = SerialPort.matchAnyPort(idVendor=self.idVendor, idProduct=self.idProduct, serialNumber=self.serialNumber)
+                portPath = SerialPort.matchAnyPort(idVendor=self.idVendor,
+                                                   idProduct=self.idProduct,
+                                                   serialNumber=self.serialNumber)
                 if portPath is None:
                     raise PhysicalDevice.UnableToInitialize("No Sutter Device connected")
 
@@ -70,11 +115,10 @@ class SutterDevice(LinearMotionDevice):
                 self.port.open(baudRate=128000, timeout=10)
 
             if self.port is None:
-                raise PhysicalDevice.UnableToInitialize("Cannot allocate port for serial '{0}'".format(self.serialNumber))
+                raise PhysicalDevice.UnableToInitialize(
+                    "Cannot allocate port for serial '{0}'".format(self.serialNumber))
 
-            # Verify the device is talking. Direct .send() bypasses sendCommand's
-            # state check, which would reject because state is not yet Ready here.
-            self.commands["GET_POSITION"].send(port=self.port)
+            self.performTransaction("GET_POSITION")
 
         except Exception as error:
             if self.port is not None:
@@ -83,63 +127,59 @@ class SutterDevice(LinearMotionDevice):
             raise PhysicalDevice.UnableToInitialize(error)
 
     def doShutdownDevice(self):
+        """Close the port and forget it."""
         self.port.close()
         self.port = None
 
-    def positionInMicrosteps(self) -> (int, int, int):  # for compatibility
+    def positionInMicrosteps(self) -> (int, int, int):
+        """The position in microsteps. Kept for compatibility with doGetPosition."""
         return self.doGetPosition()
 
     def doGetPosition(self) -> (int, int, int):
-        """ Returns the position in microsteps """
-        cmd = self.sendCommand("GET_POSITION")
-        (x, y, z) = cmd.matchGroups
-        return (x, y, z)
+        """Ask the stage where it is.
+
+        Returns:
+            The (x, y, z) position in microsteps.
+        """
+        position = self.performTransaction("GET_POSITION")
+        return (position["x"], position["y"], position["z"])
 
     def doMoveTo(self, position):
-        """ Move to a position in microsteps """
+        """Move to an absolute position.
+
+        Args:
+            position: an (x, y, z) triplet in microsteps, rounded to whole steps
+                since the frame packs them as longs
+        """
         x, y, z = position
-        cmd = self.sendCommand("MOVE", x=int(x), y=int(y), z=int(z))
-        if cmd.matchGroups != (b'\r',):
-            raise Exception(f"Expected carriage return, but got '{cmd.matchGroups}' instead.")
+        self.performTransaction("MOVE", x=int(x), y=int(y), z=int(z))
 
     def doMoveBy(self, displacement):
+        """Move by a relative displacement, reading the position first.
+
+        Two transactions, held under one lock: a relative move is a read, an
+        addition and a write, and a stage that another caller moved in between
+        would be displaced from a position that is no longer where it is.
+
+        Args:
+            displacement: a (dx, dy, dz) triplet in microsteps
+
+        Raises:
+            Exception: when the position cannot be read, since there is then
+                nothing to add the displacement to.
+        """
         dx, dy, dz = displacement
-        x, y, z = self.doGetPosition()
-        if x is not None:
+        with self.port.transactionLock:
+            x, y, z = self.doGetPosition()
+            if x is None:
+                raise Exception("Unable to read position from device")
             self.doMoveTo((x+dx, y+dy, z+dz))
-        else:
-            raise Exception("Unable to read position from device")
 
     def doHome(self):
-        cmd = self.sendCommand("HOME")
-        if cmd.matchGroups != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {cmd.matchGroups} instead.")
+        """Send the stage to its home position."""
+        self.performTransaction("HOME")
 
     def work(self):
+        """Send the stage home, then to its work position."""
         self.home()
-        cmd = self.sendCommand("WORK")
-        if cmd.matchGroups != (b'\r',):
-            raise Exception(f"Expected carriage return, but got {cmd.matchGroups} instead.")
-
-
-    class DebugSerialPort(TableDrivenDebugPort):
-        def __init__(self):
-            super().__init__(commands=SutterDevice.commands)
-            self.xSteps = 0
-            self.ySteps = 0
-            self.zSteps = 0
-
-        def process_command(self, name, params, endPointIndex):
-            if name == 'MOVE':
-                self.xSteps = params['x']
-                self.ySteps = params['y']
-                self.zSteps = params['z']
-                return b'\r'
-            elif name == 'GET_POSITION':
-                return {'x': self.xSteps, 'y': self.ySteps, 'z': self.zSteps,
-                        'terminator': b'\r'}
-            elif name == 'HOME':
-                self.xSteps = self.ySteps = self.zSteps = 0
-                return b'\r'
-            elif name == 'WORK':
-                return b'\r'
+        self.performTransaction("WORK")
