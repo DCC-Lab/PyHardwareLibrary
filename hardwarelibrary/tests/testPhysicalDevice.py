@@ -263,7 +263,10 @@ class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.device.initializeDevice()
         for name, command in self.device.commands.items():
             try:
-                self.device.sendCommand(name)
+                # PhysicalDevice.sendCommand used to wrap these two lines and
+                # nothing else. It is gone; a device that still carries a
+                # commands dict sends through the Command itself.
+                command.send(port=self.device.port)
             except Exception as err:
                 self.fail("Unable to send command {0} to device {1}: {2}".format(name, self.device, err))
         self.device.shutdownDevice()
@@ -277,7 +280,10 @@ class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
         self.device.initializeDevice()
         for name, command in self.device.commands.items():
             try:
-                self.device.sendCommand(name)
+                # PhysicalDevice.sendCommand used to wrap these two lines and
+                # nothing else. It is gone; a device that still carries a
+                # commands dict sends through the Command itself.
+                command.send(port=self.device.port)
             except Exception as err:
                 self.fail("Unable to send command {0} to device {1}: {2}".format(name, self.device, err))
         self.device.shutdownDevice()
