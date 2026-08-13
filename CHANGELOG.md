@@ -45,6 +45,15 @@ API changes can land even when the minor version is unchanged.
   Callers building the debug port themselves should use
   `ProtocolDebugPort(SutterDevice.protocol)`.
 
+### Removed
+- **`PhysicalDevice.sendCommand()`**. It looked a command up in `self.commands`,
+  sent it through `self.port` and handed the `Command` object back so a caller
+  could read the reply off it -- the pattern the description above exists to
+  replace. No driver in the library called it; the two tests that did now send
+  through the `Command` itself, which is all it ever did. Use
+  `performTransaction()` with a `protocol`, or a `Command`'s own `send()` while a
+  device still carries a `commands` dict.
+
 ## [2.1.0] - 2026-08-04
 
 ### Added

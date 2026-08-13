@@ -382,22 +382,6 @@ class PhysicalDevice(ABC):
         else:
             raise RuntimeError("No status loop running")
 
-    def sendCommand(self, name, **params):
-        """Look up the named command in self.commands, send it through
-        self.port, and return the Command object so callers can read
-        .reply / .matchGroups / .exceptions / .isSentSuccessfully.
-
-        Params are passed through to Command.send: TextCommand uses them
-        for .format(**params) substitution into text_format; DataCommand
-        uses them for buildSendData(**params) when sendFormat is set.
-        """
-        if self.state != DeviceState.Ready:
-            raise PhysicalDevice.NotInitialized
-
-        command = self.commands[name]
-        command.send(port=self.port, **params)
-        return command
-
     def performTransaction(self, name, **arguments) -> dict:
         """Perform one command of self.protocol once, and return what came back.
 
