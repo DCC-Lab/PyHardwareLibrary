@@ -28,7 +28,6 @@ LAMP = {
         "TURN_OFF": {
             "request": {"template": "l0\r", "regex": r"l0\r"},
             "reply": {"regex": "OK", "template": "OK\r\n"},
-            "sets": {"power": 0.0},
         },
     },
 }
@@ -111,14 +110,10 @@ class TestItStandsInForTheSutter(unittest.TestCase):
         self.assertEqual(self.ask("MOVE", x=4000, y=5000, z=6000), {})
         self.assertEqual(self.ask("GET_POSITION"), {"x": 4000, "y": 5000, "z": 6000})
 
-    def testACommandThatCarriesNothingCanStillChangeTheInstrument(self):
-        # HOME is the case no description of bytes can reach: it takes no
-        # arguments and moves the stage anyway. Its "sets" clause says so.
-        self.ask("MOVE", x=1, y=2, z=3)
-        self.assertEqual(self.ask("HOME"), {})
-        self.assertEqual(self.ask("GET_POSITION"), {"x": 0, "y": 0, "z": 0})
-
-    def testACommandWithNoSetsClauseLeavesTheInstrumentAlone(self):
+    def testACommandThatCarriesNothingLeavesTheStoreAlone(self):
+        # The store can only remember what a request carried. WORK carries
+        # nothing, so nothing changes -- and HOME, which does move the stage,
+        # needs SutterDevice.DebugSerialPort to say so.
         self.ask("MOVE", x=1, y=2, z=3)
         self.ask("WORK")
         self.assertEqual(self.ask("GET_POSITION"), {"x": 1, "y": 2, "z": 3})
@@ -157,10 +152,8 @@ class TestItStandsInForATextInstrument(unittest.TestCase):
     def testAValueNeverSetReadsAsZero(self):
         self.assertEqual(self.ask("GET_POWER"), {"power": 0.0})
 
-    def testASetsClauseWorksTheSameWayOnText(self):
-        self.ask("SET_POWER", power=0.25)
+    def testAnAcknowledgementCarriesNothingBack(self):
         self.assertEqual(self.ask("TURN_OFF"), {})
-        self.assertEqual(self.ask("GET_POWER"), {"power": 0.0})
 
 
 if __name__ == "__main__":
