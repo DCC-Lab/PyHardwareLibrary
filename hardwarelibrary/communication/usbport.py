@@ -64,7 +64,16 @@ class USBPort(CommunicationPort):
 
         self._internalBuffer = bytearray()
 
-        self.device = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
+        if self.serialNumber is not None:
+            def matchesSerial(device):
+                try:
+                    return device.serial_number == self.serialNumber
+                except (ValueError, usb.core.USBError):
+                    return False  # serial unreadable without opening: not a match
+            self.device = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct,
+                                        custom_match=matchesSerial)
+        else:
+            self.device = usb.core.find(idVendor=self.idVendor, idProduct=self.idProduct)
         if self.device is None:
             raise IOError("Can't find device")
 
@@ -106,8 +115,10 @@ class USBPort(CommunicationPort):
 
         if endPoint is None:
             inputEndPoint = self.defaultInputEndPoint
-        else:
+        elif isinstance(endPoint, int):
             inputEndPoint = self.interface[endPoint]
+        else:
+            inputEndPoint = endPoint
 
         time.sleep(0.1)
         
@@ -127,8 +138,10 @@ class USBPort(CommunicationPort):
 
         if endPoint is None:
             inputEndPoint = self.defaultInputEndPoint
-        else:
+        elif isinstance(endPoint, int):
             inputEndPoint = self.interface[endPoint]
+        else:
+            inputEndPoint = endPoint
 
         with self.portLock:
             while length > len(self._internalBuffer):
@@ -141,14 +154,69 @@ class USBPort(CommunicationPort):
 
         return data
 
+    def endPointForAddress(self, address):
+        """Return the interface endpoint whose bEndpointAddress equals `address`.
+
+        Lets a caller target an endpoint by its USB address (e.g. 0x83) rather than
+        by its index in the interface, which is clearer on devices with several
+        endpoints. Returns None if there is no such endpoint.
+        """
+        for endPoint in self.interface:
+            if endPoint.bEndpointAddress == address:
+                return endPoint
+        return None
+
+    def readStream(self, length, endPoint=None, chunkSize=None, timeout=None) -> bytearray:
+        """Read `length` bytes from a bulk IN endpoint at full throughput.
+
+        Unlike readData(), which reads one wMaxPacketSize packet at a time into an
+        internal buffer for a command/response dialog, readStream() reads in large
+        chunks in a tight loop, which sustains the endpoint's full (SuperSpeed burst)
+        rate -- fast enough for an image or data stream, e.g. a multi-megapixel
+        camera frame, without the device's FIFO overrunning and corrupting the data.
+
+        `endPoint` is the default input endpoint when None, an endpoint index (int,
+        as elsewhere in this class), or an endpoint object from endPointForAddress().
+        `chunkSize` defaults to the endpoint's maximum burst (wMaxPacketSize * 16,
+        i.e. 16 KB for a SuperSpeed bulk endpoint); the final short read trims the
+        result to exactly `length`. This path does not touch the internal buffer.
+        """
+        if not self.isOpen:
+            self.open()
+
+        if endPoint is None:
+            inputEndPoint = self.defaultInputEndPoint
+        elif isinstance(endPoint, int):
+            inputEndPoint = self.interface[endPoint]
+        else:
+            inputEndPoint = endPoint
+
+        if chunkSize is None:
+            chunkSize = inputEndPoint.wMaxPacketSize * 16
+        if timeout is None:
+            timeout = self.defaultTimeout
+
+        data = bytearray()
+        buffer = usb.util.create_buffer(chunkSize)
+        with self.portLock:
+            while len(data) < length:
+                nBytesRead = inputEndPoint.read(size_or_buffer=buffer, timeout=timeout)
+                if nBytesRead == 0:
+                    break
+                data += bytearray(buffer[:nBytesRead])
+
+        return data[:length]
+
     def writeData(self, data, endPoint=None) -> int:
         if not self.isOpen:
             self.open()
 
         if endPoint is None:
             outputEndPoint = self.defaultOutputEndPoint
-        else:
+        elif isinstance(endPoint, int):
             outputEndPoint = self.interface[endPoint]
+        else:
+            outputEndPoint = endPoint
 
         with self.portLock:
             nBytesWritten = outputEndPoint.write(data, timeout=self.defaultTimeout)
