@@ -660,7 +660,7 @@ class Command:
     """
 
     def __init__(self, name: str, request: Frame, reply: Optional[Frame] = None,
-                 sets: Optional[dict] = None, specimen: Optional[dict] = None):
+                 specimen: Optional[dict] = None):
         """Pair a request with the reply it expects, under the name a driver uses.
 
         Args:
@@ -669,23 +669,14 @@ class Command:
             request: the frame the driver writes and a mock reads
             reply: the frame the driver reads and a mock writes, or None for a
                 command the instrument does not answer
-            sets: what receiving this command does to the instrument's state,
-                as {field name: value}, for what the request does not carry.
-                HOME takes no arguments and yet moves the stage to the origin,
-                and nothing about the bytes on the wire could say so. This is the
-                one thing here that describes the instrument rather than the
-                protocol, and it exists so that a debug port needs no code of its
-                own; a driver never reads it.
             specimen: a value per field for validate() to send through this
                 command and expect back, when the ones it makes from the declared
                 types will not do -- an expression that refuses a zero, say.
-                Like sets, it is not part of the protocol, and only validate()
-                reads it.
+                It is not part of the protocol, and only validate() reads it.
         """
         self.name = name
         self.request = request
         self.reply = reply
-        self.sets = dict(sets or {})
         self.specimen = dict(specimen or {})
 
     @property
@@ -978,8 +969,7 @@ class CommandDictionary:
             name: the command's name, used both for the Command and to say which
                 command an error is about
             description: {"request": {...}} and, when the instrument answers,
-                {"reply": {...}}, plus an optional {"sets": {...}} for a state
-                change the request does not carry
+                {"reply": {...}}
 
         Returns:
             The command, its reply None when none was described.
@@ -994,7 +984,6 @@ class CommandDictionary:
         reply = description.get("reply")
         return Command(name, cls.requestFrom(description["request"], where),
                        cls.replyFrom(reply, where) if reply is not None else None,
-                       sets=description.get("sets"),
                        specimen=description.get("specimen"))
 
     @classmethod

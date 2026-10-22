@@ -5,6 +5,51 @@ import unittest
 
 from hardwarelibrary.communication import USBPort, TextCommand, MultilineTextCommand
 from hardwarelibrary.powermeters import *
+from hardwarelibrary.powermeters.integradevice import IntegraDevice
+
+
+class TestDebugIntegraDevice(unittest.TestCase):
+    """The Integra without an Integra, out of its own protocol description.
+
+    Until this class the meter had no debug path at all: every one of its tests
+    skipped unless the instrument was plugged in, so a change to the driver could
+    not be checked by anyone who did not have one on the bench.
+    """
+
+    def setUp(self):
+        self.device = IntegraDevice(serialNumber="debug")
+        self.device.initializeDevice()
+
+    def tearDown(self):
+        self.device.shutdownDevice()
+
+    def testTheShippedDescriptionIsConsistentWithItself(self):
+        # Writes every command out with specimen values, reads it straight back,
+        # and checks each request is recognised as its own.
+        IntegraDevice.protocol.validate()
+
+    def testItAnnouncesWhatToCallAndWhatComesBack(self):
+        usage = IntegraDevice.protocol.usage()
+        self.assertIn("SETWAVELENGTH(wavelength: int)", usage)
+        self.assertIn("the instrument does not answer", usage)
+        self.assertIn("answers power: float", usage)
+
+    def testTheWavelengthSetIsTheWavelengthRead(self):
+        self.device.setCalibrationWavelength(532)
+        self.assertEqual(self.device.getCalibrationWavelength(), 532.0)
+
+        self.device.setCalibrationWavelength(1064)
+        self.assertEqual(self.device.getCalibrationWavelength(), 1064.0)
+
+    def testTheWavelengthGoesOutInFiveDigits(self):
+        # "*PWC00532", which is what the meter expects and what the old command
+        # produced. The description states the width, so nothing rounds it here.
+        self.assertEqual(IntegraDevice.protocol["SETWAVELENGTH"].encode(wavelength=532),
+                         b"*PWC00532")
+
+    def testEveryQueryAnswers(self):
+        self.assertIsNotNone(self.device.version)
+        self.assertIsInstance(self.device.measureAbsolutePower(), float)
 
 
 class TestIntegraDevice(unittest.TestCase):

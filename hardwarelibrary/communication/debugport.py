@@ -180,12 +180,12 @@ class ProtocolDebugPort(DebugPort):
     just been switched on. A reply that cannot pack a 0 -- one carrying text, say
     -- will say so rather than invent something.
 
-    The one thing no description of bytes can express is a command that changes
-    the instrument without carrying anything: HOME takes no arguments and yet
-    moves the stage to its origin. A command may therefore state a "sets" clause,
-    which is applied on arrival exactly as a request's own values are. That
-    clause is the only part of a description that talks about the instrument
-    rather than the wire, and a driver never reads it.
+    Two things are deliberately outside it, because they are facts about the
+    instrument and not about its protocol: what it reads as when switched on, and
+    a command that changes state it does not carry -- HOME takes no arguments and
+    still moves a stage. Both belong to a subclass, which is also where anything
+    a store cannot model belongs, such as a laser taking a second to reach a new
+    power. A device needing none of that uses this class as it stands.
 
     Recognising a request is the dictionary's work, not this class's: recognize()
     asks each command in turn, and the header constants settle it. So there is no
@@ -223,7 +223,6 @@ class ProtocolDebugPort(DebugPort):
         self.inputBuffers[endPointIndex] = bytearray()
 
         self.values.update(arguments)
-        self.values.update(command.sets)
         if command.expectsReply:
             self.writeToOutputBuffer(command.encodeReply(**self.answerFor(command)),
                                      endPointIndex)
