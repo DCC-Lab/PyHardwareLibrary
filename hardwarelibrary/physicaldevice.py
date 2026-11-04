@@ -92,9 +92,15 @@ class PhysicalDevice(ABC):
     # True when classIdVendor/classIdProduct are those of a generic, off-the-shelf
     # USB/RS-232 converter (a stock FTDI/Prolific/CP210x/CH34x cable) rather than
     # the instrument's own identity. Such a device shares its VID/PID with every
-    # other instrument behind the same cable model, so it cannot be identified by
-    # VID/PID alone: it matches any generic converter (see vidpids) and must be
-    # disambiguated by serial number, and DeviceManager will not auto-probe it.
+    # other instrument behind the same cable model, so VID/PID cannot identify
+    # it, and DeviceManager will not auto-probe it. A serial number narrows the
+    # search when several matching adaptors are present, but it proves nothing
+    # by itself (an unrelated instrument can sit behind an identical cable with
+    # its own serial number): the actual identity check is doInitializeDevice
+    # sending the instrument a real command and confirming a recognizable
+    # reply, as every such driver must (see doInitializeDevice below, and
+    # SR830Device.doInitializeDevice / FianiumLaserDevice.doInitializeDevice
+    # for the pattern of probing every candidate adaptor this way).
     usesGenericSerialConverter = False
 
     def __init__(self, serialNumber:str, idProduct:int, idVendor:int):
@@ -276,6 +282,16 @@ class PhysicalDevice(ABC):
 
         Keep it minimal: the state machine, notifications and error wrapping are
         initializeDevice()'s business. Raise on failure; do not swallow.
+
+        The class must confirm the device responds to at least one real command
+        before trusting the port, not just that a port opened. This matters most
+        for usesGenericSerialConverter=True drivers, whose VID/PID matches any
+        instrument behind the same cable model: doInitializeDevice is the only
+        thing standing between "a port opened" and "this is actually my
+        instrument". SR830Device.doInitializeDevice and
+        FianiumLaserDevice.doInitializeDevice probe every candidate adaptor and
+        keep the one that answers an identity query correctly, raising
+        UnableToInitialize if none does.
         """
         ...
 
