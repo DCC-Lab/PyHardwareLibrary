@@ -6,7 +6,10 @@ from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
 from ..communication.communicationport import CommunicationReadNoMatch
 from .lasersourcedevice import LaserSourceDevice
-from hardwarelibrary.capabilities import OnOffCapability, TemperatureCapability, PulsePickerCapability
+from hardwarelibrary.capabilities import (
+    OnOffCapability, TemperatureCapability, PulsePickerCapability,
+    RunningHoursCapability, ErrorCapability,
+)
 
 
 class FianiumManualInterventionRequired(Exception):
@@ -23,7 +26,8 @@ class FianiumManualInterventionRequired(Exception):
     """
 
 
-class FianiumLaserDevice(LaserSourceDevice, OnOffCapability, TemperatureCapability, PulsePickerCapability):
+class FianiumLaserDevice(LaserSourceDevice, OnOffCapability, TemperatureCapability,
+                          PulsePickerCapability, RunningHoursCapability, ErrorCapability):
     """Fianium supercontinuum fiber laser (pre-NKT-acquisition unit; firmware
     identifies itself as "Issue 5.17 20th February 2012").
 
@@ -182,20 +186,14 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability, TemperatureCapabili
             "FianiumManualInterventionRequired).".format(operation, mode))
 
     # --- Diagnostics: no Capability in hardwarelibrary.capabilities matches
-    # these (alarms, temperature, running hours, raw pump drive, ...), so they
-    # are plain public methods instead of capability-wrapped ones.
+    # these (control mode, heater status, raw pump drive, ...), so they are
+    # plain public methods instead of capability-wrapped ones.
 
     def controlMode(self) -> str:
         return self.queryString("M?")
 
     def heaterStatus(self) -> str:
         return self.queryString("O?")
-
-    def alarms(self) -> str:
-        return self.queryString("A?")
-
-    def runningHours(self) -> str:
-        return self.queryString("W?")
 
     def backReflectionPhotodiode(self) -> int:
         value, = self.queryMatchingGroups("B?", r"Back reflection photodiode = (\d+)")
@@ -214,7 +212,8 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability, TemperatureCapabili
             "Q?", r"Puma drive is (\d+), DAC is (\d+)")
         return int(pumaDrive), int(dac)
 
-    # --- TemperatureCapability / PulsePickerCapability hooks ---
+    # --- TemperatureCapability / PulsePickerCapability / RunningHoursCapability
+    # / ErrorCapability hooks ---
 
     def doGetTemperature(self) -> float:
         value, = self.queryMatchingGroups("T?", r"Temperature is (-?\d+\.?\d*) deg C")
@@ -224,12 +223,26 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability, TemperatureCapabili
         megahertz, = self.queryMatchingGroups("R?", r"Frequency = ([\d.]+) MHz")
         return float(megahertz) * 1e6
 
+    def doGetRunningHours(self) -> float:
+        hours, minutes = self.queryMatchingGroups(
+            "W?", r"Time elapsed = (\d+) hours (\d+) minutes")
+        return float(hours) + float(minutes) / 60.0
+
+    def doGetError(self) -> bool:
+        # "No alarms" is the only reply ever observed on this unit (see
+        # labbook/20261104-fianium-laser-nkt); any other text is a fault.
+        return self.queryString("A?") != "No alarms"
+
+    def doGetErrorDescription(self) -> str:
+        return self.queryString("A?")
+
     def doGetStatusUserInfo(self) -> dict:
         pumaDrive, dac = self.amplifierDrive()
         return {
             "firmwareVersion": self.firmwareVersion,
             "temperature": self.temperature(),
-            "alarms": self.alarms(),
+            "hasError": self.hasError(),
+            "errorDescription": self.errorDescription(),
             "controlMode": self.controlMode(),
             "pumaDrive": pumaDrive,
             "dac": dac,
@@ -251,6 +264,7 @@ class DebugFianiumLaserDevice(FianiumLaserDevice):
         self.simulatedPreamp = 10  # noise floor, laser off
         self.simulatedTemperature = 20.5
         self.simulatedAlarms = "No alarms"
+        self.simulatedRunningHoursText = "Time elapsed = 0 hours 0 minutes"
 
     def doInitializeDevice(self):
         self.firmwareVersion = "Issue 5.17 20th February 2012"
@@ -284,7 +298,7 @@ class DebugFianiumLaserDevice(FianiumLaserDevice):
         elif query == "A?":
             return self.simulatedAlarms
         elif query == "W?":
-            return "Time elapsed = 0 hours 0 minutes"
+            return self.simulatedRunningHoursText
         elif query == "B?":
             return "Back reflection photodiode = 12"
         elif query == "P?":

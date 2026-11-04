@@ -438,6 +438,60 @@ class PulsePickerCapability(Capability):
         ...
 
 
+class RunningHoursNotification(Enum):
+    didGetRunningHours = "didGetRunningHours"
+
+
+class RunningHoursCapability(Capability):
+    # Read-only: cumulative operating time, for maintenance tracking on an
+    # instrument with a finite-life emitter (laser diode, lamp, ...). Generic,
+    # not laser-specific.
+    unit = "h"
+    isReadable = True
+    isWritable = False
+    notification = RunningHoursNotification
+
+    @notifies(did=RunningHoursNotification.didGetRunningHours)
+    def runningHours(self) -> float:
+        return self.doGetRunningHours()
+
+    @abstractmethod
+    def doGetRunningHours(self) -> float:
+        ...
+
+
+class ErrorNotification(Enum):
+    didGetError            = "didGetError"
+    didGetErrorDescription = "didGetErrorDescription"
+
+
+class ErrorCapability(Capability):
+    # Read-only: whether the instrument currently reports a fault condition,
+    # and a human-readable description of it. "Error" rather than "alarm" or
+    # "fault" because those are instrument-specific words for the same thing;
+    # a driver maps whatever its own vocabulary is onto this one pair. Generic
+    # across every family, not laser-specific.
+    isReadable = True
+    isWritable = False
+    notification = ErrorNotification
+
+    @notifies(did=ErrorNotification.didGetError)
+    def hasError(self) -> bool:
+        return self.doGetError()
+
+    @notifies(did=ErrorNotification.didGetErrorDescription)
+    def errorDescription(self) -> str:
+        return self.doGetErrorDescription()
+
+    @abstractmethod
+    def doGetError(self) -> bool:
+        ...
+
+    @abstractmethod
+    def doGetErrorDescription(self) -> str:
+        ...
+
+
 # ---------------------------------------------------------------------------
 # Power meter capabilities
 # ---------------------------------------------------------------------------

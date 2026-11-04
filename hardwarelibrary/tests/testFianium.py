@@ -7,6 +7,7 @@ from hardwarelibrary.sources.fianium import (
 )
 from hardwarelibrary.capabilities import (
     OnOffCapability, TemperatureCapability, PulsePickerCapability,
+    RunningHoursCapability, ErrorCapability,
     ShutterCapability, PowerCapability, InterlockCapability,
     AutostartCapability, WavelengthCapability, DispersionCapability,
 )
@@ -27,10 +28,13 @@ class TestDebugFianiumLaserDevice(unittest.TestCase):
         self.assertIsInstance(self.laser, OnOffCapability)
         self.assertIsInstance(self.laser, TemperatureCapability)
         self.assertIsInstance(self.laser, PulsePickerCapability)
+        self.assertIsInstance(self.laser, RunningHoursCapability)
+        self.assertIsInstance(self.laser, ErrorCapability)
 
-    def testAdvertisesOnOffTemperatureAndPulsePicker(self):
+    def testAdvertisesExpectedCapabilities(self):
         self.assertEqual(set(self.laser.capabilities()),
-                         {OnOffCapability, TemperatureCapability, PulsePickerCapability})
+                         {OnOffCapability, TemperatureCapability, PulsePickerCapability,
+                          RunningHoursCapability, ErrorCapability})
 
     def testDoesNotAdvertiseUnsupportedCapabilities(self):
         for unsupported in (ShutterCapability, PowerCapability, InterlockCapability,
@@ -68,17 +72,29 @@ class TestDebugFianiumLaserDevice(unittest.TestCase):
         self.assertEqual(self.laser.controlMode(), "Pot controlled open loop mode")
         self.assertEqual(self.laser.heaterStatus(), "Laser Temperature ready")
         self.assertAlmostEqual(self.laser.temperature(), 20.5, places=1)
-        self.assertEqual(self.laser.alarms(), "No alarms")
+        self.assertFalse(self.laser.hasError())
+        self.assertEqual(self.laser.errorDescription(), "No alarms")
         self.assertEqual(self.laser.amplifierDrive(), (0, 0))
         self.assertEqual(self.laser.preampPhotodiode(), 10)
         self.assertEqual(self.laser.backReflectionPhotodiode(), 12)
-        self.assertEqual(self.laser.runningHours(), "Time elapsed = 0 hours 0 minutes")
+        self.assertAlmostEqual(self.laser.runningHours(), 0.0, places=2)
         self.assertAlmostEqual(self.laser.pulsePickerFrequency(), 2.0e6, places=0)
+
+    def testRunningHoursParsesHoursAndMinutes(self):
+        self.laser.simulatedRunningHoursText = "Time elapsed = 10 hours 30 minutes"
+        self.assertAlmostEqual(self.laser.runningHours(), 10.5, places=2)
+
+    def testHasErrorTracksNonNoAlarmsReply(self):
+        self.assertFalse(self.laser.hasError())
+        self.laser.simulatedAlarms = "Overtemp alarm"
+        self.assertTrue(self.laser.hasError())
+        self.assertEqual(self.laser.errorDescription(), "Overtemp alarm")
 
     def testStatusUserInfoSnapshot(self):
         info = self.laser.doGetStatusUserInfo()
         self.assertEqual(info["firmwareVersion"], "Issue 5.17 20th February 2012")
-        self.assertEqual(info["alarms"], "No alarms")
+        self.assertFalse(info["hasError"])
+        self.assertEqual(info["errorDescription"], "No alarms")
         self.assertEqual(info["controlMode"], "Pot controlled open loop mode")
         self.assertFalse(info["isLaserOn"])
 
@@ -103,12 +119,13 @@ class TestFianiumLaserDevice(unittest.TestCase):
 
     def testReadOnlyDiagnostics(self):
         self.assertIsInstance(self.laser.temperature(), float)
-        self.assertIsInstance(self.laser.alarms(), str)
+        self.assertIsInstance(self.laser.hasError(), bool)
+        self.assertIsInstance(self.laser.errorDescription(), str)
         self.assertIsInstance(self.laser.controlMode(), str)
         pumaDrive, dac = self.laser.amplifierDrive()
         self.assertIsInstance(pumaDrive, int)
         self.assertIsInstance(dac, int)
-        self.assertIsInstance(self.laser.runningHours(), str)
+        self.assertIsInstance(self.laser.runningHours(), float)
         self.assertIsInstance(self.laser.pulsePickerFrequency(), float)
 
     def testTurnOnRaisesManualInterventionRequired(self):
@@ -119,8 +136,8 @@ class TestFianiumLaserDevice(unittest.TestCase):
 
     def testStatusUserInfoSnapshot(self):
         info = self.laser.doGetStatusUserInfo()
-        for key in ("firmwareVersion", "temperature", "alarms", "controlMode",
-                    "pumaDrive", "dac", "preampPhotodiode",
+        for key in ("firmwareVersion", "temperature", "hasError", "errorDescription",
+                    "controlMode", "pumaDrive", "dac", "preampPhotodiode",
                     "backReflectionPhotodiode", "isLaserOn"):
             self.assertIn(key, info)
 
