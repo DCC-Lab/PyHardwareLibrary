@@ -37,7 +37,7 @@ Core triad — all under `hardwarelibrary/`:
 
 Communication abstractions under `hardwarelibrary/communication/`:
 
-- Always try to use the primitives of `CommunicationPort`
+- **A driver's query method must delegate to `CommunicationPort`'s write-read-match family** (`writeStringReadMatch`, `writeStringReadMatchingGroups`, `writeStringReadFirstMatchingGroup`, `writeStringExpectMatchingString`) instead of hand-rolling its own `writeString` + `readString` + `re.search(...).group(...)` sequence. The family already holds `transactionLock`, does the matching, and raises `CommunicationReadNoMatch` on a reply that does not fit — a hand-rolled version silently reinvents that and fails with a bare `AttributeError` instead. The only reason a driver still needs its own thin `queryString`/`queryMatchingGroups` wrapper is an instrument-specific quirk the family does not handle by itself — e.g. a protocol that leaves unread bytes after every reply, which needs a `flush()` before each write (see `MillenniaEv25Device.queryString`, `FianiumLaserDevice.queryString`/`queryMatchingGroups`). Before writing a new driver's query method, check whether an existing driver already solved the same transaction shape and reuse that solution; don't default to copying a neighboring driver's hand-rolled pattern without checking if `CommunicationPort` already does it.
 - `commands.py` — `Command` / `TextCommand` / `MultilineTextCommand` / `DataCommand` classes that bundle outgoing payload + reply parser.
 - `debugport.py:DebugPort` — table-driven mock port. Used by the few devices that adopt the `commands` dict pattern.
 - `serialport.py`, `usbport.py` — concrete port implementations.

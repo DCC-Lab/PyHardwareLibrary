@@ -4,6 +4,7 @@ from serial.tools.list_ports import comports
 
 from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
+from ..communication.communicationport import CommunicationReadNoMatch
 from .lasersourcedevice import LaserSourceDevice
 from hardwarelibrary.capabilities import OnOffCapability
 
@@ -128,22 +129,45 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
         firmware's version string (e.g. "Issue 5.17 20th February 2012").
         Leaves firmwareVersion None on any other reply, which is how
         doInitializeDevice tells a real Fianium from a wrong port."""
-        reply = self.queryString("V?")
-        self.firmwareVersion = reply if re.match(r"Issue \d+\.\d+", reply) else None
+        try:
+            version, = self.queryMatchingGroups("V?", r"(Issue \d+\.\d+.*)")
+            self.firmwareVersion = version.strip()
+        except CommunicationReadNoMatch:
+            self.firmwareVersion = None
 
     def doShutdownDevice(self):
         if self.port is not None:
             self.port.close()
             self.port = None
 
-    def writeCommand(self, command):
-        self.port.writeString(command + self.commandTerminator)
-
     def queryString(self, query) -> str:
+        """Free-form status text (alarms, control mode, heater status, ...)
+        with no fixed reply format worth validating: we have, for instance,
+        never seen this unit raise an alarm, so there is nothing to match A?
+        against yet. Flushing before writing is required, not defensive:
+        every reply on this console leaves its trailing "Command>" prompt
+        unread (readString stops at the first '\\n', before the prompt), so
+        without a flush the next query would read the previous prompt
+        instead of its own reply."""
         with self.port.transactionLock:
             self.port.flush()
             self.port.writeString(query + self.commandTerminator)
             return self.port.readString().strip()
+
+    def queryMatchingGroups(self, query, replyPattern) -> tuple:
+        """Like queryString, but for a reply with a known structure.
+
+        Flushes for the same reason queryString does, then delegates the
+        write/read/match to CommunicationPort.writeStringReadMatchingGroups
+        instead of re-parsing a raw string by hand: a reply that does not
+        match replyPattern raises CommunicationReadNoMatch, rather than
+        returning None from an ad hoc re.search for the caller to crash on.
+        """
+        with self.port.transactionLock:
+            self.port.flush()
+            _, groups = self.port.writeStringReadMatchingGroups(
+                query + self.commandTerminator, replyPattern)
+            return groups
 
     # --- OnOffCapability hooks ---
 
@@ -176,8 +200,8 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
         return self.queryString("O?")
 
     def temperature(self) -> float:
-        match = re.search(r"(-?\d+\.?\d*)", self.queryString("T?"))
-        return float(match.group(1))
+        value, = self.queryMatchingGroups("T?", r"Temperature is (-?\d+\.?\d*) deg C")
+        return float(value)
 
     def alarms(self) -> str:
         return self.queryString("A?")
@@ -186,20 +210,21 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
         return self.queryString("W?")
 
     def backReflectionPhotodiode(self) -> int:
-        match = re.search(r"(\d+)", self.queryString("B?"))
-        return int(match.group(1))
+        value, = self.queryMatchingGroups("B?", r"Back reflection photodiode = (\d+)")
+        return int(value)
 
     def preampPhotodiode(self) -> int:
-        match = re.search(r"(\d+)", self.queryString("P?"))
-        return int(match.group(1))
+        value, = self.queryMatchingGroups("P?", r"Preamplifier photodiode = (\d+)")
+        return int(value)
 
     def amplifierDrive(self) -> tuple:
         """Raw amplifier driver reading from Q? ("Puma drive is X, DAC is Y"),
         as (pumaDrive, dac). Uncalibrated DAC/driver units (0-255 observed),
         not watts: there is no command on this console that reports absolute
         optical power, so PowerCapability is deliberately not implemented."""
-        match = re.search(r"Puma drive is (\d+), DAC is (\d+)", self.queryString("Q?"))
-        return int(match.group(1)), int(match.group(2))
+        pumaDrive, dac = self.queryMatchingGroups(
+            "Q?", r"Puma drive is (\d+), DAC is (\d+)")
+        return int(pumaDrive), int(dac)
 
     def pulsePickerFrequency(self) -> str:
         return self.queryString("R?")
@@ -238,10 +263,21 @@ class DebugFianiumLaserDevice(FianiumLaserDevice):
     def doShutdownDevice(self):
         pass
 
-    def writeCommand(self, command):
-        pass
-
     def queryString(self, query) -> str:
+        return self._simulatedReply(query)
+
+    def queryMatchingGroups(self, query, replyPattern) -> tuple:
+        # No real port to delegate to, so this simulates what
+        # writeStringReadMatchingGroups would do against the same reply
+        # queryString would return for query.
+        reply = self._simulatedReply(query)
+        match = re.search(replyPattern, reply)
+        if match is None:
+            raise CommunicationReadNoMatch(
+                "Unable to match pattern:'{0}' in reply:'{1}'".format(replyPattern, reply))
+        return match.groups()
+
+    def _simulatedReply(self, query) -> str:
         if query == "V?":
             return self.firmwareVersion
         elif query == "M?":

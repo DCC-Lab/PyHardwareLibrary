@@ -98,6 +98,18 @@ class CommunicationPort:
 
         return nBytes
 
+    # The next four methods are the write-then-read-then-match transaction a
+    # driver's own query method should delegate to, not reimplement. A driver
+    # that instead hand-rolls `writeString(...)` + `readString()` +
+    # `re.search(pattern, reply).group(...)` loses transactionLock-protected
+    # atomicity for free, and gets a bare AttributeError on a mismatched reply
+    # instead of the CommunicationReadNoMatch these raise. Write your own thin
+    # wrapper around one of these ONLY for an instrument-specific quirk this
+    # family does not itself cover -- e.g. a protocol that leaves unread bytes
+    # after every reply, which needs a flush() before each write (see
+    # MillenniaEv25Device.queryString, FianiumLaserDevice.queryMatchingGroups).
+    # Before adding a new one, check whether an existing driver already solved
+    # the same shape of transaction.
     def writeStringExpectMatchingString(self, string, replyPattern, errorPattern = None, endPoints=(None,None)):
         reply, _ = self.writeStringReadMatch(string, replyPattern, errorPattern, endPoints)
         return reply
