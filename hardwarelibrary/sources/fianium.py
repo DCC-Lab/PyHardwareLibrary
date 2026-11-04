@@ -144,30 +144,22 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
         """Free-form status text (alarms, control mode, heater status, ...)
         with no fixed reply format worth validating: we have, for instance,
         never seen this unit raise an alarm, so there is nothing to match A?
-        against yet. Flushing before writing is required, not defensive:
-        every reply on this console leaves its trailing "Command>" prompt
-        unread (readString stops at the first '\\n', before the prompt), so
-        without a flush the next query would read the previous prompt
-        instead of its own reply."""
-        with self.port.transactionLock:
-            self.port.flush()
-            self.port.writeString(query + self.commandTerminator)
-            return self.port.readString().strip()
+        against yet. flushFirst is required, not defensive: every reply on
+        this console leaves its trailing "Command>" prompt unread (readString
+        stops at the first '\\n', before the prompt), so without a flush the
+        next query would read the previous prompt instead of its own reply."""
+        return self.port.writeStringReadReply(
+            query + self.commandTerminator, flushFirst=True).strip()
 
     def queryMatchingGroups(self, query, replyPattern) -> tuple:
-        """Like queryString, but for a reply with a known structure.
-
-        Flushes for the same reason queryString does, then delegates the
-        write/read/match to CommunicationPort.writeStringReadMatchingGroups
-        instead of re-parsing a raw string by hand: a reply that does not
-        match replyPattern raises CommunicationReadNoMatch, rather than
-        returning None from an ad hoc re.search for the caller to crash on.
-        """
-        with self.port.transactionLock:
-            self.port.flush()
-            _, groups = self.port.writeStringReadMatchingGroups(
-                query + self.commandTerminator, replyPattern)
-            return groups
+        """Like queryString, but for a reply with a known structure: delegates
+        to CommunicationPort.writeStringReadMatchingGroups instead of
+        re-parsing a raw string by hand, so a reply that does not match
+        replyPattern raises CommunicationReadNoMatch rather than returning
+        None from an ad hoc re.search for the caller to crash on."""
+        _, groups = self.port.writeStringReadMatchingGroups(
+            query + self.commandTerminator, replyPattern, flushFirst=True)
+        return groups
 
     # --- OnOffCapability hooks ---
 
