@@ -133,10 +133,8 @@ class MillenniaEv25Device(LaserSourceDevice, OnOffCapability, ShutterCapability,
         self.port.writeString(command + self.commandTerminator)
 
     def queryString(self, query) -> str:
-        with self.port.transactionLock:
-            self.port.flush()
-            self.port.writeString(query + self.commandTerminator)
-            return self.port.readString().strip()
+        return self.port.writeStringReadReply(
+            query + self.commandTerminator, flushFirst=True).strip()
 
     def writeActionAndConfirm(self, command, query, expectedReply, description):
         # Like doSetPower, for an action command that has no ack: write, let the

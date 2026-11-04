@@ -391,6 +391,107 @@ class DispersionCapability(Capability):
         ...
 
 
+class TemperatureNotification(Enum):
+    didGetTemperature = "didGetTemperature"
+
+
+class TemperatureCapability(Capability):
+    # Read-only: an instrument's own chassis/head temperature sensor, not a
+    # setpoint. Generic across families (laser chassis, power meter head,
+    # DAQ board), not laser-specific; grouped here because the first driver
+    # to implement it is a laser source.
+    unit = "degC"
+    isReadable = True
+    isWritable = False
+    notification = TemperatureNotification
+
+    @notifies(did=TemperatureNotification.didGetTemperature)
+    def temperature(self) -> float:
+        return self.doGetTemperature()
+
+    @abstractmethod
+    def doGetTemperature(self) -> float:
+        ...
+
+
+class PulsePickerNotification(Enum):
+    didGetPulsePickerFrequency = "didGetPulsePickerFrequency"
+
+
+class PulsePickerCapability(Capability):
+    # Read-only for now: the repetition rate a pulse picker lets through
+    # after thinning a modelocked source's pulse train. A driver with a
+    # confirmed-safe way to change it can add setPulsePickerFrequency later;
+    # see FianiumLaserDevice, whose firmware exposes a set command (R=) this
+    # driver deliberately does not call yet, not having tested it on hardware.
+    unit = "Hz"
+    isReadable = True
+    isWritable = False
+    notification = PulsePickerNotification
+
+    @notifies(did=PulsePickerNotification.didGetPulsePickerFrequency)
+    def pulsePickerFrequency(self) -> float:
+        return self.doGetPulsePickerFrequency()
+
+    @abstractmethod
+    def doGetPulsePickerFrequency(self) -> float:
+        ...
+
+
+class RunningHoursNotification(Enum):
+    didGetRunningHours = "didGetRunningHours"
+
+
+class RunningHoursCapability(Capability):
+    # Read-only: cumulative operating time, for maintenance tracking on an
+    # instrument with a finite-life emitter (laser diode, lamp, ...). Generic,
+    # not laser-specific.
+    unit = "h"
+    isReadable = True
+    isWritable = False
+    notification = RunningHoursNotification
+
+    @notifies(did=RunningHoursNotification.didGetRunningHours)
+    def runningHours(self) -> float:
+        return self.doGetRunningHours()
+
+    @abstractmethod
+    def doGetRunningHours(self) -> float:
+        ...
+
+
+class ErrorNotification(Enum):
+    didGetError            = "didGetError"
+    didGetErrorDescription = "didGetErrorDescription"
+
+
+class ErrorCapability(Capability):
+    # Read-only: whether the instrument currently reports a fault condition,
+    # and a human-readable description of it. "Error" rather than "alarm" or
+    # "fault" because those are instrument-specific words for the same thing;
+    # a driver maps whatever its own vocabulary is onto this one pair. Generic
+    # across every family, not laser-specific.
+    isReadable = True
+    isWritable = False
+    notification = ErrorNotification
+
+    @notifies(did=ErrorNotification.didGetError)
+    def hasError(self) -> bool:
+        return self.doGetError()
+
+    @notifies(did=ErrorNotification.didGetErrorDescription)
+    def errorDescription(self) -> str:
+        return self.doGetErrorDescription()
+
+    @abstractmethod
+    def doGetError(self) -> bool:
+        ...
+
+    @abstractmethod
+    def doGetErrorDescription(self) -> str:
+        ...
+
+
 # ---------------------------------------------------------------------------
 # Power meter capabilities
 # ---------------------------------------------------------------------------

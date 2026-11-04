@@ -5,6 +5,9 @@ from hardwarelibrary.capabilities import (
 )
 from .lasersourcedevice import LaserSourceDevice
 from .cobolt import CoboltDevice, CoboltCantTurnOnWithAutostartOn
+from .fianium import (
+    FianiumLaserDevice, DebugFianiumLaserDevice, FianiumManualInterventionRequired,
+)
 from .matisse import MatisseDevice, DebugMatisseDevice, MatisseCommanderError
 from .millennia import (
     MillenniaEv25Device, DebugMillenniaEv25Device,
