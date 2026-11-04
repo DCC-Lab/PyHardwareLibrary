@@ -40,6 +40,36 @@ API changes can land even when the minor version is unchanged.
   which performs one command of that protocol under the port's `transactionLock`,
   reading by `readLength` for a binary reply and up to the terminator for a line.
   A driver that sets `protocol` needs no send-and-receive code of its own.
+- **`FianiumLaserDevice`** (`sources/fianium.py`), for a pre-NKT-acquisition
+  Fianium supercontinuum fiber laser: a plain ASCII console (19200 baud, `\r`
+  terminator, not the NKT Interbus protocol) behind a generic FTDI adaptor.
+  Implements `OnOffCapability` (read-only in practice: `turnOn()`/`turnOff()`
+  always raise `FianiumManualInterventionRequired`, because emission on this
+  unit is gated by a physical knob and key, and the console's USB open-loop
+  mode (`M=`, `Q=`) has no verified-safe ramp logic to drive it from software),
+  `TemperatureCapability`, `PulsePickerCapability`, `RunningHoursCapability`
+  and `ErrorCapability` (all read-only; the firmware's `R=` to set the pulse
+  picker frequency is not called yet, not having been tested on hardware).
+  `PowerCapability`, `ShutterCapability`, `InterlockCapability`,
+  `AutostartCapability`, `WavelengthCapability` and `DispersionCapability`
+  are deliberately not implemented: none of them has a real command backing
+  it on this console (`Q?`/`Q=` are uncalibrated DAC units, not watts; no
+  shutter, interlock-query, autostart, wavelength or dispersion command
+  exists in `help`). Diagnostics with no matching capability (`controlMode()`,
+  `heaterStatus()`, `amplifierDrive()`, `preampPhotodiode()`,
+  `backReflectionPhotodiode()`) are plain methods instead. `doInitializeDevice`
+  follows the `SR830Device` pattern: probe every FTDI adaptor matching the
+  generic 0x0403:0x6001 identity and keep the one that answers `V?` as a
+  Fianium, rather than pinning a serial number up front.
+- **`TemperatureCapability`**, **`PulsePickerCapability`**,
+  **`RunningHoursCapability`** and **`ErrorCapability`** (`capabilities.py`),
+  all read-only and generic, not laser-specific, even though
+  `FianiumLaserDevice` is the first driver to implement any of them: an
+  instrument's own temperature sensor; the repetition rate a pulse picker
+  lets through from a modelocked source; cumulative operating time, for
+  maintenance tracking on a finite-life emitter; and `hasError()` /
+  `errorDescription()` for whatever an instrument calls its fault condition
+  ("alarm", "fault", ...) under one vocabulary.
 
 ### Changed
 - **`EchoDevice`, `IntegraDevice` and `CoboltDevice` speak through a description**,
@@ -58,6 +88,15 @@ API changes can land even when the minor version is unchanged.
     `GET_REQUESTED_POWER` always answered 0. On a Cobolt, `p` sets the power asked
     for and `pa?` reads the power reached; the description now names those two
     apart, and both read correctly.
+- **`PhysicalDevice.usesGenericSerialConverter` and `doInitializeDevice` now
+  document the actual identity-confirmation contract.** The old comment implied
+  a serial number disambiguates a device behind a generic USB/RS-232 converter;
+  it does not by itself (an unrelated instrument can sit behind an identical
+  cable with its own serial number). The real contract, already stated in
+  `README.md` but missing from the code, is that `doInitializeDevice` must
+  confirm identity by sending a real command and checking a recognizable reply
+  -- see `SR830Device.doInitializeDevice` and the new
+  `FianiumLaserDevice.doInitializeDevice` for the pattern.
 - **`SutterDevice` speaks through a description.** Its protocol is data, it sends
   through `performTransaction`, and it no longer checks acknowledgements by hand:
   the description says `MOVE`, `HOME` and `WORK` answer `b"\r"`. Its nested
