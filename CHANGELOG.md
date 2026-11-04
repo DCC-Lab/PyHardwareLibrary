@@ -30,8 +30,12 @@ API changes can land even when the minor version is unchanged.
 - **`ProtocolDebugPort`** (`communication/debugport.py`), a debug port with no code
   of its own: hand it a `CommandDictionary` and it stands in for the instrument.
   Whatever a request carries is remembered by name and whatever a reply carries is
-  answered from that memory. A command may add a `"sets"` clause for a state change
-  its bytes cannot express -- `HOME` carries nothing and still moves a stage.
+  answered from that memory. Two things stay outside it, being facts about the
+  instrument rather than its protocol: what it reads as when switched on, and a
+  command that changes state it does not carry (`HOME` carries nothing and still
+  moves a stage). A device needing either subclasses the port, which is also where
+  anything a value store cannot model belongs -- a laser taking a second to reach
+  a new power. A device needing none of it uses the class as it stands.
 - **`PhysicalDevice.protocol`** (default `None`) and **`PhysicalDevice.performTransaction()`**,
   which performs one command of that protocol under the port's `transactionLock`,
   reading by `readLength` for a binary reply and up to the terminator for a line.
@@ -68,6 +72,22 @@ API changes can land even when the minor version is unchanged.
   ("alarm", "fault", ...) under one vocabulary.
 
 ### Changed
+- **`EchoDevice`, `IntegraDevice` and `CoboltDevice` speak through a description**,
+  as `SutterDevice` does. Each keeps its protocol as data and sends through
+  `performTransaction`; `communication/commands.py` now has one user left,
+  `IntellidriveDevice`.
+  - **`IntegraDevice` gains a debug path**: `IntegraDevice("debug")` builds a
+    `ProtocolDebugPort`. It had none, so every one of its tests skipped unless the
+    meter was plugged in; five now run without it.
+  - `EchoDevice`'s three commands were **timing out and saying nothing about it**.
+    Its replies carry no terminator, so reading a line ran to the end of the
+    buffer, and the exception was swallowed into an attribute -- which is why
+    `testEchoCommands` passed. Described as fixed-size frames whose every byte is
+    a constant, an echo that comes back wrong is now refused.
+  - `CoboltDevice`'s debug port never updated `requestedPower`, so
+    `GET_REQUESTED_POWER` always answered 0. On a Cobolt, `p` sets the power asked
+    for and `pa?` reads the power reached; the description now names those two
+    apart, and both read correctly.
 - **`PhysicalDevice.usesGenericSerialConverter` and `doInitializeDevice` now
   document the actual identity-confirmation contract.** The old comment implied
   a serial number disambiguates a device behind a generic USB/RS-232 converter;

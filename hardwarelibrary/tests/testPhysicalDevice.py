@@ -261,14 +261,12 @@ class TestEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
 
     def testEchoCommands(self):
         self.device.initializeDevice()
-        for name, command in self.device.commands.items():
-            try:
-                # PhysicalDevice.sendCommand used to wrap these two lines and
-                # nothing else. It is gone; a device that still carries a
-                # commands dict sends through the Command itself.
-                command.send(port=self.device.port)
-            except Exception as err:
-                self.fail("Unable to send command {0} to device {1}: {2}".format(name, self.device, err))
+        # No try/fail wrapper: performTransaction raises, so a failure arrives
+        # with its own traceback. The version this replaces called a send() that
+        # swallowed every exception into an attribute and returned, so the test
+        # passed even though all three commands were timing out.
+        for name in self.device.protocol:
+            self.device.performTransaction(name)
         self.device.shutdownDevice()
 
 class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
@@ -278,14 +276,12 @@ class TestDebugEchoPhysicalDevice(BaseTestCases.TestPhysicalDeviceBase):
 
     def testEchoCommands(self):
         self.device.initializeDevice()
-        for name, command in self.device.commands.items():
-            try:
-                # PhysicalDevice.sendCommand used to wrap these two lines and
-                # nothing else. It is gone; a device that still carries a
-                # commands dict sends through the Command itself.
-                command.send(port=self.device.port)
-            except Exception as err:
-                self.fail("Unable to send command {0} to device {1}: {2}".format(name, self.device, err))
+        # No try/fail wrapper: performTransaction raises, so a failure arrives
+        # with its own traceback. The version this replaces called a send() that
+        # swallowed every exception into an attribute and returned, so the test
+        # passed even though all three commands were timing out.
+        for name in self.device.protocol:
+            self.device.performTransaction(name)
         self.device.shutdownDevice()
 
 

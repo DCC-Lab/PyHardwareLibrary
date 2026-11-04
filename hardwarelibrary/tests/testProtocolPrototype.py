@@ -238,7 +238,7 @@ class TestCommand(unittest.TestCase):
         self.assertEqual(first, {"power": 0.1})
         self.assertEqual(second, {"power": 0.9})
         self.assertEqual(vars(command).keys(),
-                         {"name", "request", "reply", "sets", "specimen"})
+                         {"name", "request", "reply", "specimen"})
 
     def testAFrameSaysOnlyThatItDidNotMatchAndTheCommandSaysWhichHalf(self):
         # A frame has no idea which command it belongs to, or which end of it, so

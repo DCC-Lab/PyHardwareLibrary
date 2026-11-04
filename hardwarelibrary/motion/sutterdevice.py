@@ -34,9 +34,6 @@ sutterProtocol = {
                         "constants": {"header": "H", "terminator": "\r"}},
             "reply": {"struct": "<c", "fields": ["acknowledgement"],
                       "constants": {"acknowledgement": "\r"}},
-            # The one thing the bytes cannot say: HOME carries nothing and yet
-            # moves the stage to the origin. Only a debug port reads this.
-            "sets": {"x": 0, "y": 0, "z": 0},
         },
         "WORK": {
             "request": {"struct": "<cc", "fields": ["header", "terminator"],
@@ -102,7 +99,7 @@ class SutterDevice(LinearMotionDevice):
         """
         try:
             if self.serialNumber == "debug":
-                self.port = ProtocolDebugPort(self.protocol)
+                self.port = self.DebugSerialPort(self.protocol)
                 self.port.open()
             else:
                 portPath = SerialPort.matchAnyPort(idVendor=self.idVendor,
@@ -183,3 +180,24 @@ class SutterDevice(LinearMotionDevice):
         """Send the stage home, then to its work position."""
         self.home()
         self.performTransaction("WORK")
+
+    class DebugSerialPort(ProtocolDebugPort):
+        """An MP-285 without an MP-285, out of its own description.
+
+        The description carries the whole protocol, so the only thing left here is
+        the one fact its bytes cannot state: HOME carries no arguments and still
+        sends the stage to the origin.
+        """
+
+        def answerFor(self, command) -> dict:
+            """Move to the origin on HOME, then answer as the description says.
+
+            Args:
+                command: the command that was recognized
+
+            Returns:
+                The values its reply carries, taken from what is remembered.
+            """
+            if command.name == "HOME":
+                self.values.update(x=0, y=0, z=0)
+            return super().answerFor(command)
