@@ -391,6 +391,53 @@ class DispersionCapability(Capability):
         ...
 
 
+class TemperatureNotification(Enum):
+    didGetTemperature = "didGetTemperature"
+
+
+class TemperatureCapability(Capability):
+    # Read-only: an instrument's own chassis/head temperature sensor, not a
+    # setpoint. Generic across families (laser chassis, power meter head,
+    # DAQ board), not laser-specific; grouped here because the first driver
+    # to implement it is a laser source.
+    unit = "degC"
+    isReadable = True
+    isWritable = False
+    notification = TemperatureNotification
+
+    @notifies(did=TemperatureNotification.didGetTemperature)
+    def temperature(self) -> float:
+        return self.doGetTemperature()
+
+    @abstractmethod
+    def doGetTemperature(self) -> float:
+        ...
+
+
+class PulsePickerNotification(Enum):
+    didGetPulsePickerFrequency = "didGetPulsePickerFrequency"
+
+
+class PulsePickerCapability(Capability):
+    # Read-only for now: the repetition rate a pulse picker lets through
+    # after thinning a modelocked source's pulse train. A driver with a
+    # confirmed-safe way to change it can add setPulsePickerFrequency later;
+    # see FianiumLaserDevice, whose firmware exposes a set command (R=) this
+    # driver deliberately does not call yet, not having tested it on hardware.
+    unit = "Hz"
+    isReadable = True
+    isWritable = False
+    notification = PulsePickerNotification
+
+    @notifies(did=PulsePickerNotification.didGetPulsePickerFrequency)
+    def pulsePickerFrequency(self) -> float:
+        return self.doGetPulsePickerFrequency()
+
+    @abstractmethod
+    def doGetPulsePickerFrequency(self) -> float:
+        ...
+
+
 # ---------------------------------------------------------------------------
 # Power meter capabilities
 # ---------------------------------------------------------------------------

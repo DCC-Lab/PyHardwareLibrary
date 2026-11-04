@@ -39,21 +39,28 @@ API changes can land even when the minor version is unchanged.
 - **`FianiumLaserDevice`** (`sources/fianium.py`), for a pre-NKT-acquisition
   Fianium supercontinuum fiber laser: a plain ASCII console (19200 baud, `\r`
   terminator, not the NKT Interbus protocol) behind a generic FTDI adaptor.
-  Only `OnOffCapability` is implemented, and only `isLaserOn()` actually reads
-  hardware state: `turnOn()`/`turnOff()` always raise
-  `FianiumManualInterventionRequired`, because emission on this unit is gated by
-  a physical knob and key, and the console's USB open-loop mode (`M=`, `Q=`)
-  has no verified-safe ramp logic to drive it from software. `PowerCapability`,
-  `ShutterCapability`, `InterlockCapability`, `AutostartCapability`,
-  `WavelengthCapability` and `DispersionCapability` are deliberately not
-  implemented: none of them has a real command backing it on this console
-  (`Q?`/`Q=` are uncalibrated DAC units, not watts; no shutter, interlock-query,
-  autostart, wavelength or dispersion command exists in `help`). Diagnostics
-  with no matching capability (`temperature()`, `alarms()`, `controlMode()`,
-  `amplifierDrive()`, `preampPhotodiode()`, ...) are plain methods instead.
+  Implements `OnOffCapability` (read-only in practice: `turnOn()`/`turnOff()`
+  always raise `FianiumManualInterventionRequired`, because emission on this
+  unit is gated by a physical knob and key, and the console's USB open-loop
+  mode (`M=`, `Q=`) has no verified-safe ramp logic to drive it from software),
+  `TemperatureCapability` and `PulsePickerCapability` (both read-only for now;
+  the firmware's `R=` to set the pulse picker frequency is not called yet,
+  not having been tested on hardware). `PowerCapability`, `ShutterCapability`,
+  `InterlockCapability`, `AutostartCapability`, `WavelengthCapability` and
+  `DispersionCapability` are deliberately not implemented: none of them has a
+  real command backing it on this console (`Q?`/`Q=` are uncalibrated DAC
+  units, not watts; no shutter, interlock-query, autostart, wavelength or
+  dispersion command exists in `help`). Diagnostics with no matching
+  capability (`alarms()`, `controlMode()`, `amplifierDrive()`,
+  `preampPhotodiode()`, `runningHours()`, ...) are plain methods instead.
   `doInitializeDevice` follows the `SR830Device` pattern: probe every FTDI
   adaptor matching the generic 0x0403:0x6001 identity and keep the one that
   answers `V?` as a Fianium, rather than pinning a serial number up front.
+- **`TemperatureCapability`** and **`PulsePickerCapability`** (`capabilities.py`),
+  both read-only: an instrument's own temperature sensor, and the repetition
+  rate a pulse picker lets through from a modelocked source. Generic, not
+  laser-specific, even though `FianiumLaserDevice` is the first driver to
+  implement either.
 
 ### Changed
 - **`PhysicalDevice.usesGenericSerialConverter` and `doInitializeDevice` now

@@ -6,7 +6,7 @@ from ..physicaldevice import PhysicalDevice
 from ..communication.serialport import SerialPort
 from ..communication.communicationport import CommunicationReadNoMatch
 from .lasersourcedevice import LaserSourceDevice
-from hardwarelibrary.capabilities import OnOffCapability
+from hardwarelibrary.capabilities import OnOffCapability, TemperatureCapability, PulsePickerCapability
 
 
 class FianiumManualInterventionRequired(Exception):
@@ -23,7 +23,7 @@ class FianiumManualInterventionRequired(Exception):
     """
 
 
-class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
+class FianiumLaserDevice(LaserSourceDevice, OnOffCapability, TemperatureCapability, PulsePickerCapability):
     """Fianium supercontinuum fiber laser (pre-NKT-acquisition unit; firmware
     identifies itself as "Issue 5.17 20th February 2012").
 
@@ -191,10 +191,6 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
     def heaterStatus(self) -> str:
         return self.queryString("O?")
 
-    def temperature(self) -> float:
-        value, = self.queryMatchingGroups("T?", r"Temperature is (-?\d+\.?\d*) deg C")
-        return float(value)
-
     def alarms(self) -> str:
         return self.queryString("A?")
 
@@ -218,8 +214,15 @@ class FianiumLaserDevice(LaserSourceDevice, OnOffCapability):
             "Q?", r"Puma drive is (\d+), DAC is (\d+)")
         return int(pumaDrive), int(dac)
 
-    def pulsePickerFrequency(self) -> str:
-        return self.queryString("R?")
+    # --- TemperatureCapability / PulsePickerCapability hooks ---
+
+    def doGetTemperature(self) -> float:
+        value, = self.queryMatchingGroups("T?", r"Temperature is (-?\d+\.?\d*) deg C")
+        return float(value)
+
+    def doGetPulsePickerFrequency(self) -> float:
+        megahertz, = self.queryMatchingGroups("R?", r"Frequency = ([\d.]+) MHz")
+        return float(megahertz) * 1e6
 
     def doGetStatusUserInfo(self) -> dict:
         pumaDrive, dac = self.amplifierDrive()

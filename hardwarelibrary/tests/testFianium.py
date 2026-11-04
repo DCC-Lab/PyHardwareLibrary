@@ -6,7 +6,8 @@ from hardwarelibrary.sources.fianium import (
     FianiumLaserDevice, DebugFianiumLaserDevice, FianiumManualInterventionRequired,
 )
 from hardwarelibrary.capabilities import (
-    OnOffCapability, ShutterCapability, PowerCapability, InterlockCapability,
+    OnOffCapability, TemperatureCapability, PulsePickerCapability,
+    ShutterCapability, PowerCapability, InterlockCapability,
     AutostartCapability, WavelengthCapability, DispersionCapability,
 )
 from hardwarelibrary.sources.lasersourcedevice import LaserSourceDevice
@@ -21,12 +22,15 @@ class TestDebugFianiumLaserDevice(unittest.TestCase):
         if self.laser.state == DeviceState.Ready:
             self.laser.shutdownDevice()
 
-    def testIsLaserSourceWithOnOffCapability(self):
+    def testIsLaserSourceWithExpectedCapabilities(self):
         self.assertIsInstance(self.laser, LaserSourceDevice)
         self.assertIsInstance(self.laser, OnOffCapability)
+        self.assertIsInstance(self.laser, TemperatureCapability)
+        self.assertIsInstance(self.laser, PulsePickerCapability)
 
-    def testAdvertisesOnlyOnOff(self):
-        self.assertEqual(self.laser.capabilities(), [OnOffCapability])
+    def testAdvertisesOnOffTemperatureAndPulsePicker(self):
+        self.assertEqual(set(self.laser.capabilities()),
+                         {OnOffCapability, TemperatureCapability, PulsePickerCapability})
 
     def testDoesNotAdvertiseUnsupportedCapabilities(self):
         for unsupported in (ShutterCapability, PowerCapability, InterlockCapability,
@@ -69,7 +73,7 @@ class TestDebugFianiumLaserDevice(unittest.TestCase):
         self.assertEqual(self.laser.preampPhotodiode(), 10)
         self.assertEqual(self.laser.backReflectionPhotodiode(), 12)
         self.assertEqual(self.laser.runningHours(), "Time elapsed = 0 hours 0 minutes")
-        self.assertEqual(self.laser.pulsePickerFrequency(), "Frequency = 2.00 MHz")
+        self.assertAlmostEqual(self.laser.pulsePickerFrequency(), 2.0e6, places=0)
 
     def testStatusUserInfoSnapshot(self):
         info = self.laser.doGetStatusUserInfo()
@@ -105,7 +109,7 @@ class TestFianiumLaserDevice(unittest.TestCase):
         self.assertIsInstance(pumaDrive, int)
         self.assertIsInstance(dac, int)
         self.assertIsInstance(self.laser.runningHours(), str)
-        self.assertIsInstance(self.laser.pulsePickerFrequency(), str)
+        self.assertIsInstance(self.laser.pulsePickerFrequency(), float)
 
     def testTurnOnRaisesManualInterventionRequired(self):
         # Safe to call against real hardware: this only queries M? and raises,
